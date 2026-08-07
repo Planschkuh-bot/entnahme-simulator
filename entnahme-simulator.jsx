@@ -1,0 +1,1521 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+
+// ---------- Historical data: S&P 500 (incl. dividends), Gold, 3M T-Bill, US CPI ----------
+// Quelle: Damodaran (NYU Stern) Jahresrenditen 1928-2025; US BLS CPI (Jahresdurchschnitt) 1928-2025.
+// Werte in Prozent, nominal.
+const HIST = [
+// 1872-1927: S&P Composite (Cowles/Shiller-Daten via DQYDJ), CPI implizit aus nominaler und realer
+// Gesamtrendite berechnet. Gold vor 1934 nahe 0 angenommen (US-Goldstandard, Preis bei $20,67/oz fixiert,
+// keine frei gehandelte Anlageklasse). Cash/Liquidität: grobe Näherung mit konstant 4,0% p.a. (keine
+// verlässliche jahresgenaue Kurzfrist-Zinsreihe für diese Periode verfügbar).
+{y:1872,sp:13.11,tb:4.00,au:0.10,cpi:2.29},{y:1873,sp:-6.85,tb:4.00,au:0.10,cpi:-5.87},{y:1874,sp:10.39,tb:4.00,au:0.10,cpi:-5.50},
+{y:1875,sp:3.27,tb:4.00,au:0.10,cpi:-4.95},{y:1876,sp:-11.77,tb:4.00,au:0.10,cpi:-1.74},{y:1877,sp:-1.97,tb:4.00,au:0.10,cpi:-11.53},
+{y:1878,sp:12.10,tb:4.00,au:0.10,cpi:-13.99},{y:1879,sp:49.41,tb:4.00,au:0.10,cpi:18.58},{y:1880,sp:24.11,tb:4.00,au:0.10,cpi:-1.96},
+{y:1881,sp:7.83,tb:4.00,au:0.10,cpi:7.04},{y:1882,sp:2.58,tb:4.00,au:0.10,cpi:-1.87},{y:1883,sp:-3.13,tb:4.00,au:0.10,cpi:-7.60},
+{y:1884,sp:-13.06,tb:4.00,au:0.10,cpi:-10.30},{y:1885,sp:27.18,tb:4.00,au:0.10,cpi:-1.20},{y:1886,sp:13.20,tb:4.00,au:0.10,cpi:-4.64},
+{y:1887,sp:-2.48,tb:4.00,au:0.10,cpi:6.16},{y:1888,sp:2.11,tb:4.00,au:0.10,cpi:0.00},{y:1889,sp:7.96,tb:4.00,au:0.10,cpi:-5.79},
+{y:1890,sp:-9.84,tb:4.00,au:0.10,cpi:1.28},{y:1891,sp:22.87,tb:4.00,au:0.10,cpi:-4.81},{y:1892,sp:6.17,tb:4.00,au:0.10,cpi:1.20},
+{y:1893,sp:-15.70,tb:4.00,au:0.10,cpi:-7.49},{y:1894,sp:2.70,tb:4.00,au:0.10,cpi:-6.68},{y:1895,sp:4.99,tb:4.00,au:0.10,cpi:2.89},
+{y:1896,sp:2.04,tb:4.00,au:0.10,cpi:-1.48},{y:1897,sp:17.22,tb:4.00,au:0.10,cpi:0.00},{y:1898,sp:23.53,tb:4.00,au:0.10,cpi:1.50},
+{y:1899,sp:10.08,tb:4.00,au:0.10,cpi:16.86},{y:1900,sp:19.02,tb:4.00,au:0.10,cpi:-3.67},{y:1901,sp:20.40,tb:4.00,au:0.10,cpi:5.00},
+{y:1902,sp:5.25,tb:4.00,au:0.10,cpi:7.14},{y:1903,sp:-14.39,tb:4.00,au:0.10,cpi:-5.49},{y:1904,sp:31.61,tb:4.00,au:0.10,cpi:4.70},
+{y:1905,sp:19.84,tb:4.00,au:0.10,cpi:0.00},{y:1906,sp:7.16,tb:4.00,au:0.10,cpi:5.55},{y:1907,sp:-29.48,tb:4.00,au:0.10,cpi:-2.12},
+{y:1908,sp:45.12,tb:4.00,au:0.10,cpi:3.32},{y:1909,sp:19.12,tb:4.00,au:0.10,cpi:10.50},{y:1910,sp:-7.74,tb:4.00,au:0.10,cpi:-7.61},
+{y:1911,sp:5.91,tb:4.00,au:0.10,cpi:-2.06},{y:1912,sp:8.22,tb:4.00,au:0.10,cpi:7.30},{y:1913,sp:-9.31,tb:4.00,au:0.10,cpi:3.09},
+{y:1914,sp:-3.30,tb:4.00,au:0.10,cpi:0.99},{y:1915,sp:35.79,tb:4.00,au:0.10,cpi:1.98},{y:1916,sp:8.97,tb:4.00,au:0.10,cpi:12.62},
+{y:1917,sp:-25.19,tb:4.00,au:0.10,cpi:18.11},{y:1918,sp:26.21,tb:4.00,au:0.10,cpi:20.44},{y:1919,sp:20.21,tb:4.00,au:0.10,cpi:14.55},
+{y:1920,sp:-18.51,tb:4.00,au:0.10,cpi:2.65},{y:1921,sp:15.16,tb:4.00,au:0.10,cpi:-10.83},{y:1922,sp:27.28,tb:4.00,au:0.10,cpi:-2.31},
+{y:1923,sp:3.49,tb:4.00,au:0.10,cpi:2.37},{y:1924,sp:26.15,tb:4.00,au:0.10,cpi:0.00},{y:1925,sp:29.15,tb:4.00,au:0.10,cpi:3.47},
+{y:1926,sp:13.99,tb:4.00,au:0.10,cpi:-1.12},{y:1927,sp:35.79,tb:4.00,au:0.10,cpi:-2.26},
+{y:1928,sp:43.81,tb:3.08,au:0.10,cpi:-1.7},{y:1929,sp:-8.30,tb:3.16,au:-0.15,cpi:0.0},
+{y:1930,sp:-25.12,tb:4.55,au:0.10,cpi:-2.3},{y:1931,sp:-43.84,tb:2.31,au:-17.38,cpi:-9.0},
+{y:1932,sp:-8.64,tb:1.07,au:21.28,cpi:-9.9},{y:1933,sp:49.98,tb:0.96,au:27.26,cpi:-5.1},
+{y:1934,sp:-1.19,tb:0.28,au:31.75,cpi:3.1},{y:1935,sp:46.74,tb:0.17,au:0.43,cpi:2.2},
+{y:1936,sp:31.94,tb:0.17,au:0.09,cpi:1.5},{y:1937,sp:-35.34,tb:0.28,au:-0.23,cpi:3.6},
+{y:1938,sp:29.28,tb:0.07,au:0.17,cpi:-2.1},{y:1939,sp:-1.10,tb:0.05,au:-1.23,cpi:-1.4},
+{y:1940,sp:-10.67,tb:0.04,au:-1.66,cpi:0.7},{y:1941,sp:-12.77,tb:0.13,au:0.00,cpi:5.0},
+{y:1942,sp:19.17,tb:0.34,au:0.00,cpi:10.9},{y:1943,sp:25.06,tb:0.38,au:0.00,cpi:6.1},
+{y:1944,sp:19.03,tb:0.38,au:0.00,cpi:1.7},{y:1945,sp:35.82,tb:0.38,au:2.54,cpi:2.3},
+{y:1946,sp:-8.43,tb:0.38,au:0.00,cpi:8.3},{y:1947,sp:5.20,tb:0.60,au:0.00,cpi:14.4},
+{y:1948,sp:5.70,tb:1.05,au:0.00,cpi:8.1},{y:1949,sp:18.30,tb:1.12,au:-8.70,cpi:-1.2},
+{y:1950,sp:30.81,tb:1.20,au:9.56,cpi:1.3},{y:1951,sp:23.68,tb:1.52,au:0.00,cpi:7.9},
+{y:1952,sp:18.15,tb:1.72,au:-0.35,cpi:1.9},{y:1953,sp:-1.21,tb:1.89,au:0.69,cpi:0.8},
+{y:1954,sp:52.56,tb:0.94,au:0.57,cpi:0.7},{y:1955,sp:32.60,tb:1.72,au:-0.03,cpi:-0.4},
+{y:1956,sp:7.44,tb:2.62,au:-0.11,cpi:1.5},{y:1957,sp:-10.46,tb:3.22,au:-0.11,cpi:3.3},
+{y:1958,sp:43.72,tb:1.77,au:0.43,cpi:2.8},{y:1959,sp:12.06,tb:3.39,au:0.00,cpi:0.7},
+{y:1960,sp:0.34,tb:2.87,au:0.48,cpi:1.7},{y:1961,sp:26.64,tb:2.35,au:-0.06,cpi:1.0},
+{y:1962,sp:-8.81,tb:2.77,au:-0.06,cpi:1.0},{y:1963,sp:22.61,tb:3.16,au:-0.40,cpi:1.3},
+{y:1964,sp:16.42,tb:3.55,au:0.03,cpi:1.3},{y:1965,sp:12.40,tb:3.95,au:0.06,cpi:1.6},
+{y:1966,sp:-9.97,tb:4.86,au:0.03,cpi:2.9},{y:1967,sp:23.80,tb:4.29,au:-0.51,cpi:3.1},
+{y:1968,sp:10.81,tb:5.34,au:12.47,cpi:4.2},{y:1969,sp:-8.24,tb:6.67,au:5.01,cpi:5.5},
+{y:1970,sp:3.56,tb:6.39,au:-9.45,cpi:5.7},{y:1971,sp:14.22,tb:4.33,au:16.69,cpi:4.4},
+{y:1972,sp:18.76,tb:4.06,au:48.78,cpi:3.2},{y:1973,sp:-14.31,tb:7.04,au:72.96,cpi:6.2},
+{y:1974,sp:-25.90,tb:7.85,au:66.15,cpi:11.0},{y:1975,sp:37.00,tb:5.79,au:-24.80,cpi:9.1},
+{y:1976,sp:23.83,tb:4.98,au:-4.10,cpi:5.8},{y:1977,sp:-6.98,tb:5.26,au:22.64,cpi:6.5},
+{y:1978,sp:6.51,tb:7.18,au:37.01,cpi:7.6},{y:1979,sp:18.52,tb:10.05,au:126.55,cpi:11.3},
+{y:1980,sp:31.74,tb:11.39,au:15.19,cpi:13.5},{y:1981,sp:-4.70,tb:14.04,au:-32.60,cpi:10.3},
+{y:1982,sp:20.42,tb:11.09,au:15.62,cpi:6.2},{y:1983,sp:22.34,tb:8.95,au:-16.80,cpi:3.2},
+{y:1984,sp:6.15,tb:9.92,au:-19.38,cpi:4.3},{y:1985,sp:31.24,tb:7.72,au:6.00,cpi:3.6},
+{y:1986,sp:18.49,tb:6.15,au:18.96,cpi:1.9},{y:1987,sp:5.81,tb:5.96,au:24.53,cpi:3.6},
+{y:1988,sp:16.54,tb:6.89,au:-15.26,cpi:4.1},{y:1989,sp:31.48,tb:8.39,au:-2.84,cpi:4.8},
+{y:1990,sp:-3.06,tb:7.75,au:-3.11,cpi:5.4},{y:1991,sp:30.23,tb:5.54,au:-8.56,cpi:4.2},
+{y:1992,sp:7.49,tb:3.51,au:-5.73,cpi:3.0},{y:1993,sp:9.97,tb:3.07,au:17.68,cpi:3.0},
+{y:1994,sp:1.33,tb:4.37,au:-2.17,cpi:2.6},{y:1995,sp:37.20,tb:5.66,au:0.98,cpi:2.8},
+{y:1996,sp:22.68,tb:5.15,au:-4.59,cpi:3.0},{y:1997,sp:33.10,tb:5.20,au:-21.41,cpi:2.3},
+{y:1998,sp:28.34,tb:4.91,au:-0.83,cpi:1.6},{y:1999,sp:20.89,tb:4.78,au:0.85,cpi:2.2},
+{y:2000,sp:-9.03,tb:6.00,au:-5.44,cpi:3.4},{y:2001,sp:-11.85,tb:3.48,au:0.75,cpi:2.8},
+{y:2002,sp:-21.97,tb:1.64,au:25.57,cpi:1.6},{y:2003,sp:28.36,tb:1.03,au:19.89,cpi:2.3},
+{y:2004,sp:10.74,tb:1.40,au:4.65,cpi:2.7},{y:2005,sp:4.83,tb:3.22,au:17.77,cpi:3.4},
+{y:2006,sp:15.61,tb:4.85,au:23.20,cpi:3.2},{y:2007,sp:5.48,tb:4.48,au:31.92,cpi:2.8},
+{y:2008,sp:-36.55,tb:1.40,au:4.32,cpi:3.8},{y:2009,sp:25.94,tb:0.15,au:25.04,cpi:-0.4},
+{y:2010,sp:14.82,tb:0.14,au:29.24,cpi:1.6},{y:2011,sp:2.10,tb:0.05,au:12.02,cpi:3.2},
+{y:2012,sp:15.89,tb:0.09,au:5.68,cpi:2.1},{y:2013,sp:32.15,tb:0.06,au:-27.61,cpi:1.5},
+{y:2014,sp:13.52,tb:0.03,au:0.12,cpi:1.6},{y:2015,sp:1.38,tb:0.05,au:-12.11,cpi:0.1},
+{y:2016,sp:11.77,tb:0.32,au:8.10,cpi:1.3},{y:2017,sp:21.61,tb:0.95,au:12.66,cpi:2.1},
+{y:2018,sp:-4.23,tb:1.97,au:-0.93,cpi:2.4},{y:2019,sp:31.21,tb:2.11,au:19.08,cpi:1.8},
+{y:2020,sp:18.02,tb:0.36,au:24.17,cpi:1.2},{y:2021,sp:28.47,tb:0.04,au:-3.75,cpi:4.7},
+{y:2022,sp:-18.04,tb:2.09,au:0.55,cpi:8.0},{y:2023,sp:26.06,tb:5.28,au:13.26,cpi:4.1},
+{y:2024,sp:24.88,tb:5.18,au:25.96,cpi:2.9},{y:2025,sp:17.78,tb:4.21,au:66.22,cpi:2.6},
+];
+
+// ---------- Echte monatliche Daten (Robert Shiller / "ie_data", Cowles-Kommission-Basis) ----------
+// Reale (bereits inflationsbereinigte), monatliche Gesamtrendite (Dividenden reinvestiert) des
+// S&P 500 bzw. seines Vorläuferindex, Januar 1872 bis Dezember 2025 (1.848 Monate). Direkt aus der
+// "Real Total Return Price"-Spalte von Shillers Datensatz abgeleitet (prozentuale Veränderung
+// Monat-zu-Monat) — daher keine zusätzliche CPI-Deflation nötig, diese Werte sind bereits real.
+const MONTHLY_EQ_SP_START = { y: 1872, m: 1 };
+const MONTHLY_EQ_SP = [
+0.029945,0.008688,0.022032,0.009851,0.004451,0.002115,0.013553,-0.014382,-0.020268,0.031572,-0.028068,0.044433,
+0.012862,-0.009056,-0.002791,-0.008643,0.029366,0.021377,0.003305,0.005366,-0.071051,-0.059881,0.001777,0.075067,
+0.044208,0.035944,-0.008854,-0.006387,-0.012391,0.025906,-0.001885,0.016542,0.021812,0.020315,0.023283,-0.000547,
+0.006011,0.003763,0.019178,0.010535,-0.008644,0.002585,0.008229,0.001883,0.005254,-0.010202,0.030955,0.014468,
+0.035320,0.019058,0.003319,-0.023591,0.004449,0.027078,-0.006024,-0.044383,-0.063462,-0.016847,-0.021162,-0.016338,
+-0.018970,-0.027166,0.000571,-0.091114,-0.010784,-0.011527,0.041328,0.118621,0.078713,0.026962,0.009703,0.001789,
+0.035936,-0.006474,0.045569,0.043685,0.041239,0.048877,0.013520,-0.015298,0.024698,0.004097,0.012829,0.021786,
+0.030090,0.028752,-0.000659,0.049202,0.049255,0.020965,0.012328,0.011413,0.005765,0.053691,0.003567,-0.028097,
+0.012310,0.021037,0.013035,0.019281,-0.047519,0.029003,0.050017,0.039920,-0.008220,0.032979,0.045846,0.034410,
+0.074460,-0.009602,0.015059,-0.009366,0.059316,0.016026,-0.040804,-0.038724,-0.025674,-0.021018,0.020221,-0.024771,
+-0.010538,-0.026554,0.002879,-0.004605,-0.016514,-0.009589,0.070681,0.025123,0.042189,-0.013837,-0.029367,0.019364,
+-0.000559,-0.027021,0.026735,0.035418,-0.002843,0.043758,0.009393,-0.040624,0.026434,-0.022178,0.030587,-0.027070,
+-0.024839,0.032283,0.001331,-0.019998,-0.055849,-0.035125,0.016874,0.068698,-0.015403,-0.016178,0.007975,0.015178,
+-0.017200,0.024742,0.031310,-0.008361,0.017300,0.024788,0.030017,0.060973,0.003766,0.062575,0.056476,-0.026983,
+0.027718,0.023024,-0.005218,0.002335,0.008846,0.062922,0.006126,-0.001432,0.029562,0.028786,0.028049,-0.034659,
+-0.030985,-0.015529,0.026888,0.026308,0.020582,-0.013893,-0.009184,-0.033116,0.002801,-0.041213,0.011159,-0.024679,
+0.000020,0.009698,-0.034012,0.019651,0.029646,-0.015496,0.017795,0.025238,0.028492,-0.013566,-0.028253,-0.015426,
+0.059714,0.027310,-0.005192,0.001713,0.056426,0.020442,-0.016879,0.016719,0.014975,-0.014823,-0.005852,-0.014350,
+0.040092,-0.007745,-0.004073,0.024306,0.033159,-0.003855,-0.003883,-0.055151,-0.024856,-0.041667,-0.046798,-0.019462,
+0.069040,0.003941,-0.026356,0.024874,0.011566,0.007489,-0.000526,0.037386,0.098415,0.003440,0.000943,0.033968,
+0.048442,0.005192,0.041313,0.015129,0.003416,-0.001945,-0.022923,0.004730,-0.021426,0.023672,-0.025341,-0.019592,
+-0.015142,-0.025970,-0.009036,0.016212,-0.073239,-0.018772,-0.064854,0.021310,0.033654,0.021049,0.047375,-0.017350,
+0.011594,0.032928,0.064225,0.017677,-0.032945,-0.009280,-0.016384,0.012673,0.005864,0.000574,0.004096,0.009233,
+-0.007591,-0.010065,0.004077,0.003379,0.044262,0.009313,0.021576,0.032447,0.009656,-0.011181,-0.030321,-0.042070,
+0.006249,0.060986,-0.012219,0.027578,0.013889,0.000250,-0.061262,-0.053150,0.056485,-0.003963,0.041340,-0.033105,
+0.033071,-0.005924,0.005981,-0.012930,0.023902,0.050245,0.048009,0.021934,0.021957,-0.015246,-0.032158,0.024731,
+0.030556,-0.013019,-0.042009,-0.013858,-0.001255,0.115665,0.021497,0.040573,0.001186,-0.017796,0.036218,0.050160,
+0.079068,0.012084,0.016937,0.001430,-0.039041,-0.032863,0.023771,0.014868,-0.045378,-0.014305,0.009217,-0.076663,
+0.016300,0.008951,0.011171,0.015974,-0.020750,-0.014261,-0.008508,0.030054,-0.031632,0.053145,0.082259,0.077343,
+0.020022,0.041897,0.039368,0.101055,-0.047212,0.102954,-0.075703,0.004607,-0.013885,-0.007951,0.012497,-0.024541,
+0.037092,0.011922,0.004502,0.025082,-0.010947,-0.014304,0.025820,0.042025,-0.006333,-0.091907,-0.002781,-0.030615,
+0.042777,-0.002627,-0.003056,-0.037369,0.007178,-0.051535,-0.041995,-0.027940,-0.031065,-0.016687,0.019687,0.050823,
+-0.002335,-0.044621,0.012653,0.040852,0.006231,0.005769,0.045657,0.025830,0.035978,0.062349,0.033802,0.012954,
+0.024967,0.046988,0.043105,-0.009238,-0.035285,0.014902,0.034513,0.028418,0.017773,0.017034,-0.013757,0.016119,
+0.037524,-0.004207,-0.021535,-0.010519,-0.034191,0.016385,0.011221,0.053210,0.022616,-0.047847,0.012928,-0.016286,
+-0.014554,-0.048306,-0.084948,0.008915,-0.050630,-0.037794,0.042765,-0.070570,-0.005865,-0.113024,-0.012967,0.080041,
+0.059678,-0.020459,0.046338,0.047393,0.058740,0.005898,0.029875,0.047278,-0.006759,0.005466,0.060374,0.015618,
+0.017760,-0.035222,0.017519,0.027086,0.026404,0.010969,0.017885,0.017443,-0.005437,-0.012098,-0.010935,0.005717,
+-0.008333,-0.032035,0.009126,-0.029489,0.006222,-0.034958,-0.046360,0.038732,0.021050,0.082192,0.023794,-0.023720,
+0.028637,0.054083,-0.017961,0.032514,0.025772,0.024174,-0.010831,-0.073591,-0.060039,0.010285,0.055504,0.019349,
+-0.005071,-0.014719,0.012241,0.004972,0.003078,0.014076,0.005183,0.017011,-0.000647,0.002014,-0.007121,-0.022367,
+-0.013934,-0.031183,-0.014493,0.003409,-0.012678,-0.055353,0.008185,0.031592,0.004059,-0.026964,-0.030278,0.013764,
+0.045968,0.028103,-0.014298,-0.009425,0.000617,-0.000306,-0.060281,-0.014927,0.004720,0.014613,-0.005238,-0.028891,
+0.022458,0.001242,0.040925,0.069157,-0.028712,0.015776,0.000682,0.046886,0.041392,0.049161,0.028838,0.005902,
+-0.021448,-0.009899,-0.008604,-0.015976,0.016906,0.004768,-0.009386,0.002962,0.026748,0.017296,0.009760,-0.043900,
+-0.027004,-0.075077,0.036476,-0.056798,-0.043408,0.010407,-0.006509,-0.038472,-0.063259,-0.061442,-0.075964,-0.040143,
+0.045728,0.030894,-0.005734,-0.016229,0.017795,-0.005319,-0.011898,-0.003704,-0.017814,0.029293,0.012608,-0.025910,
+-0.000351,0.028502,0.023740,0.020300,0.061908,0.031865,0.007706,-0.078426,0.015122,0.038515,-0.045958,-0.045218,
+-0.025773,-0.087161,0.064850,-0.032511,-0.071458,-0.026175,0.009019,-0.009948,0.056791,0.011765,-0.040529,-0.065002,
+0.072353,0.031419,-0.014266,0.021499,0.059709,-0.069120,-0.002603,-0.006168,0.042693,0.019520,0.065594,0.046857,
+0.027685,0.027264,0.055300,0.065856,0.043857,-0.004640,0.005902,0.054993,0.030743,0.020542,-0.050808,-0.003375,
+0.024587,0.047503,0.020788,-0.036166,-0.042506,-0.038752,-0.039658,0.016282,0.005693,-0.015065,0.035370,0.039198,
+0.037931,0.015433,-0.008374,-0.012070,0.001748,0.024203,0.045431,0.045458,-0.010593,-0.013815,0.060864,0.052577,
+0.045884,0.018793,-0.027503,-0.000263,0.030736,0.010739,0.020583,0.017893,0.027463,0.037299,0.018039,0.026092,
+0.019312,0.005632,-0.058523,-0.028952,0.017279,0.058172,0.058565,0.049978,0.013658,-0.023877,0.011677,0.027104,
+0.009034,0.029661,0.025599,0.028819,0.032755,0.005506,0.044082,0.063436,0.054536,-0.017306,0.032529,0.027208,
+0.007716,0.003343,0.057496,0.066652,0.028365,-0.040044,0.010939,0.035940,0.061356,0.029557,0.070846,0.012863,
+0.076962,0.008146,0.026545,0.002917,0.012010,0.016074,0.079408,0.059603,0.042470,-0.103222,-0.261879,0.049841,
+0.024221,0.072647,0.047385,0.060604,-0.050930,-0.092321,-0.005761,-0.002949,-0.002608,-0.128459,-0.062308,-0.044393,
+0.048522,0.095091,0.030303,-0.084995,-0.079797,-0.013978,0.038493,-0.024928,-0.138057,-0.121739,0.034317,-0.175495,
+0.012040,0.013438,0.018361,-0.226992,-0.100558,-0.117881,0.061378,0.524294,0.111598,-0.125909,0.003881,-0.019284,
+0.061849,-0.098744,0.011229,0.112360,0.293118,0.166522,0.051460,-0.053677,-0.004881,-0.093809,0.027967,0.023177,
+0.060856,0.069395,-0.047979,0.020199,-0.098259,0.009442,-0.043546,-0.035140,-0.034488,0.019587,0.032115,0.018140,
+-0.010716,-0.033296,-0.059298,0.071515,0.082627,0.049313,0.055995,0.071049,0.024333,0.029931,0.089225,0.003004,
+0.058282,0.060380,0.031645,0.004243,-0.050105,0.038258,0.054814,0.015775,0.014545,0.055694,0.031199,-0.013825,
+0.027295,0.033068,-0.004712,-0.062709,-0.047373,-0.033231,0.056478,0.014249,-0.143650,-0.140919,-0.076260,-0.003245,
+0.046855,-0.011112,-0.060236,-0.041339,0.022649,0.029225,0.204647,0.010394,-0.041024,0.123786,0.004339,-0.025822,
+-0.011601,0.002606,0.002688,-0.116029,0.040987,0.021742,0.028434,-0.010603,0.086999,0.021208,-0.013953,-0.019600,
+0.005724,-0.009385,-0.001432,0.014243,-0.133365,-0.087410,0.046171,0.026554,0.047631,0.014660,0.028503,-0.042736,
+0.007228,-0.057214,0.004671,-0.032248,-0.022683,0.019845,0.057149,-0.012648,-0.004708,-0.046939,-0.047033,-0.064859,
+0.013026,-0.031026,-0.059592,-0.040633,0.006103,0.057377,0.037320,-0.005741,0.016492,0.066660,0.015379,0.004493,
+0.065039,0.064338,0.022004,0.025936,0.037670,0.021797,0.030637,-0.039849,0.019660,-0.004981,-0.042041,0.017726,
+0.036682,-0.002414,0.032427,-0.018702,0.022054,0.045472,0.024391,-0.010534,-0.012230,0.028836,-0.002840,0.020237,
+0.033863,0.037353,0.003168,0.029014,0.035789,0.010582,-0.016935,0.007085,0.071814,0.045139,0.036061,0.014641,
+0.043021,0.011446,-0.037384,0.061891,-0.000253,-0.014046,-0.079602,-0.035701,-0.152599,-0.037556,-0.023566,0.024362,
+0.009216,0.042717,-0.054303,-0.032908,-0.013546,0.034560,0.057380,-0.028662,-0.042884,0.030360,-0.011507,-0.023811,
+-0.021180,-0.036335,0.023564,0.063694,0.048894,0.037193,-0.031592,-0.028831,-0.006744,0.036220,-0.043062,0.002672,
+0.020620,-0.025061,0.015008,0.000009,0.002441,-0.053032,0.071642,0.037365,0.014486,0.040303,0.015365,0.041339,
+0.030718,0.025276,0.009504,0.033910,0.034806,0.017399,-0.078657,0.057805,0.037015,0.038902,-0.000108,-0.009883,
+0.063186,0.030976,-0.014894,0.019315,0.002451,-0.011400,0.023614,0.049602,0.023406,-0.003664,-0.030069,0.032088,
+0.038350,-0.005806,0.007509,-0.001731,0.004634,0.028587,0.025925,0.008805,-0.011087,-0.016153,0.036629,0.045046,
+0.013685,-0.003991,0.005775,-0.044718,0.006256,-0.034681,0.019137,0.005238,-0.041069,0.031369,0.030936,0.018401,
+0.030261,0.026785,0.025846,0.048381,0.040323,0.012211,0.044592,0.023961,0.031250,0.027168,0.043082,0.053522,
+0.021701,0.037063,-0.004349,0.038090,-0.000780,0.061458,0.072459,-0.002961,0.044300,-0.047236,0.070675,0.016162,
+-0.023823,0.009551,0.072117,0.011096,-0.031943,-0.009912,0.049794,0.000828,-0.034402,-0.013197,-0.007185,0.014340,
+-0.018632,-0.043430,0.012544,0.022761,0.037882,0.015914,0.016007,-0.052034,-0.037376,-0.058947,-0.021442,0.003201,
+0.016118,0.007005,0.017064,0.005447,0.035552,0.027326,0.027153,0.044143,0.029437,0.043601,0.029710,0.025170,
+0.038962,-0.009224,0.028072,0.015859,0.017664,-0.009469,0.038716,-0.003176,-0.040310,-0.001630,0.006701,0.034641,
+-0.011444,-0.039319,-0.010727,0.012404,-0.006240,0.036373,-0.021961,0.014909,-0.027208,-0.023339,0.035409,0.026906,
+0.054264,0.043737,0.033966,0.029190,0.012634,-0.010802,-0.006936,0.041871,-0.008724,0.013455,0.047745,0.011654,
+-0.034864,0.015717,0.003418,-0.032655,-0.071843,-0.114119,0.023794,0.030240,-0.009194,-0.028539,0.072033,0.046261,
+0.041476,0.015964,-0.004350,0.049803,0.022716,-0.001089,-0.015432,0.030315,0.028940,0.001762,-0.003039,0.020647,
+0.033321,0.014817,0.020728,0.016949,0.012221,-0.006704,0.036288,-0.009050,0.016396,0.019722,0.006154,-0.014884,
+0.028224,0.009767,0.000166,0.012361,0.017345,-0.051099,0.001045,0.021202,0.035977,0.021754,0.010778,-0.005236,
+0.019823,-0.010510,-0.041600,0.026828,-0.050061,-0.008648,-0.002874,-0.063439,-0.032228,-0.011696,0.053153,0.007151,
+0.041313,0.037310,0.023237,0.016843,0.017503,-0.012891,0.016877,0.015482,0.013520,-0.001996,-0.031691,0.028076,
+-0.006030,-0.045361,-0.018453,0.073500,0.022616,0.023485,-0.005233,-0.022130,0.032139,0.021363,0.014993,0.010011,
+-0.042541,-0.007951,-0.027281,0.017116,0.032299,-0.054898,-0.047254,-0.008220,0.003579,0.008033,0.004591,-0.055310,
+-0.008517,-0.037053,0.014785,-0.035052,-0.114287,-0.007836,0.000074,0.032561,0.057792,0.019676,-0.003010,0.066182,
+0.041098,0.038891,0.025739,0.034150,-0.015989,-0.023233,-0.007078,-0.017588,0.024861,-0.021042,-0.043721,0.066415,
+0.044225,0.015926,0.023717,0.010149,-0.010144,0.002750,-0.009785,0.035368,-0.014449,-0.000556,0.050077,0.020725,
+0.007528,-0.040007,-0.022562,-0.023089,-0.032343,-0.026537,0.009831,-0.033790,0.017710,0.033238,-0.074589,-0.074075,
+0.008292,-0.037109,0.032637,-0.052115,-0.039051,-0.003610,-0.120619,-0.049165,-0.110774,0.013756,0.029381,-0.068152,
+0.082186,0.099659,0.045777,0.011047,0.061122,0.021280,-0.006798,-0.071675,-0.013974,0.043967,0.013027,-0.015367,
+0.093486,0.038050,0.006224,0.007370,-0.010866,0.003696,0.021284,-0.010780,0.020846,-0.036050,-0.005330,0.034353,
+-0.010436,-0.033561,-0.007223,-0.020124,-0.004286,0.002396,0.007882,-0.023948,-0.014933,-0.025105,0.004967,-0.003970,
+-0.040048,-0.015978,-0.005210,0.040131,0.045261,-0.004042,-0.008197,0.068434,-0.003523,-0.036416,-0.058572,0.014726,
+0.032738,-0.021989,0.013185,0.012741,-0.031242,0.012882,0.003155,0.040228,0.004559,-0.041201,-0.012380,0.033187,
+0.018556,0.029441,-0.101409,-0.022566,0.040126,0.057033,0.049726,0.027621,0.019817,0.023520,0.037601,-0.021584,
+-0.007922,-0.040602,0.034398,0.006140,-0.023819,-0.000307,-0.030832,0.000409,-0.091854,0.015120,0.027164,0.008589,
+-0.051050,-0.022228,-0.026394,0.050270,-0.003730,-0.064404,-0.002692,0.005887,0.118684,0.085492,0.047136,0.017713,
+0.037140,0.020265,0.038664,0.034582,0.037929,0.014472,0.003059,-0.026984,0.028019,0.003505,-0.013353,-0.002252,
+0.009794,-0.055740,0.002482,0.000221,-0.005397,-0.021300,-0.012879,0.087898,0.009253,-0.006936,0.012884,-0.007051,
+0.045013,0.052905,-0.008505,0.005534,0.023539,0.022264,0.020590,-0.020256,-0.021553,0.011230,0.061285,0.050064,
+0.004776,0.059890,0.066723,0.029316,0.002159,0.025691,-0.018024,0.020959,-0.028973,-0.001799,0.034398,0.016175,
+0.060025,0.060809,0.039114,-0.013825,-0.001797,0.041319,0.028515,0.058969,-0.035352,-0.120819,-0.123779,-0.013330,
+0.039778,0.030629,0.027905,-0.013910,-0.025183,0.055521,-0.007252,-0.021291,0.012489,0.034590,-0.020990,0.021595,
+0.030017,0.028775,-0.007299,0.028939,0.035295,0.031474,0.025536,0.045258,0.001385,-0.001912,-0.020445,0.025771,
+-0.032072,-0.029819,0.021508,0.000434,0.036127,0.026165,-0.002128,-0.087001,-0.051328,-0.028986,0.027553,0.045886,
+-0.012750,0.114414,0.028919,0.021080,-0.004731,0.000521,0.006334,0.023792,-0.007382,0.000352,-0.002751,0.008614,
+0.072034,-0.009586,-0.015090,0.001206,0.019222,-0.016810,0.016950,0.006556,0.000947,-0.015308,0.026121,0.033441,
+-0.003482,0.013695,0.017951,-0.016156,0.005853,0.007257,0.000610,0.014814,0.011454,0.008253,-0.000607,0.008875,
+0.014583,-0.004155,-0.017579,-0.034767,0.009905,0.007673,-0.007865,0.026675,0.005479,-0.005089,-0.005015,-0.010244,
+0.020424,0.034063,0.022193,0.028770,0.031451,0.029763,0.035487,0.002512,0.035156,0.005853,0.024260,0.034575,
+-0.004199,0.055639,-0.007122,-0.001869,0.021595,0.012147,-0.036594,0.028808,0.017021,0.037916,0.048543,0.011991,
+0.029336,0.040348,-0.008716,-0.035255,0.092864,0.052057,0.056047,0.001611,0.009414,0.013943,-0.010903,0.027624,
+0.000514,0.062054,0.051184,0.032156,-0.004050,-0.000056,0.043401,-0.070844,-0.050143,0.010440,0.109745,0.041677,
+0.047925,-0.001877,0.026122,0.034973,-0.000988,-0.006118,0.042093,-0.040043,-0.010712,-0.014485,0.070424,0.028088,
+-0.004147,-0.030523,0.030911,0.013653,-0.029522,0.026248,0.006162,0.009391,-0.015928,-0.053778,-0.008297,-0.032647,
+-0.001767,-0.025266,-0.092869,0.000506,0.063975,-0.025538,-0.023859,-0.020457,-0.116454,0.035324,0.052308,0.018680,
+-0.005229,-0.037333,0.043583,-0.040503,-0.028196,-0.059725,-0.108583,0.008022,-0.049163,-0.015294,0.066265,-0.008154,
+-0.006614,-0.071299,0.007034,0.055148,0.054842,0.055890,0.004877,-0.005437,0.028281,0.021403,0.014870,0.031778,
+0.044266,0.005453,-0.021940,0.006473,-0.031296,0.025338,-0.020826,-0.014382,0.025676,-0.004211,0.047197,0.031060,
+-0.015543,0.010999,-0.010278,-0.030592,0.014418,0.021298,0.013401,-0.001995,-0.009297,-0.028181,0.048051,0.025610,
+0.007005,-0.002167,0.009286,-0.000507,-0.012752,-0.028962,0.004245,0.020925,0.030379,0.041824,0.021551,0.019980,
+0.003876,0.010565,-0.033528,0.035092,0.027651,0.001521,0.006017,-0.040236,0.027930,0.027732,-0.053670,0.013076,
+-0.070959,-0.018479,-0.034623,0.036163,0.017070,-0.052011,-0.065688,0.025201,-0.047155,-0.193803,-0.068220,0.006887,
+-0.015277,-0.071678,-0.059201,0.120359,0.063471,0.019877,0.014334,0.078738,0.035809,0.023006,0.020182,0.024024,
+0.010105,-0.029239,0.055085,0.039078,-0.059550,-0.034490,-0.001793,0.007253,0.033118,0.044483,0.024487,0.035367,
+0.029733,0.026462,-0.020660,0.015689,0.001898,-0.035574,0.030123,-0.106453,-0.009377,0.032348,0.018559,0.018087,
+0.043256,0.037080,0.021102,-0.003374,-0.029752,-0.010052,0.030918,0.028181,0.025660,-0.001751,-0.023717,0.024548,
+0.039630,0.015033,0.024562,0.015615,0.043905,-0.013525,0.032157,0.001340,0.010768,0.023822,0.040735,0.015313,
+0.005955,-0.004961,0.020668,-0.001258,0.011804,0.030062,0.015370,-0.002588,0.017031,-0.024001,0.062809,0.012090,
+-0.006406,0.023846,-0.005348,0.006750,0.004680,-0.007818,-0.000853,-0.022850,-0.043572,0.043653,0.031514,-0.007627,
+-0.065734,-0.006310,0.059074,0.023468,-0.007053,0.007364,0.034656,0.011071,-0.006767,-0.006290,0.013597,0.039128,
+0.008507,0.022556,0.016674,-0.004482,0.016065,0.016852,0.010587,-0.000504,0.011189,0.028006,0.015879,0.029448,
+0.042948,-0.033240,-0.001601,-0.020523,0.015404,0.019515,0.015753,0.023953,0.015630,-0.040172,-0.017456,-0.052585,
+0.015433,0.053847,0.013773,0.031780,-0.017399,0.013857,0.036552,-0.031284,0.030056,-0.002174,0.044907,0.025635,
+0.029482,-0.001504,-0.187397,0.050210,0.058854,0.059287,0.029549,0.055599,-0.007659,0.016833,0.040172,0.041616,
+0.023594,0.019330,0.001118,0.051574,-0.000410,0.008734,0.025757,0.019754,-0.003543,-0.003748,0.042333,-0.000410,
+-0.028683,-0.037805,-0.021974,-0.004362,-0.088759,-0.046773,0.004775,0.064861,-0.074755,-0.034815,0.053927,0.003200,
+0.005733,0.025753,-0.029060,0.034731,0.004850,0.046048,0.036787,-0.014277,-0.011987,-0.029995,0.048136,0.052804,
+0.023546,0.035586,0.026191,-0.013924,0.023473,0.035163,0.022616,-0.010504,0.025583,0.030340,0.025380,0.014350,
+-0.010656,0.006481,-0.059801,-0.057143,0.081146,0.035273,0.043702,0.015975,0.025728,0.022737,0.005119,0.017832,
+];
+
+// Gold und Cash liegen nur als Jahresreihe vor (siehe HIST oben) — für die monatliche Engine werden
+// ihre jährlichen REALEN Renditen geometrisch gleichmäßig auf 12 Monate verteilt (kein echtes
+// Intra-Jahres-Rauschen für diese beiden Anlageklassen, im Gegensatz zu den echten Aktien-Monatsdaten).
+function buildMonthlyGoldCash() {
+  const goldM = [], cashM = [];
+  const relevant = HIST.filter((r) => r.y >= 1872 && r.y <= 2025).sort((a, b) => a.y - b.y);
+  for (const row of relevant) {
+    const real = realAssetReturns(row);
+    const gM = Math.pow(1 + real.gold, 1 / 12) - 1;
+    const cM = Math.pow(1 + real.cash, 1 / 12) - 1;
+    for (let i = 0; i < 12; i++) { goldM.push(gM); cashM.push(cM); }
+  }
+  return { goldM, cashM };
+}
+const { goldM: MONTHLY_GOLD_SP, cashM: MONTHLY_CASH_SP } = buildMonthlyGoldCash();
+
+// ---------- Shared helpers ----------
+
+// Seedbarer PRNG (mulberry32): Ergebnisse bleiben stabil, solange der Seed unverändert bleibt —
+// nur der "Neue Zufallsstichprobe"-Button ändert ihn. So sind Parameteränderungen sauber vergleichbar,
+// ohne dass sich gleichzeitig auch noch die zugrunde liegende Zufallsfolge ändert.
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+let _rng = Math.random;
+function seedRng(seed) { _rng = mulberry32((seed || 0) >>> 0); }
+
+function randNormal() {
+  let u1 = 0;
+  while (u1 === 0) u1 = _rng();
+  const u2 = _rng();
+  return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+}
+
+// 95%-Wilson-Score-Konfidenzintervall für einen Anteil (successRate/100) aus n Beobachtungen.
+function wilsonCI(successRate, n) {
+  if (n <= 0) return [successRate, successRate];
+  const p = successRate / 100, z = 1.96;
+  const denom = 1 + (z * z) / n;
+  const center = (p + (z * z) / (2 * n)) / denom;
+  const margin = (z * Math.sqrt((p * (1 - p)) / n + (z * z) / (4 * n * n))) / denom;
+  return [Math.max(0, (center - margin) * 100), Math.min(100, (center + margin) * 100)];
+}
+
+function percentile(sortedArr, p) {
+  const n = sortedArr.length;
+  if (n === 0) return 0;
+  const idx = (p / 100) * (n - 1);
+  const lo = Math.floor(idx);
+  const hi = Math.ceil(idx);
+  if (lo === hi) return sortedArr[lo];
+  const frac = idx - lo;
+  return sortedArr[lo] * (1 - frac) + sortedArr[hi] * frac;
+}
+
+const ASSUMPTIONS = {
+  eq: { mu: 0.05, sig: 0.18 },
+  gold: { mu: 0.005, sig: 0.15 },
+  cash: { mu: 0.0, sig: 0.015 },
+  rhoEqGold: -0.1,
+};
+
+// Bitcoin: eigene, unabhängig vom gewählten Modus stets normalverteilt simulierte Renditen (auch in den
+// "historischen" Modi) — es gibt keine seriöse 50+ Jahre lange Kursreihe wie beim S&P 500, daher wird Bitcoin
+// nicht zurückgetestet, sondern parametrisch angenommen. Sehr grobe Annahme, real: hohe erwartete Rendite bei
+// sehr hoher Volatilität, leicht positiv mit Aktien korreliert.
+const BTC_ASSUMPTIONS = { mu: 0.15, sig: 0.65, rhoWithEq: 0.3 };
+// Lognormal statt Normalverteilung: bei 65% Volatilität würde eine Normalverteilung in ~3,8% der Jahre
+// eine Rendite unter -100% erzeugen (rechnerisch unmöglich, da man nicht mehr als 100% verlieren kann).
+// Die Lognormal-Parametrisierung stellt sicher, dass jede Jahresrendite > -100% bleibt, bei identischem
+// arithmetischem Erwartungswert (mu) und identischer Volatilität (sig).
+const BTC_SIG_LOG = BTC_ASSUMPTIONS.sig;
+const BTC_MU_LOG = Math.log(1 + BTC_ASSUMPTIONS.mu) - 0.5 * BTC_SIG_LOG * BTC_SIG_LOG;
+function btcReturnFromZ(z) { return Math.exp(BTC_MU_LOG + BTC_SIG_LOG * z) - 1; }
+
+// Eigentumswohnung: Der Wertbestandteil bleibt außerhalb der Entnahme-Simulation (illiquide, nicht kurzfristig
+// verwertbar) und wird nur als informativer, deterministisch fortgeschriebener Sachwert gezeigt. Die laufenden
+// Mieteinnahmen (Annahme: 3% des jeweils aktuellen Werts p.a., real) fließen dagegen wie eine zusätzliche Rente
+// in die Entnahme-Simulation ein und reduzieren den nötigen Portfolio-Entnahmebetrag.
+const WOHNUNG_REAL_APPRECIATION = 0.015;
+const WOHNUNG_MIETRENDITE = 0.03;
+
+// GRV: aktueller Rentenwert je Entgeltpunkt (bundeseinheitlich, seit 1.7.2026: 42,52 €/Monat).
+// Wird für die gesamte Laufzeit real (also inflationsbereinigt) konstant gehalten — eine übliche
+// Vereinfachung, da sich der Rentenwert langfristig etwa mit der Lohn-/Preisentwicklung bewegt.
+const RENTENWERT_MONATLICH = 42.52;
+const REGELALTERSGRENZE = 70;
+
+// Rentenabschlag (vorzeitiger Bezug) bzw. -zuschlag (Aufschub) ggü. der Regelaltersgrenze 70:
+// -0,3%/Monat vor 70, +0,5%/Monat nach 70 (vereinfachte Nachbildung der gesetzlichen Regelung).
+function pensionAdjustmentFactor(pensionStartAge) {
+  const monthsDiff = (pensionStartAge - REGELALTERSGRENZE) * 12;
+  return monthsDiff < 0 ? 1 + monthsDiff * 0.003 : 1 + monthsDiff * 0.005;
+}
+
+function computePensionAnnual(rentenpunkte, pensionStartAge) {
+  return rentenpunkte * RENTENWERT_MONATLICH * 12 * pensionAdjustmentFactor(pensionStartAge);
+}
+
+// Jährliche Mieteinnahmen (real) über den Horizont: 3% des jeweils aktuellen (real wachsenden) Wohnungswerts.
+function computeRentalIncomeByYear(wohnungWert0, horizon) {
+  const arr = [];
+  let value = wohnungWert0;
+  for (let t = 0; t < horizon; t++) {
+    arr.push(value * WOHNUNG_MIETRENDITE);
+    value *= (1 + WOHNUNG_REAL_APPRECIATION);
+  }
+  return arr;
+}
+
+// Erzeugt ein monatliches Bitcoin-Renditearray (Länge = horizon*12).
+function generateBtcReturnsMonthly(horizonMonths) {
+  const muLogM = BTC_MU_LOG / 12, sigLogM = BTC_SIG_LOG / Math.sqrt(12);
+  const arr = [];
+  for (let t = 0; t < horizonMonths; t++) {
+    arr.push(Math.exp(muLogM + sigLogM * randNormal()) - 1);
+  }
+  return arr;
+}
+
+// Reale (inflationsbereinigte) Einzelrenditen pro Anlageklasse aus einer HIST-Zeile
+function realAssetReturns(row) {
+  const infl = row.cpi / 100;
+  return {
+    eq: (1 + row.sp / 100) / (1 + infl) - 1,
+    gold: (1 + row.au / 100) / (1 + infl) - 1,
+    cash: (1 + row.tb / 100) / (1 + infl) - 1,
+  };
+}
+
+// ---------- Eimer-Strategie: Entnahme-Engine ----------
+// eqR/goldR/cashR/btcR: Arrays realer MONATLICHER Renditen (Länge = horizon*12), unabhängig von der
+// gewählten Entnahme-Frequenz (die Rendite läuft immer monatlich, nur die Auszahlung selbst erfolgt
+// je nach p.entnahmeFrequenz entweder als 12 Monatsraten oder als eine Jahres-Pauschale).
+// p.entnahmeStrategie: 'dynamisch' (Vanguard-Formel: "raw" = Portfoliowert × Rate, begrenzt durch
+// Ceiling/Floor/Boden) oder 'statisch' (fester, nur um die bereits eingepreiste Inflation bereinigter
+// Realbetrag — Ceiling/Floor/Boden-Faktor greifen dann nicht). Reserve-Trigger (≥20% ETF-Drawdown) und
+// Bucket-Reihenfolge (gute Zeiten: ETF → Bitcoin → Gold → Cash; schlechte Zeiten: Cash → Gold → Bitcoin
+// → ETF) laufen bei monatlicher Frequenz monatlich, bei jährlicher Frequenz einmal pro Jahr. Reserven
+// werden nie wieder aufgefüllt.
+function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, btcR, wEq, wGold, wCash, wBtc, p) {
+  const staticAmount = (p.staticRate / 100) * vermoegen;
+  const hardFloorAnnual = staticAmount;
+  const isStatic = p.entnahmeStrategie === 'statisch';
+  const isAnnualFreq = p.entnahmeFrequenz === 'jaehrlich';
+  const etfTerMonthly = (p.etfTer || 0) / 100 / 12; // TER p.a. in % → monatlicher Kostenfaktor
+
+  let eqBal = vermoegen * wEq;
+  let goldBal = vermoegen * wGold;
+  let cashBal = vermoegen * wCash;
+  let btcBal = vermoegen * wBtc;
+  let eqIndex = 100;
+  let eqATH = 100;
+
+  let prevAnnualSpending = (p.dynStartRate / 100) * vermoegen;
+  let failed = false;
+  const balances = [vermoegen];
+  const spends = [];
+  const failedByYear = [];
+  let badMonthCount = 0;
+
+  const horizon = p.horizon;
+  let mi = 0;
+  for (let y = 0; y < horizon; y++) {
+    const totalAtYearStart = eqBal + goldBal + cashBal + btcBal;
+    let yearSpending;
+    if (y === 0 || isStatic) {
+      // Statisch: bleibt für die gesamte Laufzeit real konstant (Jahr 0 = Startbetrag).
+      yearSpending = prevAnnualSpending;
+    } else {
+      // Echte Vanguard-Dynamic-Spending-Formel: "raw" = Portfoliowert zu Jahresbeginn × Entnahmerate,
+      // begrenzt durch Ceiling/Floor relativ zur TATSÄCHLICHEN Vorjahresentnahme.
+      const raw = totalAtYearStart * (p.dynStartRate / 100);
+      const capped = Math.min(
+        Math.max(raw, prevAnnualSpending * (1 + p.floor / 100)),
+        prevAnnualSpending * (1 + p.ceiling / 100)
+      );
+      yearSpending = Math.max(capped, hardFloorAnnual);
+    }
+
+    const age = p.startAge + y;
+    const pensionThisYear = age >= p.pensionStartAge ? p.pensionAnnual : 0;
+    const rentalThisYear = p.rentalIncomeByYear ? p.rentalIncomeByYear[y] : 0;
+
+    if (isAnnualFreq) {
+      // Eine Entnahme am Jahresanfang, Reserve-Trigger einmal pro Jahr geprüft.
+      const totalBefore = eqBal + goldBal + cashBal + btcBal;
+      const drawdown = eqATH > 0 ? (eqATH - eqIndex) / eqATH : 0;
+      const badYear = drawdown >= 0.20;
+      if (badYear) badMonthCount += 12;
+
+      const needRaw = Math.max(yearSpending - pensionThisYear - rentalThisYear, 0);
+      if (needRaw > totalBefore + 1e-6) failed = true;
+      let need = Math.min(needRaw, Math.max(totalBefore, 0));
+
+      let remaining = need;
+      const order = badYear ? ['cash', 'gold', 'btc', 'eq'] : ['eq', 'btc', 'gold', 'cash'];
+      for (const bucket of order) {
+        if (remaining <= 0) break;
+        if (bucket === 'cash') { const take = Math.min(remaining, cashBal); cashBal -= take; remaining -= take; }
+        else if (bucket === 'gold') { const take = Math.min(remaining, goldBal); goldBal -= take; remaining -= take; }
+        else if (bucket === 'btc') { const take = Math.min(remaining, btcBal); btcBal -= take; remaining -= take; }
+        else { const take = Math.min(remaining, eqBal); eqBal -= take; remaining -= take; }
+      }
+
+      for (let mm = 0; mm < 12; mm++) {
+        const rEq = eqR[mi], rGold = goldR[mi], rCash = cashR[mi], rBtc = btcR[mi];
+        eqBal *= (1 + rEq - etfTerMonthly);
+        goldBal *= (1 + rGold);
+        cashBal *= (1 + rCash);
+        btcBal *= (1 + rBtc);
+        eqIndex *= (1 + rEq);
+        if (eqIndex > eqATH) eqATH = eqIndex;
+        mi++;
+      }
+    } else {
+      const monthlySpend = yearSpending / 12;
+      const monthlyPension = pensionThisYear / 12;
+      const monthlyRental = rentalThisYear / 12;
+
+      for (let mm = 0; mm < 12; mm++) {
+        const totalBefore = eqBal + goldBal + cashBal + btcBal;
+        const drawdown = eqATH > 0 ? (eqATH - eqIndex) / eqATH : 0;
+        const badMonth = drawdown >= 0.20;
+        if (badMonth) badMonthCount++;
+
+        const needRaw = Math.max(monthlySpend - monthlyPension - monthlyRental, 0);
+        if (needRaw > totalBefore + 1e-6) failed = true;
+        let need = Math.min(needRaw, Math.max(totalBefore, 0));
+
+        let remaining = need;
+        const order = badMonth ? ['cash', 'gold', 'btc', 'eq'] : ['eq', 'btc', 'gold', 'cash'];
+        for (const bucket of order) {
+          if (remaining <= 0) break;
+          if (bucket === 'cash') { const take = Math.min(remaining, cashBal); cashBal -= take; remaining -= take; }
+          else if (bucket === 'gold') { const take = Math.min(remaining, goldBal); goldBal -= take; remaining -= take; }
+          else if (bucket === 'btc') { const take = Math.min(remaining, btcBal); btcBal -= take; remaining -= take; }
+          else { const take = Math.min(remaining, eqBal); eqBal -= take; remaining -= take; }
+        }
+
+        const rEq = eqR[mi], rGold = goldR[mi], rCash = cashR[mi], rBtc = btcR[mi];
+        eqBal *= (1 + rEq - etfTerMonthly);
+        goldBal *= (1 + rGold);
+        cashBal *= (1 + rCash);
+        btcBal *= (1 + rBtc);
+        eqIndex *= (1 + rEq);
+        if (eqIndex > eqATH) eqATH = eqIndex;
+        mi++;
+      }
+    }
+
+    spends.push(yearSpending);
+    const totalAfter = eqBal + goldBal + cashBal + btcBal;
+    balances.push(Math.max(totalAfter, 0));
+    failedByYear.push(failed);
+    prevAnnualSpending = yearSpending;
+  }
+
+  const finalBalance = Math.max(eqBal + goldBal + cashBal + btcBal, 0);
+  return {
+    failed, finalBalance, balances, spends, failedByYear, hardFloor: hardFloorAnnual, staticAmount,
+    dynStartAmount: spends[0],
+    badYearFraction: badMonthCount / (horizon * 12),
+  };
+}
+
+function aggregate(paths, horizon) {
+  const balanceByYear = Array.from({ length: horizon + 1 }, () => []);
+  const spendByYear = Array.from({ length: horizon }, () => []);
+  const failCountByYear = Array.from({ length: horizon }, () => 0);
+  let successCount = 0;
+  const endBalances = [];
+  let badYearSum = 0;
+  for (const res of paths) {
+    for (let t = 0; t <= horizon; t++) balanceByYear[t].push(res.balances[t]);
+    for (let t = 0; t < horizon; t++) {
+      spendByYear[t].push(res.spends[t]);
+      if (res.failedByYear[t]) failCountByYear[t]++;
+    }
+    if (!res.failed) successCount++;
+    endBalances.push(res.finalBalance);
+    badYearSum += res.badYearFraction;
+  }
+  const failureCurve = [{ year: 0, failRate: 0 }];
+  for (let t = 0; t < horizon; t++) {
+    failureCurve.push({ year: t + 1, failRate: (failCountByYear[t] / paths.length) * 100 });
+  }
+  const yearsStats = [];
+  for (let t = 0; t <= horizon; t++) {
+    const sorted = [...balanceByYear[t]].sort((a, b) => a - b);
+    const entry = {
+      year: t,
+      balP10: percentile(sorted, 10),
+      balP50: percentile(sorted, 50),
+      balP90: percentile(sorted, 90),
+      balBand: percentile(sorted, 90) - percentile(sorted, 10),
+    };
+    if (t < horizon) {
+      const sSorted = [...spendByYear[t]].sort((a, b) => a - b);
+      entry.spendP10 = percentile(sSorted, 10);
+      entry.spendP50 = percentile(sSorted, 50);
+      entry.spendP90 = percentile(sSorted, 90);
+      entry.spendBand = percentile(sSorted, 90) - percentile(sSorted, 10);
+    }
+    yearsStats.push(entry);
+  }
+  endBalances.sort((a, b) => a - b);
+  const successRate = (successCount / paths.length) * 100;
+  const [ciLow, ciHigh] = wilsonCI(successRate, paths.length);
+  return {
+    successRate,
+    ciLow, ciHigh,
+    yearsStats,
+    failureCurve,
+    medianEnd: percentile(endBalances, 50),
+    numPaths: paths.length,
+    hardFloor: paths[0]?.hardFloor ?? 0,
+    staticAmount: paths[0]?.staticAmount ?? 0,
+    dynStartAmount: paths[0]?.dynStartAmount ?? 0,
+    avgBadYearFraction: (badYearSum / paths.length) * 100,
+  };
+}
+
+function runMonteCarlo(p) {
+  seedRng(p.seed);
+  const { eq, gold, cash, rhoEqGold } = ASSUMPTIONS;
+  // Monatliche Parameter aus den jährlichen Annahmen abgeleitet (geometrisches Mittel / sqrt(12)-Vol).
+  const eqMuM = Math.pow(1 + eq.mu, 1 / 12) - 1, eqSigM = eq.sig / Math.sqrt(12);
+  const goldMuM = Math.pow(1 + gold.mu, 1 / 12) - 1, goldSigM = gold.sig / Math.sqrt(12);
+  const cashMuM = Math.pow(1 + cash.mu, 1 / 12) - 1, cashSigM = cash.sig / Math.sqrt(12);
+  const muLogM = BTC_MU_LOG / 12, sigLogM = BTC_SIG_LOG / Math.sqrt(12);
+  const wEq = p.aktien / 100, wGold = p.gold / 100, wCash = p.cash / 100, wBtc = p.bitcoin / 100;
+  const rhoBtc = BTC_ASSUMPTIONS.rhoWithEq;
+  const horizonM = p.horizon * 12;
+  const paths = [];
+  for (let s = 0; s < p.numSims; s++) {
+    const eqR = [], goldR = [], cashR = [], btcR = [];
+    for (let t = 0; t < horizonM; t++) {
+      const z1 = randNormal(), z2 = randNormal(), z3 = randNormal(), z4 = randNormal();
+      eqR.push(eqMuM + eqSigM * z1);
+      goldR.push(goldMuM + goldSigM * (rhoEqGold * z1 + Math.sqrt(1 - rhoEqGold * rhoEqGold) * z2));
+      cashR.push(cashMuM + cashSigM * z3);
+      btcR.push(Math.exp(muLogM + sigLogM * (rhoBtc * z1 + Math.sqrt(1 - rhoBtc * rhoBtc) * z4)) - 1);
+    }
+    paths.push(simulateWithdrawalBuckets(p.vermoegen, eqR, goldR, cashR, btcR, wEq, wGold, wCash, wBtc, p));
+  }
+  return aggregate(paths, p.horizon);
+}
+
+// Welt-Aktien-Proxy 1970-2025: 65% US Large Cap (S&P 500) + 35% internationale Industrieländer (MSCI EAFE),
+// nominale Jahresrenditen in %. Quelle: Novel Investor (novelinvestor.com/historical-returns), Datensätze
+// "U.S. Large Caps" und "International Stocks" (MSCI EAFE), fixe Gewichtung als Annäherung an den
+// langjährigen US-Anteil eines Welt-Portfolios (echte MSCI-World-Gewichte schwankten historisch stärker).
+const WORLD_EQ_BY_YEAR = {
+  1970:-1.07,1971:20.23,1972:25.50,1973:-14.49,1974:-24.96,1975:37.17,1976:16.81,1977:2.13,
+  1978:16.27,1979:14.15,1980:29.62,1981:-3.55,1982:13.71,1983:23.28,1984:6.83,1985:40.48,
+  1986:36.61,1987:12.14,1988:20.80,1989:24.38,1990:-10.14,1991:24.18,1992:0.81,1993:18.08,
+  1994:3.68,1995:28.47,1996:17.15,1997:22.41,1998:25.69,1999:23.23,2000:-10.80,2001:-15.15,
+  2002:-19.85,2003:32.35,2004:14.32,2005:8.10,2006:19.66,2007:7.64,2008:-39.12,2009:28.56,
+  2010:12.66,2011:-2.73,2012:16.67,2013:29.21,2014:7.33,2015:0.76,2016:8.30,2017:23.16,
+  2018:-7.52,2019:28.40,2020:14.86,2021:22.78,2022:-16.68,2023:23.69,2024:17.79,2025:22.78,
+};
+const HIST_WORLD = HIST.filter((row) => row.y >= 1970).map((row) => ({ ...row, world: WORLD_EQ_BY_YEAR[row.y] }));
+
+function realAssetReturnsWorld(row) {
+  const infl = row.cpi / 100;
+  return {
+    eq: (1 + row.world / 100) / (1 + infl) - 1,
+    gold: (1 + row.au / 100) / (1 + infl) - 1,
+    cash: (1 + row.tb / 100) / (1 + infl) - 1,
+  };
+}
+
+// Für S&P 500 gibt es echte Monatsdaten (MONTHLY_EQ_SP). Für den Welt-Proxy (nur Jahresdaten
+// verfügbar) werden alle drei Anlageklassen geometrisch gleichmäßig auf 12 Monate verteilt.
+function buildMonthlyWorld() {
+  const eqM = [], goldM = [], cashM = [];
+  const rows = HIST_WORLD.slice().sort((a, b) => a.y - b.y);
+  for (const row of rows) {
+    const real = realAssetReturnsWorld(row);
+    const eM = Math.pow(1 + real.eq, 1 / 12) - 1;
+    const gM = Math.pow(1 + real.gold, 1 / 12) - 1;
+    const cM = Math.pow(1 + real.cash, 1 / 12) - 1;
+    for (let i = 0; i < 12; i++) { eqM.push(eM); goldM.push(gM); cashM.push(cM); }
+  }
+  return { eqM, goldM, cashM };
+}
+const { eqM: MONTHLY_EQ_WORLD, goldM: MONTHLY_GOLD_WORLD, cashM: MONTHLY_CASH_WORLD } = buildMonthlyWorld();
+
+function runHistoricalRolling(p) {
+  seedRng(p.seed);
+  const wEq = p.aktien / 100, wGold = p.gold / 100, wCash = p.cash / 100, wBtc = p.bitcoin / 100;
+  const horizonM = p.horizon * 12;
+  const totalM = MONTHLY_EQ_SP.length;
+  const paths = [];
+  for (let start = 0; start + horizonM <= totalM; start++) {
+    const eqR = MONTHLY_EQ_SP.slice(start, start + horizonM);
+    const goldR = MONTHLY_GOLD_SP.slice(start, start + horizonM);
+    const cashR = MONTHLY_CASH_SP.slice(start, start + horizonM);
+    const btcR = generateBtcReturnsMonthly(horizonM);
+    paths.push(simulateWithdrawalBuckets(p.vermoegen, eqR, goldR, cashR, btcR, wEq, wGold, wCash, wBtc, p));
+  }
+  return aggregate(paths, p.horizon);
+}
+
+function runWorldRolling(p) {
+  seedRng(p.seed);
+  const wEq = p.aktien / 100, wGold = p.gold / 100, wCash = p.cash / 100, wBtc = p.bitcoin / 100;
+  const horizonM = p.horizon * 12;
+  const totalM = MONTHLY_EQ_WORLD.length;
+  const paths = [];
+  for (let start = 0; start + horizonM <= totalM; start++) {
+    const eqR = MONTHLY_EQ_WORLD.slice(start, start + horizonM);
+    const goldR = MONTHLY_GOLD_WORLD.slice(start, start + horizonM);
+    const cashR = MONTHLY_CASH_WORLD.slice(start, start + horizonM);
+    const btcR = generateBtcReturnsMonthly(horizonM);
+    paths.push(simulateWithdrawalBuckets(p.vermoegen, eqR, goldR, cashR, btcR, wEq, wGold, wCash, wBtc, p));
+  }
+  return aggregate(paths, p.horizon);
+}
+
+function runHistoricalBootstrap(p) {
+  seedRng(p.seed);
+  const wEq = p.aktien / 100, wGold = p.gold / 100, wCash = p.cash / 100, wBtc = p.bitcoin / 100;
+  const srcEq = p.bootstrapSource === 'world' ? MONTHLY_EQ_WORLD : MONTHLY_EQ_SP;
+  const srcGold = p.bootstrapSource === 'world' ? MONTHLY_GOLD_WORLD : MONTHLY_GOLD_SP;
+  const srcCash = p.bootstrapSource === 'world' ? MONTHLY_CASH_WORLD : MONTHLY_CASH_SP;
+  const horizonM = p.horizon * 12;
+  const blockLenM = p.blockLen * 12;
+  const paths = [];
+  for (let s = 0; s < p.numSims; s++) {
+    const eqR = [], goldR = [], cashR = [];
+    while (eqR.length < horizonM) {
+      const start = Math.floor(_rng() * srcEq.length);
+      for (let i = 0; i < blockLenM && eqR.length < horizonM; i++) {
+        const idx = (start + i) % srcEq.length;
+        eqR.push(srcEq[idx]); goldR.push(srcGold[idx]); cashR.push(srcCash[idx]);
+      }
+    }
+    const btcR = generateBtcReturnsMonthly(horizonM);
+    paths.push(simulateWithdrawalBuckets(p.vermoegen, eqR, goldR, cashR, btcR, wEq, wGold, wCash, wBtc, p));
+  }
+  return aggregate(paths, p.horizon);
+}
+
+// ---------- UI helpers ----------
+
+const fmtEUR = (v) => v.toLocaleString('de-DE', { maximumFractionDigits: 0 }) + ' \u20ac';
+const fmtEURk = (v) => {
+  if (Math.abs(v) >= 1000) return (v / 1000).toLocaleString('de-DE', { maximumFractionDigits: 0 }) + 'k \u20ac';
+  return fmtEUR(v);
+};
+
+function Gauge({ value, target = 97.5 }) {
+  const r = 70;
+  const circumference = 2 * Math.PI * r;
+  const clamped = Math.max(0, Math.min(100, value));
+  const dash = (clamped / 100) * circumference;
+  const color = value >= target ? '#2F5D62' : value >= target - 7.5 ? '#C08A2E' : '#A8432F';
+  const targetAngle = (target / 100) * 360 - 90;
+  const tx = 90 + r * Math.cos((targetAngle * Math.PI) / 180);
+  const ty = 90 + r * Math.sin((targetAngle * Math.PI) / 180);
+
+  return (
+    <svg width="180" height="180" viewBox="0 0 180 180">
+      <circle cx="90" cy="90" r={r} fill="none" stroke="#D3DAD6" strokeWidth="14" />
+      <circle
+        cx="90" cy="90" r={r} fill="none" stroke={color} strokeWidth="14" strokeLinecap="round"
+        strokeDasharray={`${dash} ${circumference}`} transform="rotate(-90 90 90)"
+        style={{ transition: 'stroke-dasharray 0.6s ease, stroke 0.6s ease' }}
+      />
+      <circle cx={tx} cy={ty} r="4" fill="#1C2521" />
+      <text x="90" y="86" textAnchor="middle" fontSize="30" fontFamily="ui-monospace, monospace" fill="#1C2521" fontWeight="600">
+        {value.toFixed(1)}%
+      </text>
+      <text x="90" y="108" textAnchor="middle" fontSize="10" fill="#5B6B65" letterSpacing="0.5">ERFOLGSQUOTE</text>
+    </svg>
+  );
+}
+
+function InfoDot({ text }) {
+  return (
+    <span
+      title={text}
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: 15, height: 15, borderRadius: '50%', border: '1px solid #5B6B65',
+        color: '#5B6B65', fontSize: 10, marginLeft: 6, cursor: 'help', flexShrink: 0,
+        fontFamily: "'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace", userSelect: 'none',
+      }}
+    >?</span>
+  );
+}
+
+function Slider({ label, value, min, max, step, onChange, format, hint, tip }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+        <span style={{ fontSize: 12, color: '#5B6B65', display: 'flex', alignItems: 'center' }}>
+          {label}
+          {tip && <InfoDot text={tip} />}
+        </span>
+        <span style={{ fontSize: 12, fontFamily: "'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace", color: '#1C2521' }}>
+          {format ? format(value) : value}
+        </span>
+      </div>
+      <input type="range" min={min} max={max} step={step} value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        style={{ width: '100%', accentColor: '#2F5D62' }} />
+      {hint && <div style={{ fontSize: 10.5, color: '#5B6B65', marginTop: 2 }}>{hint}</div>}
+    </div>
+  );
+}
+
+function ModeTab({ active, onClick, children, tip }) {
+  return (
+    <button onClick={onClick} title={tip} style={{
+      flex: 1, padding: '9px 8px', fontSize: 11.5, borderRadius: 8, cursor: 'pointer',
+      border: active ? '1px solid #2F5D62' : '1px solid #D3DAD6',
+      background: active ? 'rgba(47,93,98,0.16)' : 'transparent',
+      color: active ? '#2F5D62' : '#5B6B65', fontWeight: active ? 600 : 400,
+    }}>
+      {children}
+    </button>
+  );
+}
+
+function Stat({ label, value, sub, color = '#1C2521', tip }) {
+  return (
+    <div>
+      <div style={{ fontSize: 10.5, color: '#5B6B65', letterSpacing: 0.4, display: 'flex', alignItems: 'center' }}>
+        {label.toUpperCase()}
+        {tip && <InfoDot text={tip} />}
+      </div>
+      <div style={{ fontSize: 18, fontFamily: "'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace", color, fontWeight: 600 }}>{value}</div>
+      <div style={{ fontSize: 10.5, color: '#5B6B65' }}>{sub}</div>
+    </div>
+  );
+}
+
+function SectionLabel({ children, color }) {
+  const text = Array.isArray(children) ? children.join('') : children;
+  return (
+    <div style={{
+      fontSize: 11, letterSpacing: 1, color, fontFamily: "'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace",
+      marginBottom: 12, borderBottom: '1px solid #D3DAD6', paddingBottom: 6,
+    }}>
+      {text.toUpperCase()}
+    </div>
+  );
+}
+
+function ChartBlock({ title, subtitle, children }) {
+  return (
+    <div style={{ background: '#FFFFFF', border: '1px solid #D3DAD6', borderRadius: 12, padding: '16px 12px 8px', marginBottom: 18 }}>
+      <div style={{ padding: '0 8px', marginBottom: 6 }}>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>{title}</div>
+        <div style={{ fontSize: 11.5, color: '#5B6B65' }} dangerouslySetInnerHTML={{ __html: subtitle }} />
+      </div>
+      <ResponsiveContainer width="100%" height={220}>{children}</ResponsiveContainer>
+    </div>
+  );
+}
+
+function LightTooltip({ active, payload, label }) {
+  if (!active || !payload || !payload.length) return null;
+  const p50 = payload.find((p) => p.dataKey && p.dataKey.toString().endsWith('P50'));
+  const band = payload.find((p) => p.dataKey && p.dataKey.toString().endsWith('Band'));
+  const base = payload.find((p) => p.dataKey && p.dataKey.toString().endsWith('P10'));
+  return (
+    <div style={{
+      background: '#FFFFFF',
+      border: '1px solid #C8D1CC',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+      borderRadius: 8,
+      padding: '10px 12px',
+      fontSize: 12,
+      color: '#1C2521',
+      lineHeight: 1.4,
+    }}>
+      <div style={{ fontWeight: 600, color: '#5B6B65', marginBottom: 4, fontSize: 11.5 }}>Jahr {label}</div>
+      {p50 && (
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#1C2521', marginBottom: 3 }}>
+          Median: <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(p50.value)}</span>
+        </div>
+      )}
+      {base && band && (
+        <div style={{ fontSize: 11.5, color: '#5B6B65' }}>
+          Bereich: <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(base.value)} – {fmtEUR(base.value + band.value)}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FailTooltip({ active, payload, label }) {
+  if (!active || !payload || !payload.length) return null;
+  const entry = payload.find((p) => p.dataKey === 'failRate');
+  if (!entry) return null;
+  return (
+    <div style={{
+      background: '#FFFFFF',
+      border: '1px solid #C8D1CC',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+      borderRadius: 8,
+      padding: '10px 12px',
+      fontSize: 12,
+      color: '#1C2521',
+      lineHeight: 1.4,
+    }}>
+      <div style={{ fontWeight: 600, color: '#5B6B65', marginBottom: 4, fontSize: 11.5 }}>Jahr {label}</div>
+      <div style={{ fontSize: 13, fontWeight: 600, color: '#A8432F' }}>
+        Ausfallwahrscheinlichkeit: <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{entry.value.toFixed(1)}%</span>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Main Component ----------
+
+function runForMode(mode, params) {
+  if (mode === 'montecarlo') return runMonteCarlo(params);
+  if (mode === 'bootstrap') return runHistoricalBootstrap(params);
+  if (mode === 'world') return runWorldRolling(params);
+  return runHistoricalRolling(params);
+}
+
+// Verzögert eine Werteübernahme um `delay` ms — glättet das Neuberechnen der Simulation beim
+// Ziehen von Slidern, ohne die Anzeige der Schieberegler-Labels selbst zu verzögern.
+function useDebounced(value, delay = 200) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
+}
+
+export default function EntnahmeSimulator() {
+  useEffect(() => {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap';
+    document.head.appendChild(link);
+    return () => document.head.removeChild(link);
+  }, []);
+
+  const [mode, setMode] = useState('bootstrap'); // 'montecarlo' | 'rolling' | 'world' | 'bootstrap'
+  const [showGuide, setShowGuide] = useState(false);
+  const [vermoegen, setVermoegen] = useState(1130000);
+  const [aktien, setAktien] = useState(87);
+  const [gold, setGold] = useState(7);
+  const [bitcoin, setBitcoin] = useState(0);
+  const [wohnung, setWohnung] = useState(0);
+  const cash = Math.max(0, 100 - aktien - gold - bitcoin - wohnung);
+
+  const [staticRate, setStaticRate] = useState(2.5);
+  const [dynStartRate, setDynStartRate] = useState(3.2);
+  const [ceiling, setCeiling] = useState(5.0);
+  const [floor, setFloor] = useState(-2.5);
+  const [horizon, setHorizon] = useState(45);
+  const [entnahmeStrategie, setEntnahmeStrategie] = useState('dynamisch');
+  const [entnahmeFrequenz, setEntnahmeFrequenz] = useState('jaehrlich');
+  const [heutigeKaufkraft, setHeutigeKaufkraft] = useState(true);
+  const [inflationRate, setInflationRate] = useState(2.0);
+  const [blockLen, setBlockLen] = useState(7);
+  const [bootstrapSource, setBootstrapSource] = useState('sp500');
+  const [startAge, setStartAge] = useState(50);
+  const [rentenpunkte, setRentenpunkte] = useState(25);
+  const [pensionStartAge, setPensionStartAge] = useState(70);
+  const [seed, setSeed] = useState(0);
+  const [etfTer, setEtfTer] = useState(0.15);
+
+  const [numSims, setNumSims] = useState(2500);
+  const pensionAnnual = computePensionAnnual(rentenpunkte, pensionStartAge);
+  const pensionMonthly = pensionAnnual / 12;
+  const wohnungWert0 = (wohnung / 100) * vermoegen;
+  const wohnungWert = wohnungWert0 * Math.pow(1 + WOHNUNG_REAL_APPRECIATION, horizon);
+  const rentalIncomeByYear = useMemo(() => computeRentalIncomeByYear(wohnungWert0, horizon), [wohnungWert0, horizon]);
+  const rentalYear1 = rentalIncomeByYear[0] || 0;
+
+  // Alle Eingaben, die die (teure) Simulation beeinflussen, gebündelt und debounced —
+  // Slider-Labels selbst reagieren weiterhin sofort, nur die Neuberechnung verzögert sich leicht.
+  const liveParams = {
+    mode, vermoegen, aktien, gold, cash, bitcoin, staticRate, dynStartRate, ceiling, floor,
+    horizon, blockLen, bootstrapSource, startAge, pensionStartAge, pensionAnnual, rentalIncomeByYear, seed,
+    entnahmeStrategie, entnahmeFrequenz, numSims, etfTer,
+  };
+  const debounced = useDebounced(liveParams, 200);
+
+  const result = useMemo(() => {
+    const d = debounced;
+    const params = { vermoegen: d.vermoegen, aktien: d.aktien, gold: d.gold, cash: d.cash, bitcoin: d.bitcoin,
+      staticRate: d.staticRate, dynStartRate: d.dynStartRate, ceiling: d.ceiling, floor: d.floor,
+      horizon: d.horizon, numSims: d.numSims, blockLen: d.blockLen, bootstrapSource: d.bootstrapSource,
+      startAge: d.startAge, pensionStartAge: d.pensionStartAge, pensionAnnual: d.pensionAnnual,
+      rentalIncomeByYear: d.rentalIncomeByYear, seed: d.seed,
+      entnahmeStrategie: d.entnahmeStrategie, entnahmeFrequenz: d.entnahmeFrequenz, etfTer: d.etfTer };
+    return runForMode(d.mode, params);
+  }, [debounced]);
+
+  // ---- Sensitivitätsanalyse: welcher Parameter bewegt die Erfolgsquote am meisten? ----
+  const sensitivity = useMemo(() => {
+    const d = debounced;
+    const sensNumSims = 500;
+    const base = { vermoegen: d.vermoegen, aktien: d.aktien, gold: d.gold, cash: d.cash, bitcoin: d.bitcoin,
+      staticRate: d.staticRate, dynStartRate: d.dynStartRate, ceiling: d.ceiling, floor: d.floor,
+      horizon: d.horizon, numSims: sensNumSims, blockLen: d.blockLen,
+      bootstrapSource: d.bootstrapSource, startAge: d.startAge, pensionStartAge: d.pensionStartAge,
+      pensionAnnual: d.pensionAnnual, rentalIncomeByYear: d.rentalIncomeByYear, seed: d.seed,
+      entnahmeStrategie: d.entnahmeStrategie, entnahmeFrequenz: d.entnahmeFrequenz };
+    const run = (overrides) => runForMode(d.mode, Object.assign({}, base, overrides)).successRate;
+    const baseline = run({});
+    const impact = (rLo, rHi) => Math.max(Math.abs(rLo - baseline), Math.abs(rHi - baseline));
+    const items = [];
+
+    {
+      const lo = Math.max(50, d.aktien - 5), hi = Math.min(100 - d.gold - d.bitcoin - wohnung, d.aktien + 5);
+      const rLo = run({ aktien: lo, cash: Math.max(0, 100 - lo - d.gold - d.bitcoin - wohnung) });
+      const rHi = run({ aktien: hi, cash: Math.max(0, 100 - hi - d.gold - d.bitcoin - wohnung) });
+      items.push({ label: 'Aktienquote ±5%-Pkt.', delta: impact(rLo, rHi) });
+    }
+    {
+      const rLo = run({ dynStartRate: Math.max(2, d.dynStartRate - 0.3) });
+      const rHi = run({ dynStartRate: Math.min(6, d.dynStartRate + 0.3) });
+      items.push({ label: 'Dyn. Startrate ±0,3%-Pkt.', delta: impact(rLo, rHi) });
+    }
+    {
+      const rLo = run({ horizon: Math.max(25, d.horizon - 5) });
+      const rHi = run({ horizon: Math.min(55, d.horizon + 5) });
+      items.push({ label: 'Horizont ±5 Jahre', delta: impact(rLo, rHi) });
+    }
+    {
+      const ageLo = Math.max(63, d.pensionStartAge - 1), ageHi = Math.min(70, d.pensionStartAge + 1);
+      const rLo = run({ pensionStartAge: ageLo, pensionAnnual: computePensionAnnual(rentenpunkte, ageLo) });
+      const rHi = run({ pensionStartAge: ageHi, pensionAnnual: computePensionAnnual(rentenpunkte, ageHi) });
+      items.push({ label: 'Rentenbeginn ±1 Jahr', delta: impact(rLo, rHi) });
+    }
+    {
+      const lo = Math.max(0, d.bitcoin - 3), hi = Math.min(20, d.bitcoin + 3);
+      const rLo = run({ bitcoin: lo, cash: Math.max(0, 100 - d.aktien - d.gold - lo - wohnung) });
+      const rHi = run({ bitcoin: hi, cash: Math.max(0, 100 - d.aktien - d.gold - hi - wohnung) });
+      items.push({ label: 'Bitcoin ±3%-Pkt.', delta: impact(rLo, rHi) });
+    }
+    {
+      const rLo = run({ pensionAnnual: computePensionAnnual(Math.max(0, rentenpunkte - 5), d.pensionStartAge) });
+      const rHi = run({ pensionAnnual: computePensionAnnual(rentenpunkte + 5, d.pensionStartAge) });
+      items.push({ label: 'Rentenpunkte ±5', delta: impact(rLo, rHi) });
+    }
+
+    items.sort((a, b) => b.delta - a.delta);
+    return items;
+  }, [debounced, wohnung, rentenpunkte]);
+
+  // ---- URL-Konfiguration laden (einmalig beim Mount) ----
+  useEffect(() => {
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      const num = (k, setter) => { if (sp.has(k)) setter(parseFloat(sp.get(k))); };
+      const str = (k, setter) => { if (sp.has(k)) setter(sp.get(k)); };
+      str('mode', setMode);
+      num('vermoegen', setVermoegen); num('aktien', setAktien); num('gold', setGold);
+      num('bitcoin', setBitcoin); num('wohnung', setWohnung); num('etfTer', setEtfTer);
+      num('staticRate', setStaticRate); num('dynStartRate', setDynStartRate);
+      num('ceiling', setCeiling); num('floor', setFloor);
+      num('horizon', setHorizon); num('blockLen', setBlockLen); str('bootstrapSource', setBootstrapSource);
+      num('startAge', setStartAge); num('rentenpunkte', setRentenpunkte); num('pensionStartAge', setPensionStartAge);
+    } catch (e) { /* URL-Zugriff nicht verfügbar — Standardwerte bleiben aktiv */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const [shareLabel, setShareLabel] = useState('🔗 Konfiguration teilen');
+  function shareConfig() {
+    const sp = new URLSearchParams();
+    sp.set('mode', mode); sp.set('vermoegen', vermoegen); sp.set('aktien', aktien); sp.set('gold', gold);
+    sp.set('bitcoin', bitcoin); sp.set('wohnung', wohnung); sp.set('etfTer', etfTer); sp.set('staticRate', staticRate);
+    sp.set('dynStartRate', dynStartRate); sp.set('ceiling', ceiling); sp.set('floor', floor);
+    sp.set('horizon', horizon); sp.set('blockLen', blockLen);
+    sp.set('bootstrapSource', bootstrapSource); sp.set('startAge', startAge); sp.set('rentenpunkte', rentenpunkte);
+    sp.set('pensionStartAge', pensionStartAge);
+    const url = window.location.origin + window.location.pathname + '?' + sp.toString();
+    try {
+      navigator.clipboard.writeText(url);
+      setShareLabel('✓ Link kopiert');
+    } catch (e) {
+      setShareLabel('Kopieren fehlgeschlagen');
+    }
+    setTimeout(() => setShareLabel('🔗 Konfiguration teilen'), 2000);
+  }
+
+  const chartData = result.yearsStats.map((y, idx) => {
+    const factor = heutigeKaufkraft ? 1 : Math.pow(1 + inflationRate / 100, idx);
+    return {
+      year: y.year,
+      balP10: y.balP10 * factor,
+      balBand: y.balBand * factor,
+      balP50: y.balP50 * factor,
+      spendP10: y.spendP10 !== null ? y.spendP10 * factor : null,
+      spendBand: y.spendBand !== null ? y.spendBand * factor : null,
+      spendP50: y.spendP50 !== null ? y.spendP50 * factor : null,
+    };
+  });
+
+  const pensionStartYear = Math.max(0, pensionStartAge - startAge);
+  const maxWindows = MONTHLY_EQ_SP.length - horizon * 12 + 1;
+  const maxWorldWindows = MONTHLY_EQ_WORLD.length - horizon * 12 + 1;
+
+  return (
+    <div style={{
+      minHeight: '100vh', background: '#EEF1EF', color: '#1C2521',
+      fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif",
+      padding: '28px 20px 60px', boxSizing: 'border-box',
+    }}>
+      <div style={{ maxWidth: 1220, margin: '0 auto' }}>
+
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, letterSpacing: 1.5, color: '#3A6B8A', fontFamily: "'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace" }}>
+            ENTNAHME-SIMULATION &middot; EIMER-STRATEGIE
+          </div>
+          <h1 style={{ fontSize: 26, fontWeight: 700, margin: '4px 0 6px', letterSpacing: -0.3 }}>
+            Vanguard-Dynamic + Cash/Gold-Reserve
+          </h1>
+          <p style={{ fontSize: 13.5, color: '#5B6B65', lineHeight: 1.5, margin: 0 }}>
+            In Jahren mit &ge;20% ETF-Drawdown wird zuerst Cash, dann Gold entnommen, erst danach der ETF.
+            In guten Jahren direkt aus dem ETF. Einmal geleerte Reserven werden nicht wieder aufgefüllt.
+          </p>
+        </div>
+
+        <div style={{ background: '#FFFFFF', border: '1px solid #D3DAD6', borderRadius: 12, marginBottom: 20, overflow: 'hidden' }}>
+          <button onClick={() => setShowGuide((s) => !s)} style={{
+            width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer',
+            padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <span style={{ fontSize: 13.5, fontWeight: 600, color: '#1C2521' }}>📖 Anleitung: Wie benutze ich dieses Tool?</span>
+            <span style={{ fontSize: 12, color: '#5B6B65' }}>{showGuide ? '▲ einklappen' : '▼ aufklappen'}</span>
+          </button>
+          {showGuide && (
+            <div style={{ padding: '0 18px 18px', fontSize: 12.5, color: '#5B6B65', lineHeight: 1.7 }}>
+              <p style={{ margin: '0 0 10px' }}>
+                Dieses Tool prüft: <strong style={{ color: '#1C2521' }}>"Wenn ich jedes Jahr Geld aus meinem Vermögen entnehme, reicht es dann
+                bis zum Ende der geplanten Zeit — auch wenn die Börse mal schlecht läuft?"</strong> Dafür werden viele mögliche
+                zukünftige Verläufe durchgespielt (echte historische Daten oder statistisch nachgebaute Szenarien), und am Ende steht eine
+                Erfolgsquote: in wie viel Prozent aller Fälle das Geld gereicht hat.
+              </p>
+              <p style={{ margin: '0 0 6px', color: '#1C2521', fontWeight: 600, fontSize: 12.5 }}>Die wichtigsten Bausteine:</p>
+              <ul style={{ margin: '0 0 10px', paddingLeft: 20 }}>
+                <li style={{ marginBottom: 4 }}><strong style={{ color: '#1C2521' }}>Portfolio</strong> — deine Vermögensaufteilung: Aktien-ETF (Wachstum, schwankt stark),
+                  Gold und Liquidität (Reserve für Krisen), optional Bitcoin und eine Eigentumswohnung.</li>
+                <li style={{ marginBottom: 4 }}><strong style={{ color: '#1C2521' }}>Eimer-Strategie</strong> — in einem Börsen-Crash (ETF ≥20% unter Höchststand) wird zuerst die
+                  Reserve (Cash/Gold) angezapft, damit du keine Aktien zu schlechten Kursen verkaufen musst. Läuft die Börse normal, kommt die
+                  Entnahme direkt aus dem ETF.</li>
+                <li style={{ marginBottom: 4 }}><strong style={{ color: '#1C2521' }}>Entnahme-Regel</strong> — legt fest, wie viel du pro Jahr entnimmst und wie stark das schwanken darf.
+                  "Dynamisch" (Vanguard) passt sich dem Depotwert an; "Statisch" hält den Betrag fest (nur Inflationsanpassung).</li>
+                <li style={{ marginBottom: 4 }}><strong style={{ color: '#1C2521' }}>GRV-Rente</strong> — deine gesetzliche Rente reduziert ab Rentenbeginn den nötigen Betrag aus dem Portfolio.</li>
+                <li><strong style={{ color: '#1C2521' }}>Erfolgsquote</strong> — die runde Anzeige oben: in wie viel Prozent aller getesteten Verläufe das Geld gereicht hat. Ziel meist: möglichst nah an 97,5–100%.</li>
+              </ul>
+              <p style={{ margin: '0 0 10px' }}>
+                <strong style={{ color: '#1C2521' }}>Tipp:</strong> Fährst du mit der Maus über die kleinen <span style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 14, height: 14, borderRadius: '50%',
+                  border: '1px solid #5B6B65', fontSize: 9, verticalAlign: 'middle',
+                }}>?</span>-Symbole neben den Feldern, erscheint eine kurze Erklärung dazu.
+              </p>
+              <p style={{ margin: 0 }}>
+                Vier Berechnungs-Modi stehen oben zur Auswahl (mehr Details jeweils als Tooltip auf dem Tab): echte historische
+                S&amp;P-500-Daten, ein Welt-Aktien-Näherungswert, eine Zufalls-Neukombination historischer Verläufe (Bootstrap), oder ein rein
+                mathematisches Modell (Monte Carlo). Es lohnt sich, mehrere Modi zu vergleichen statt nur einem zu vertrauen.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: 20 }} className="sim-grid">
+          <div style={{ background: '#FFFFFF', border: '1px solid #D3DAD6', borderRadius: 6, padding: '18px 20px', alignSelf: 'start' }}>
+        {/* Mode selector */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+          <ModeTab active={mode === 'rolling'} onClick={() => setMode('rolling')}
+            tip="Testet deine Angaben gegen jeden tatsächlichen historischen Startzeitpunkt seit 1872 — 'wie hätte es gestern, vor 30 Jahren, vor 80 Jahren usw. ausgesehen?'">Historisch · S&amp;P 500 (1872–2025)</ModeTab>
+          <ModeTab active={mode === 'world'} onClick={() => setMode('world')}
+            tip="Wie oben, aber mit einer Annäherung an ein weltweites Aktienportfolio (nicht nur USA) seit 1970.">Historisch · Welt-Proxy (1970–2025)</ModeTab>
+          <ModeTab active={mode === 'bootstrap'} onClick={() => setMode('bootstrap')}
+            tip="Würfelt aus echten historischen Jahren/Monaten tausende neue, zufällige Verlaufsmöglichkeiten zusammen — mehr Testfälle als die reine Geschichte hergibt.">Historisch · Block-Bootstrap</ModeTab>
+          <ModeTab active={mode === 'montecarlo'} onClick={() => setMode('montecarlo')}
+            tip="Erzeugt komplett zufällige, aber realistisch verteilte Marktverläufe nach mathematischem Modell — unabhängig von der tatsächlichen Geschichte.">Parametrisch · Monte Carlo</ModeTab>
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+          <button onClick={() => setSeed((s) => s + 1)} style={{
+            background: 'transparent', border: '1px solid #D3DAD6', color: '#5B6B65',
+            fontSize: 12, padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
+          }}>
+            ↻ {mode === 'rolling' ? 'Neu berechnen' : 'Neue Zufallsstichprobe'}
+          </button>
+          <button onClick={shareConfig} style={{
+            background: 'transparent', border: '1px solid #D3DAD6', color: '#5B6B65',
+            fontSize: 12, padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
+          }}>
+            {shareLabel}
+          </button>
+          {(mode === 'bootstrap' || mode === 'montecarlo') && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 11.5, color: '#5B6B65', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center' }}>Stichproben:<InfoDot text="Anzahl der simulierten bzw. gebootstrapten Verläufe. Mehr Stichproben = präziseres Ergebnis, aber längere Rechenzeit." /></span>
+              <select
+                value={numSims}
+                onChange={(e) => setNumSims(parseInt(e.target.value, 10))}
+                style={{
+                  fontSize: 12, padding: '6px 10px', borderRadius: 8,
+                  border: '1px solid #D3DAD6', background: '#FFFFFF', color: '#1C2521',
+                  cursor: 'pointer', accentColor: '#2F5D62',
+                }}
+              >
+                <option value={2500}>2.500</option>
+                <option value={5000}>5.000</option>
+                <option value={10000}>10.000</option>
+              </select>
+            </div>
+          )}
+        </div>
+
+        {/* Kaufkraft / Nominal Toggle — ganz oben */}
+        <div style={{ background: 'rgba(47,93,98,0.06)', border: '1px solid #C8D1CC', borderRadius: 8, padding: '12px 14px', marginBottom: 20 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12.5, color: '#1C2521', fontWeight: 600 }}>
+            <input
+              type="checkbox"
+              checked={heutigeKaufkraft}
+              onChange={(e) => setHeutigeKaufkraft(e.target.checked)}
+              style={{ accentColor: '#2F5D62', width: 16, height: 16, cursor: 'pointer' }}
+            />
+            <span>Heutige Kaufkraft statt nominal<InfoDot text="Wenn aktiviert, werden alle Werte inflationsbereinigt in heutiger Kaufkraft angezeigt — sonst nominal in zukünftigen Beträgen." /></span>
+          </label>
+          {!heutigeKaufkraft && (
+            <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid #D3DAD6' }}>
+              <Slider label="Angenommene Inflation" value={inflationRate} min={0.5} max={6.0} step={0.1}
+                onChange={setInflationRate} format={(v) => v.toFixed(1) + '% p.a.'}
+                hint="Wird zur nominalen Hochrechnung der künftigen Werte genutzt"
+                tip="Annahme für die jährliche Teuerung. Wird genutzt, um künftige Geldwerte in heutige Kaufkraft umzurechnen bzw. nominal darzustellen." />
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+          <div>
+            <SectionLabel color="#2F5D62">Portfolio</SectionLabel>
+            <Slider label="Startvermögen" value={vermoegen} min={100000} max={3000000} step={10000}
+              onChange={setVermoegen} format={fmtEUR}
+              tip="Dein frei verfügbares Gesamtvermögen zu Beginn der Entnahmephase (Aktien + Gold + Bitcoin + Liquidität). Die Eigentumswohnung zählt hier nicht dazu." />
+            <Slider label="Aktienquote" value={aktien} min={50} max={100} step={1}
+              onChange={(v) => setAktien(Math.min(v, 100 - gold - bitcoin - wohnung))} format={(v) => v + '%'}
+              tip="Anteil des Portfolios in Aktien. Mehr Aktien bedeuten langfristig mehr Rendite, aber auch stärkere Wertschwankungen in einzelnen Jahren." />
+            <Slider label="Goldquote" value={gold} min={0} max={30} step={1}
+              onChange={(v) => setGold(Math.min(v, 100 - aktien - bitcoin - wohnung))} format={(v) => v + '%'}
+              tip="Beimischung zur Absicherung gegen Börsencrashs. Gold wird nur entnommen, wenn die Aktien ≥20% unter ihrem Höchststand liegen (Reserve-Modus)." />
+            <Slider label="Bitcoin" value={bitcoin} min={0} max={20} step={1}
+              onChange={(v) => setBitcoin(Math.min(v, 100 - aktien - gold - wohnung))} format={(v) => v + '%'}
+              hint="Eigene, unabhängig vom Modus simulierte Rendite (siehe Hinweise unten)"
+              tip="Risiko-Baustein, separat und unabhängig vom Modus parametrisch simuliert (real ~15% Rendite, 65% Volatilität p.a.). Grobe Schätzung." />
+            <Slider label="Eigentumswohnung" value={wohnung} min={0} max={20} step={1}
+              onChange={(v) => setWohnung(Math.min(v, 100 - aktien - gold - bitcoin))} format={(v) => v + '%'}
+              hint="Illiquide — fließt nicht in die Entnahme-Simulation ein, nur als Sachwert ausgewiesen"
+              tip="Fließt NICHT in die Entnahme-Simulation ein, weil sie illiquide ist — nur als Sachwert ausgewiesen. Die Miete reduziert aber die nötige Entnahme." />
+            <Slider label="ETF-TER (Kosten p.a.)" value={etfTer} min={0} max={1.0} step={0.01}
+              onChange={setEtfTer} format={(v) => v.toFixed(2) + '%'}
+              hint="Wird monatlich vom Aktien-Anteil abgezogen"
+              tip="Gesamtkostenquote (TER) des Aktien-ETF in % pro Jahr. Typische Werte: 0,05–0,20% für Welt-ETFs, 0,15–0,50% für Themen-/Faktor-ETFs. Wird monatlich (TER/12) vom Aktien-Anteil abgezogen." />
+            <div style={{ fontSize: 11.5, color: '#5B6B65' }}>Liquidität (Rest): {cash}%</div>
+          </div>
+
+          <div>
+            <SectionLabel color="#3A6B8A">Person &amp; GRV-Rente</SectionLabel>
+            <Slider label="Alter bei Entnahmebeginn" value={startAge} min={40} max={65} step={1}
+              onChange={setStartAge} format={(v) => v + ' Jahre'}
+              tip="Dein Alter beim Start der Entnahmephase — davon hängt ab, wie viele Jahre das Portfolio reichen muss." />
+            <Slider label="Rentenpunkte" value={rentenpunkte} min={0} max={80} step={1}
+              onChange={setRentenpunkte} format={(v) => v.toFixed(0)}
+              hint="Summe der bis Rentenbeginn erwarteten Entgeltpunkte"
+              tip="Summe deiner bis zum Rentenbeginn erwarteten Entgeltpunkte — bestimmt zusammen mit dem aktuellen Rentenwert die Höhe der gesetzlichen Rente." />
+            <Slider label="Rentenbeginn" value={pensionStartAge} min={63} max={75} step={1}
+              onChange={setPensionStartAge} format={(v) => v + ' Jahre'}
+              hint="z.B. 70 (Regelaltersgrenze)"
+              tip="Ab welchem Alter die gesetzliche Rente gezahlt wird. Vor der Regelaltersgrenze (67) gelten vereinfachte Ab- und Zuschläge." />
+            <div style={{ fontSize: 11.5, color: '#5B6B65' }}>
+              → {fmtEUR(pensionMonthly)}/Monat ab Alter {pensionStartAge} (Jahr {pensionStartYear} der Entnahmephase)
+            </div>
+          </div>
+
+          <div>
+            <SectionLabel color="#C08A2E">Entnahme-Regel</SectionLabel>
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 12, color: '#5B6B65', marginBottom: 6, display: 'flex', alignItems: 'center' }}>Strategie<InfoDot text="Legt fest, wie sich deine jährliche Entnahme entwickelt. 'Dynamisch (Vanguard)' passt sie an den Depotwert an (mit Ceiling/Floor/Boden); 'Statisch' hält den Realbetrag konstant." /></div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={() => setEntnahmeStrategie('dynamisch')} style={{
+                  flex: 1, padding: '7px 6px', fontSize: 11.5, borderRadius: 6, cursor: 'pointer',
+                  border: entnahmeStrategie === 'dynamisch' ? '1px solid #2F5D62' : '1px solid #D3DAD6',
+                  background: entnahmeStrategie === 'dynamisch' ? 'rgba(47,93,98,0.16)' : 'transparent',
+                  color: entnahmeStrategie === 'dynamisch' ? '#2F5D62' : '#5B6B65',
+                }}>Dynamisch (Vanguard)</button>
+                <button onClick={() => setEntnahmeStrategie('statisch')} style={{
+                  flex: 1, padding: '7px 6px', fontSize: 11.5, borderRadius: 6, cursor: 'pointer',
+                  border: entnahmeStrategie === 'statisch' ? '1px solid #2F5D62' : '1px solid #D3DAD6',
+                  background: entnahmeStrategie === 'statisch' ? 'rgba(47,93,98,0.16)' : 'transparent',
+                  color: entnahmeStrategie === 'statisch' ? '#2F5D62' : '#5B6B65',
+                }}>Statisch (fest, real)</button>
+              </div>
+              {entnahmeStrategie === 'statisch' && (
+                <div style={{ fontSize: 10.5, color: '#5B6B65', marginTop: 6 }}>
+                  Jahr 1: Startrate × Vermögen. Danach bleibt der Betrag real (also nur um die bereits eingepreiste
+                  Inflation angepasst) konstant — unabhängig von Portfolioentwicklung. Ceiling/Floor/Boden-Faktor
+                  greifen hier nicht.
+                </div>
+              )}
+            </div>
+            {entnahmeStrategie === 'dynamisch' && (
+              <Slider label="Statische Referenzrate" value={staticRate} min={2} max={4.5} step={0.1}
+                onChange={setStaticRate} format={(v) => v.toFixed(1) + '%'} hint="Basis für den Boden"
+                tip="Der feste Prozentsatz vom Startvermögen, der als harter Mindestboden auch in schlechten Jahren nie unterschritten wird." />
+            )}
+            <Slider label={entnahmeStrategie === 'statisch' ? 'Startentnahmerate' : 'Dynamische Startrate'} value={dynStartRate} min={2} max={8} step={0.1}
+              onChange={setDynStartRate} format={(v) => v.toFixed(1) + '%'}
+              tip="Entnahmerate im ersten Jahr in Prozent vom Startvermögen. Danach folgt die Entnahme der Ceiling/Floor-Regel bzw. bleibt real konstant." />
+            {entnahmeStrategie === 'dynamisch' && (
+              <>
+                <Slider label="Ceiling (max. Anstieg/Jahr)" value={ceiling} min={0} max={10} step={0.5}
+                  onChange={setCeiling} format={(v) => '+' + v.toFixed(1) + '%'}
+                  tip="Wie stark die jährliche Entnahme höchstens gegenüber dem Vorjahr ansteigen darf — schützt vor zu schnellem Abbau in guten Jahren." />
+                <Slider label="Floor (max. Rückgang/Jahr)" value={floor} min={-10} max={0} step={0.5}
+                  onChange={setFloor} format={(v) => v.toFixed(1) + '%'}
+                  tip="Maximaler Rückgang der Entnahme pro Jahr gegenüber dem Vorjahr (negativer Wert). Puffert schlechte Jahre ab — begrenzt von unten durch den harten Boden." />
+              </>
+            )}
+          </div>
+
+          <div>
+            <SectionLabel color="#3A6B8A">{`Zeitraum${mode === 'bootstrap' ? ' & Bootstrap' : ''}`}</SectionLabel>
+            <Slider label="Entnahmehorizont" value={horizon} min={25} max={60} step={1}
+              onChange={setHorizon} format={(v) => v + ' Jahre'}
+              tip="Wie viele Jahre die Entnahmephase dauern soll — das Portfolio muss diesen Zeitraum überbrücken." />
+            <div style={{ marginBottom: 4 }}>
+              <div style={{ fontSize: 12, color: '#5B6B65', marginBottom: 6, display: 'flex', alignItems: 'center' }}>Entnahme-Frequenz<InfoDot text="Wie oft du im Jahr entnimmst. 'Monatlich' verteilt die Entnahmesumme; 'Jährlich' entnimmt den Jahresbetrag auf einmal zu Jahresbeginn (echter Cash-Puffer, aber engere Grenzfälle)." /></div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={() => setEntnahmeFrequenz('monatlich')} style={{
+                  flex: 1, padding: '7px 6px', fontSize: 11.5, borderRadius: 6, cursor: 'pointer',
+                  border: entnahmeFrequenz === 'monatlich' ? '1px solid #2F5D62' : '1px solid #D3DAD6',
+                  background: entnahmeFrequenz === 'monatlich' ? 'rgba(47,93,98,0.16)' : 'transparent',
+                  color: entnahmeFrequenz === 'monatlich' ? '#2F5D62' : '#5B6B65',
+                }}>Monatlich</button>
+                <button onClick={() => setEntnahmeFrequenz('jaehrlich')} style={{
+                  flex: 1, padding: '7px 6px', fontSize: 11.5, borderRadius: 6, cursor: 'pointer',
+                  border: entnahmeFrequenz === 'jaehrlich' ? '1px solid #2F5D62' : '1px solid #D3DAD6',
+                  background: entnahmeFrequenz === 'jaehrlich' ? 'rgba(47,93,98,0.16)' : 'transparent',
+                  color: entnahmeFrequenz === 'jaehrlich' ? '#2F5D62' : '#5B6B65',
+                }}>Jährlich</button>
+              </div>
+              <div style={{ fontSize: 10.5, color: '#5B6B65', marginTop: 4 }}>
+                "Jährlich" entnimmt die komplette Jahressumme auf einen Schlag zu Jahresbeginn — dieser Betrag ist damit
+                für den Rest des Jahres von der Marktentwicklung abgeschirmt (echter Cash-Puffer-Effekt), nur das
+                Restvermögen bleibt investiert. Dadurch braucht "Jährlich" die volle Summe aber sofort verfügbar,
+                bevor die Rendite des Jahres wirken konnte — "Monatlich" kann sich dagegen im Jahresverlauf noch
+                in eine knappe Lage hineinwachsen. Das kann "Jährlich" ausgerechnet in Grenzfällen strenger machen,
+                obwohl der entnommene Betrag selbst sicherer verwahrt ist.
+              </div>
+            </div>
+            {mode === 'bootstrap' && (
+              <Slider label="Blocklänge" value={blockLen} min={1} max={20} step={1}
+                onChange={setBlockLen} format={(v) => v + ' Jahre'}
+                hint="Länge zusammenhängender Jahresblöcke beim Ziehen"
+                tip="Länge der zusammenhängenden Jahresblöcke, die beim Block-Bootstrap zufällig aus der Historie gezogen werden. Kleinere Blöcke = mehr Unabhängigkeit zwischen den Zufallsjahren." />
+            )}
+            <div style={{ fontSize: 11.5, color: '#5B6B65', marginTop: 4 }}>
+              Reserve-Trigger: ETF ≥20% unter Allzeithoch (fest, nicht einstellbar)
+            </div>
+          </div>
+        </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
+        {/* Hero */}
+        <div style={{
+          display: 'flex', flexDirection: 'column', gap: 14,
+          background: '#FFFFFF', border: '1px solid #D3DAD6', borderRadius: 12, padding: 20, marginBottom: 8,
+        }}>
+          {mode === 'bootstrap' && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 11, color: '#5B6B65', display: 'flex', alignItems: 'center' }}>Datenquelle:<InfoDot text="Aus welcher Datenreihe der Block-Bootstrap zieht: amerikanischer S&P 500 seit 1872 oder ein Welt-Aktien-Proxy seit 1970." /></span>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={() => setBootstrapSource('sp500')} style={{
+                  padding: '5px 10px', fontSize: 11, borderRadius: 6, cursor: 'pointer',
+                  border: bootstrapSource === 'sp500' ? '1px solid #2F5D62' : '1px solid #D3DAD6',
+                  background: bootstrapSource === 'sp500' ? 'rgba(47,93,98,0.16)' : 'transparent',
+                  color: bootstrapSource === 'sp500' ? '#2F5D62' : '#5B6B65',
+                }}>S&amp;P 500</button>
+                <button onClick={() => setBootstrapSource('world')} style={{
+                  padding: '5px 10px', fontSize: 11, borderRadius: 6, cursor: 'pointer',
+                  border: bootstrapSource === 'world' ? '1px solid #2F5D62' : '1px solid #D3DAD6',
+                  background: bootstrapSource === 'world' ? 'rgba(47,93,98,0.16)' : 'transparent',
+                  color: bootstrapSource === 'world' ? '#2F5D62' : '#5B6B65',
+                }}>Welt-Proxy</button>
+              </div>
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+              <Gauge value={result.successRate} />
+              <div style={{ fontSize: 10.5, color: '#5B6B65', fontFamily: "'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace", display: 'flex', alignItems: 'center', gap: 4 }}>
+                95%-KI: [{result.ciLow.toFixed(1)}%, {result.ciHigh.toFixed(1)}%]
+                <InfoDot text="Erfolgsquote: In wie viel Prozent aller getesteten Verläufe hat dein Vermögen bis zum Ende gereicht? Das 95%-Konfidenzintervall zeigt die Unsicherheitsspanne dieser Schätzung." />
+              </div>
+            </div>
+            <div style={{ flex: 1, minWidth: 220, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 18px' }}>
+              <Stat label="Basis" value={mode === 'montecarlo' ? 'Normalverteilt' : `${result.numPaths} Pfade`}
+                sub={mode === 'rolling' ? `alle ${horizon}-Jahres-Fenster 1872–2025` : mode === 'world' ? `alle ${horizon}-Jahres-Fenster 1970–2025` : mode === 'bootstrap' ? `Bootstrap aus ${bootstrapSource === 'world' ? 'Welt-Proxy 1970–2025' : 'S&P 500 1872–2025'}` : 'zufällig, unabhängig'}
+                tip="Auf wie vielen unterschiedlichen simulierten oder historischen Verläufen die Erfolgsquote beruht — mehr Pfade bedeuten ein verlässlicheres Ergebnis." />
+              <Stat label="Start-Entnahme (dyn.)" value={fmtEUR(result.dynStartAmount)} sub={`${dynStartRate.toFixed(1)}% vom Vermögen`}
+                tip="Wie viel du im ersten Jahr entnimmst, bevor sich die Entnahme danach an den Depotwert anpasst." />
+              {entnahmeStrategie === 'dynamisch' ? (
+                <Stat label="Harter Boden" value={fmtEUR(result.hardFloor)} sub={`= statische Referenzrate (${fmtEUR(result.staticAmount)})`} color="#A8432F"
+                  tip="Dein Sicherheitsnetz: Egal wie schlecht die Börse läuft, du bekommst nie weniger als diesen Betrag pro Jahr." />
+              ) : (
+                <Stat label="Feste Entnahme" value={fmtEUR(result.dynStartAmount)} sub={`${dynStartRate.toFixed(1)}% vom Startvermögen, real konstant`} color="#2F5D62"
+                  tip="Im statischen Modus bleibt die Entnahme über die gesamte Laufzeit real konstant (nur um Inflation bereinigt) — es gibt keinen zusätzlichen Boden." />
+              )}
+              <Stat label="Median-Endvermögen"
+                value={fmtEUR(heutigeKaufkraft ? result.medianEnd : result.medianEnd * Math.pow(1 + inflationRate / 100, horizon))}
+                sub={heutigeKaufkraft ? `nach ${horizon} Jahren (heutige Kaufkraft)` : `nominal nach ${horizon} Jahren (${inflationRate.toFixed(1)}% Infl.)`}
+                color="#2F5D62"
+                tip="Der mittlere (typische) Vermögensstand am Ende des Zeitraums über alle getesteten Verläufe." />
+              <Stat label="Jahre im Reserve-Modus" value={result.avgBadYearFraction.toFixed(0) + '%'} sub="Anteil Jahre mit ≥20% Drawdown" color="#C08A2E"
+                tip="Wie oft im Schnitt die Börse mindestens 20% unter ihrem bisherigen Höchststand lag und deshalb aus Cash/Gold statt aus dem ETF entnommen wurde." />
+              <Stat label="GRV-Rente"
+                value={fmtEUR(heutigeKaufkraft ? pensionMonthly : pensionMonthly * Math.pow(1 + inflationRate / 100, pensionStartYear)) + '/Mon.'}
+                sub={heutigeKaufkraft ? `ab Alter ${pensionStartAge} (Jahr ${pensionStartYear})` : `ab Alter ${pensionStartAge} (nominal im Jahr ${pensionStartYear})`}
+                color="#3A6B8A"
+                tip="Deine gesetzliche Rente, die ab dem eingestellten Alter die nötige Entnahme aus dem Portfolio verringert." />
+              <Stat label="Sachwert Wohnung" value={fmtEUR(wohnungWert)} sub={`+ ${fmtEUR(rentalYear1)}/J. Miete (Jahr 1)`} color="#5B6B65"
+                tip="Wert deiner Eigentumswohnung (fließt nicht in die Entnahme-Simulation ein) plus die Mieteinnahmen, die den nötigen Entnahmebetrag senken." />
+            </div>
+          </div>
+        </div>
+
+        {mode === 'rolling' && (
+          <div style={{ fontSize: 11.5, color: '#5B6B65', marginBottom: 10, padding: '0 4px' }}>
+            {maxWindows.toLocaleString('de-DE')} überlappende monatliche Startpunkte verfügbar (1872–{1871 + horizon} bis {2025 - horizon + 1}–2025), echte S&amp;P-500-Monatsdaten. Fenster überlappen stark und sind nicht unabhängig — als Stichprobengröße mit Vorsicht zu interpretieren.
+          </div>
+        )}
+        {mode === 'world' && (
+          <div style={{ fontSize: 11.5, color: maxWorldWindows < 120 ? '#A8432F' : '#5B6B65', marginBottom: 10, padding: '0 4px' }}>
+            {maxWorldWindows > 0
+              ? `${maxWorldWindows.toLocaleString('de-DE')} überlappende monatliche Startpunkte verfügbar (1970–${1969 + horizon} bis ${2025 - horizon + 1}–2025). Da hierfür nur Jahresdaten vorliegen, sind die 12 Monate je Jahr geometrisch identisch aufgeteilt (kein echtes Intra-Jahres-Rauschen).`
+              : 'Für diesen Horizont reicht die Welt-Datenreihe (1970–2025) nicht aus — bitte Horizont reduzieren.'}
+            {maxWorldWindows > 0 && maxWorldWindows < 120 && ' Wenige unterschiedliche Jahres-Startpunkte — Ergebnis mit Vorsicht als grobe Tendenz lesen.'}
+          </div>
+        )}
+
+        {/* Sensitivität: welcher Parameter bewegt die Erfolgsquote am meisen? */}
+        <div style={{ background: '#FFFFFF', border: '1px solid #D3DAD6', borderRadius: 12, padding: '16px 18px', marginBottom: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>Sensitivität</div>
+          <div style={{ fontSize: 11, color: '#5B6B65', marginBottom: 12 }}>
+            Wirkung einer kleinen Parameteränderung auf die Erfolgsquote (Prozentpunkte, größere Balken = größerer Hebel)
+          </div>
+          {sensitivity.map((item) => {
+            const maxDelta = Math.max(...sensitivity.map((i) => i.delta), 0.1);
+            return (
+              <div key={item.label} style={{ marginBottom: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, marginBottom: 3 }}>
+                  <span style={{ color: '#5B6B65' }}>{item.label}</span>
+                  <span style={{ fontFamily: "'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace", color: '#1C2521' }}>{item.delta.toFixed(1)} Pkt.</span>
+                </div>
+                <div style={{ background: '#E3E8E5', borderRadius: 4, height: 6, overflow: 'hidden' }}>
+                  <div style={{ width: `${(item.delta / maxDelta) * 100}%`, background: '#3A6B8A', height: '100%' }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Charts */}
+        <ChartBlock title="Vermögensverlauf" subtitle={`10./50./90. Perzentil, ${heutigeKaufkraft ? 'real (heutige Kaufkraft)' : `nominal (inkl. ${inflationRate.toFixed(1)}% p.a. Inflation)`}, Gesamtvermögen (ETF+Gold+Cash)`}>
+          <ComposedChart data={chartData} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid stroke="#E3E8E5" vertical={false} />
+            <XAxis dataKey="year" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
+            <YAxis tickFormatter={fmtEUR} tick={{ fill: '#5B6B65', fontSize: 11, dy: 4 }} tickLine={false} axisLine={false} width={60} />
+            <Tooltip content={<LightTooltip />} />
+            <Area dataKey="balP10" stackId="b" stroke="none" fill="transparent" />
+            <Area dataKey="balBand" stackId="b" stroke="none" fill="#2F5D62" fillOpacity={0.15} />
+            <Line dataKey="balP50" stroke="#2F5D62" strokeWidth={2} dot={false} />
+            {pensionStartYear > 0 && pensionStartYear <= horizon && (
+              <ReferenceLine x={pensionStartYear} stroke="#3A6B8A" strokeDasharray="3 3" label={{ value: 'Rentenbeginn', position: 'insideTopRight', fill: '#3A6B8A', fontSize: 10 }} />
+            )}
+          </ComposedChart>
+        </ChartBlock>
+
+        <ChartBlock title="Entnahmeverlauf" subtitle={`10./50./90. Perzentil, ${heutigeKaufkraft ? 'real (heutige Kaufkraft)' : `nominal (inkl. ${inflationRate.toFixed(1)}% p.a. Inflation)`} pro Jahr${entnahmeStrategie === 'dynamisch' ? ' · Bodenlinie gestrichelt' : ''}`}>}
+          <ComposedChart data={chartData} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid stroke="#E3E8E5" vertical={false} />
+            <XAxis dataKey="year" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
+            <YAxis tickFormatter={fmtEUR} tick={{ fill: '#5B6B65', fontSize: 11, dy: 4 }} tickLine={false} axisLine={false} width={60} />
+            <Tooltip content={<LightTooltip />} />
+            <Area dataKey="spendP10" stackId="s" stroke="none" fill="transparent" />
+            <Area dataKey="spendBand" stackId="s" stroke="none" fill="#C08A2E" fillOpacity={0.15} />
+            <Line dataKey="spendP50" stroke="#C08A2E" strokeWidth={2} dot={false} />
+            {entnahmeStrategie === 'dynamisch' && (
+              <Line dataKey={() => result.hardFloor} stroke="#A8432F" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
+            )}
+            {pensionStartYear > 0 && pensionStartYear <= horizon && (
+              <ReferenceLine x={pensionStartYear} stroke="#3A6B8A" strokeDasharray="3 3" label={{ value: 'Rentenbeginn', position: 'insideTopRight', fill: '#3A6B8A', fontSize: 10 }} />
+            )}
+          </ComposedChart>
+        </ChartBlock>
+
+        <ChartBlock title="Ausfallwahrscheinlichkeit im Zeitverlauf" subtitle="Anteil Pfade, deren Vermögen bis zu diesem Jahr bereits aufgebraucht war (kumulativ) &middot; rote Linie = 2,5%-Zielgrenze">
+          <ComposedChart data={result.failureCurve} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid stroke="#E3E8E5" vertical={false} />
+            <XAxis dataKey="year" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
+            <YAxis tickFormatter={(v) => v.toFixed(1) + '%'} tick={{ fill: '#5B6B65', fontSize: 11, dy: 4 }} tickLine={false} axisLine={false} width={44} />
+            <Tooltip content={<FailTooltip />} />
+            <Area dataKey="failRate" stroke="none" fill="#A8432F" fillOpacity={0.15} />
+            <Line dataKey="failRate" stroke="#A8432F" strokeWidth={2} dot={false} />
+            <Line dataKey={() => 2.5} stroke="#5B6B65" strokeWidth={1} strokeDasharray="4 4" dot={false} />
+          </ComposedChart>
+        </ChartBlock>
+
+        {/* Notes */}
+        <div style={{ background: '#FFFFFF', border: '1px solid #D3DAD6', borderRadius: 12, padding: '16px 18px', fontSize: 12.5, color: '#5B6B65', lineHeight: 1.6, marginTop: 8 }}>
+          <div style={{ color: '#1C2521', fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Annahmen &amp; Grenzen</div>
+          Die Entnahmehöhe folgt weiterhin der Vanguard-Ceiling/Floor-Regel (jährlich neu berechnet als Entnahmerate × aktueller Portfoliowert, begrenzt durch Ceiling/Floor relativ zur tatsächlichen Vorjahresentnahme) mit hartem Boden. Neu ist die <em>Entnahme-Reihenfolge</em>:
+          Cash und Gold werden nur in Jahren mit ≥20% ETF-Drawdown (ggü. dem bisherigen Höchststand) angezapft — zuerst Cash, dann Gold,
+          erst wenn beide leer sind wieder der ETF. In normalen/guten Jahren kommt die gesamte Entnahme aus dem ETF. Einmal geleerte
+          Reserven werden nie wieder aufgefüllt (keine Rebalancierung) — das Portfolio "rutscht" also mit der Zeit in Richtung 100% ETF.{' '}
+          <strong style={{ color: '#1C2521' }}>Bitcoin:</strong> wird als weiterer Risiko-Baustein behandelt (Reihenfolge gute Jahre: ETF → Bitcoin →
+          Gold → Cash; schlechte Jahre: Cash → Gold → Bitcoin → ETF). Da keine ausreichend lange Kursreihe existiert, wird Bitcoin — anders als
+          Aktien/Gold/Cash — in <em>jedem</em> Modus, auch den "historischen", parametrisch simuliert (real: 15% Rendite-Erwartung, 65% Volatilität
+          p.a., Korrelation zu Aktien 0,3, lognormalverteilt damit keine Jahresrendite unter −100% möglich ist — grobe Schätzwerte). <strong style={{ color: '#1C2521' }}>Eigentumswohnung:</strong> geht NICHT in die
+          Entnahme-Simulation ein (illiquide, nicht kurzfristig verwertbar) — nur als separater, deterministisch mit 1,5% p.a. real fortgeschriebener
+          Sachwert ausgewiesen. Die laufenden <strong style={{ color: '#1C2521' }}>Mieteinnahmen</strong> (angenommen: 3% des jeweils aktuellen
+          Werts p.a., real, ohne Instandhaltungskosten/Leerstand) wirken dagegen wie die GRV-Rente: Sie reduzieren ab Jahr 1 den nötigen
+          Portfolio-Entnahmebetrag, ohne dass die Wohnung selbst verkauft oder liquidiert wird.{' '}
+          <strong style={{ color: '#1C2521' }}>GRV-Rente:</strong> Ab dem eingestellten Rentenbeginn-Alter deckt die gesetzliche Rente
+          (Rentenpunkte × aktueller Rentenwert, 42,52 €/Monat seit 1.7.2026, plus vereinfachter Ab-/Zuschlag von 0,3%/Monat vor bzw. 0,5%/Monat
+          nach der Regelaltersgrenze 67) einen Teil der Zielentnahme — das Portfolio muss nur noch die Differenz liefern. Der Rentenwert wird über
+          die gesamte Laufzeit real (inflationsbereinigt) konstant gehalten. Nicht berücksichtigt: Steuern auf die Rente, Kranken-/Pflegeversicherungsbeiträge
+          der GKVdR, sowie Mindestversicherungszeiten für einen vorzeitigen Bezug ab 63.{' '}
+          {mode === 'montecarlo' ? (
+            <>Reale Renditeannahmen (Mittelwert / Volatilität p.a.): Aktien 5,0% / 18%, Gold 0,5% / 15%, Liquidität 0,0% / 1,5%,
+            Korrelation Aktien–Gold −0,1. Normalverteilt, jahresweise unabhängig — keine Fat Tails, keine Autokorrelation.</>
+          ) : (
+            <>Datenbasis: US-Aktien (S&amp;P 500 bzw. dessen Vorläuferindex, inkl. Dividenden), Gold und Liquiditäts-Proxy, 1872–2025,
+            deflationiert mit US-Konsumentenpreisindex — eine US-Näherung für "weltweit gestreute Aktien", da eine so lange globale Reihe
+            öffentlich nicht in dieser Länge verfügbar ist. <strong style={{ color: '#1C2521' }}>Für 1872–1927</strong> gilt zusätzlich:
+            Aktienrenditen und CPI stammen aus Robert Shillers/Cowles' Datenreihe (über DQYDJ), Gold ist auf ~0% gesetzt (US-Goldstandard,
+            Preis bis 1933 bei $20,67/oz fixiert — keine frei gehandelte Anlageklasse), Cash/Liquidität ist eine grobe, konstante 4,0%-p.a.-Näherung
+            (keine verlässliche jahresgenaue Kurzfrist-Zinsreihe für diese Periode verfügbar). Nicht-US-Märkte (Japan, Deutschland/Österreich nach
+            den Weltkriegen) verliefen historisch teils deutlich schlechter, die gezeigte Erfolgsquote ist daher eher eine obere Schätzung.{' '}
+            {mode === 'world' && 'Dieser Modus nutzt stattdessen einen Welt-Aktien-Proxy (65% US Large Cap + 35% internationale Industrieländer, MSCI EAFE) ab 1970 — realistischere Diversifikation, aber kürzere und damit weniger belastbare Datenreihe (keine Weltwirtschaftskrise, kein Zweiter Weltkrieg abgedeckt; Emerging Markets fehlen ebenfalls). Die feste 65/35-Gewichtung ist selbst eine Vereinfachung, echte MSCI-World-Gewichte schwankten historisch (US-Anteil zeitweise nur ~30%, aktuell ~70%). '}
+            {mode === 'rolling'
+              ? 'Rollierende Fenster nutzen exakte historische Reihenfolgen, überlappen sich aber stark (geringe effektive Stichprobengröße).'
+              : mode === 'world'
+              ? 'Auch hier: rollierende, überlappende Fenster mit exakten historischen Reihenfolgen.'
+              : `Block-Bootstrap zieht zufällige ${blockLen}-Jahres-Blöcke (mit Zurücklegen) aus ${bootstrapSource === 'world' ? 'dem Welt-Proxy-Datensatz (1970–2025)' : 'der S&P-500-Historie (1872–2025)'} und baut daraus ${numSims.toLocaleString('de-DE')} synthetische Pfade.`}
+            </>
+          )}
+          {' '}Kein Ersatz für professionelle Finanzberatung.
+        </div>
+          </div>
+        </div>
+      </div>
+
+      <style>{`
+        @media (max-width: 860px) { .sim-grid { grid-template-columns: 1fr !important; } }
+        .sim-grid > * { min-width: 0; }
+        input[type="range"] { height: 4px; }
+      `}</style>
+    </div>
+  );
+}
