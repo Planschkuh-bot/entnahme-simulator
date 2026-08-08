@@ -280,17 +280,18 @@ const MONTHLY_EQ_SP = [
 // ihre jährlichen REALEN Renditen geometrisch gleichmäßig auf 12 Monate verteilt (kein echtes
 // Intra-Jahres-Rauschen für diese beiden Anlageklassen, im Gegensatz zu den echten Aktien-Monatsdaten).
 function buildMonthlyGoldCash() {
-  const goldM = [], cashM = [];
+  const goldM = [], cashM = [], bondM = [];
   const relevant = HIST.filter((r) => r.y >= 1872 && r.y <= 2025).sort((a, b) => a.y - b.y);
   for (const row of relevant) {
     const real = realAssetReturns(row);
     const gM = Math.pow(1 + real.gold, 1 / 12) - 1;
     const cM = Math.pow(1 + real.cash, 1 / 12) - 1;
-    for (let i = 0; i < 12; i++) { goldM.push(gM); cashM.push(cM); }
+    const bM = Math.pow(1.025 / (1 + row.cpi / 100), 1 / 12) - 1;
+    for (let i = 0; i < 12; i++) { goldM.push(gM); cashM.push(cM); bondM.push(bM); }
   }
-  return { goldM, cashM };
+  return { goldM, cashM, bondM };
 }
-const { goldM: MONTHLY_GOLD_SP, cashM: MONTHLY_CASH_SP } = buildMonthlyGoldCash();
+const { goldM: MONTHLY_GOLD_SP, cashM: MONTHLY_CASH_SP, bondM: MONTHLY_BOND_SP } = buildMonthlyGoldCash();
 
 // ---------- Shared helpers ----------
 
@@ -340,7 +341,9 @@ const ASSUMPTIONS = {
   eq: { mu: 0.05, sig: 0.18 },
   gold: { mu: 0.005, sig: 0.15 },
   cash: { mu: 0.0, sig: 0.015 },
+  bond: { mu: 0.02, sig: 0.04 },
   rhoEqGold: -0.1,
+  rhoEqBond: -0.15,
 };
 
 // Bitcoin: eigene, unabhängig vom gewählten Modus stets normalverteilt simulierte Renditen (auch in den
@@ -367,10 +370,10 @@ const WOHNUNG_MIETRENDITE = 0.03;
 // Wird für die gesamte Laufzeit real (also inflationsbereinigt) konstant gehalten — eine übliche
 // Vereinfachung, da sich der Rentenwert langfristig etwa mit der Lohn-/Preisentwicklung bewegt.
 const RENTENWERT_MONATLICH = 42.52;
-const REGELALTERSGRENZE = 70;
+const REGELALTERSGRENZE = 67;
 
-// Rentenabschlag (vorzeitiger Bezug) bzw. -zuschlag (Aufschub) ggü. der Regelaltersgrenze 70:
-// -0,3%/Monat vor 70, +0,5%/Monat nach 70 (vereinfachte Nachbildung der gesetzlichen Regelung).
+// Rentenabschlag (vorzeitiger Bezug) bzw. -zuschlag (Aufschub) ggü. der Regelaltersgrenze 67:
+// -0,3%/Monat vor 67, +0,5%/Monat nach 67 (vereinfachte Nachbildung der gesetzlichen Regelung).
 function pensionAdjustmentFactor(pensionStartAge) {
   const monthsDiff = (pensionStartAge - REGELALTERSGRENZE) * 12;
   return monthsDiff < 0 ? 1 + monthsDiff * 0.003 : 1 + monthsDiff * 0.005;
@@ -421,7 +424,7 @@ function realAssetReturns(row) {
 // Bucket-Reihenfolge (gute Zeiten: ETF → Bitcoin → Gold → Cash; schlechte Zeiten: Cash → Gold → Bitcoin
 // → ETF) laufen bei monatlicher Frequenz monatlich, bei jährlicher Frequenz einmal pro Jahr. Reserven
 // werden nie wieder aufgefüllt.
-function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, btcR, wEq, wGold, wCash, wBtc, p) {
+function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, bondR, btcR, wEq, wGold, wCash, wBond, wBtc, p) {
   const staticAmount = (p.staticRate / 100) * vermoegen;
   const hardFloorAnnual = staticAmount;
   const isStatic = p.entnahmeStrategie === 'statisch';
@@ -431,6 +434,7 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, btcR, wEq, wGol
   let eqBal = vermoegen * wEq;
   let goldBal = vermoegen * wGold;
   let cashBal = vermoegen * wCash;
+  let bondBal = vermoegen * wBond;
   let btcBal = vermoegen * wBtc;
   let eqIndex = 100;
   let eqATH = 100;
@@ -445,7 +449,7 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, btcR, wEq, wGol
   const horizon = p.horizon;
   let mi = 0;
   for (let y = 0; y < horizon; y++) {
-    const totalAtYearStart = eqBal + goldBal + cashBal + btcBal;
+    const totalAtYearStart = eqBal + goldBal + cashBal + bondBal + btcBal;
     let yearSpending;
     if (y === 0 || isStatic) {
       // Statisch: bleibt für die gesamte Laufzeit real konstant (Jahr 0 = Startbetrag).
@@ -467,7 +471,7 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, btcR, wEq, wGol
 
     if (isAnnualFreq) {
       // Eine Entnahme am Jahresanfang, Reserve-Trigger einmal pro Jahr geprüft.
-      const totalBefore = eqBal + goldBal + cashBal + btcBal;
+      const totalBefore = eqBal + goldBal + cashBal + bondBal + btcBal;
       const drawdown = eqATH > 0 ? (eqATH - eqIndex) / eqATH : 0;
       const badYear = drawdown >= 0.20;
       if (badYear) badMonthCount += 12;
@@ -477,20 +481,22 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, btcR, wEq, wGol
       let need = Math.min(needRaw, Math.max(totalBefore, 0));
 
       let remaining = need;
-      const order = badYear ? ['cash', 'gold', 'btc', 'eq'] : ['eq', 'btc', 'gold', 'cash'];
+      const order = badYear ? ['cash', 'bond', 'gold', 'btc', 'eq'] : ['eq', 'btc', 'bond', 'gold', 'cash'];
       for (const bucket of order) {
         if (remaining <= 0) break;
         if (bucket === 'cash') { const take = Math.min(remaining, cashBal); cashBal -= take; remaining -= take; }
+        else if (bucket === 'bond') { const take = Math.min(remaining, bondBal); bondBal -= take; remaining -= take; }
         else if (bucket === 'gold') { const take = Math.min(remaining, goldBal); goldBal -= take; remaining -= take; }
         else if (bucket === 'btc') { const take = Math.min(remaining, btcBal); btcBal -= take; remaining -= take; }
         else { const take = Math.min(remaining, eqBal); eqBal -= take; remaining -= take; }
       }
 
       for (let mm = 0; mm < 12; mm++) {
-        const rEq = eqR[mi], rGold = goldR[mi], rCash = cashR[mi], rBtc = btcR[mi];
+        const rEq = eqR[mi], rGold = goldR[mi], rCash = cashR[mi], rBond = bondR[mi], rBtc = btcR[mi];
         eqBal *= (1 + rEq - etfTerMonthly);
         goldBal *= (1 + rGold);
         cashBal *= (1 + rCash);
+        bondBal *= (1 + rBond);
         btcBal *= (1 + rBtc);
         eqIndex *= (1 + rEq);
         if (eqIndex > eqATH) eqATH = eqIndex;
@@ -502,7 +508,7 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, btcR, wEq, wGol
       const monthlyRental = rentalThisYear / 12;
 
       for (let mm = 0; mm < 12; mm++) {
-        const totalBefore = eqBal + goldBal + cashBal + btcBal;
+        const totalBefore = eqBal + goldBal + cashBal + bondBal + btcBal;
         const drawdown = eqATH > 0 ? (eqATH - eqIndex) / eqATH : 0;
         const badMonth = drawdown >= 0.20;
         if (badMonth) badMonthCount++;
@@ -521,10 +527,11 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, btcR, wEq, wGol
           else { const take = Math.min(remaining, eqBal); eqBal -= take; remaining -= take; }
         }
 
-        const rEq = eqR[mi], rGold = goldR[mi], rCash = cashR[mi], rBtc = btcR[mi];
+        const rEq = eqR[mi], rGold = goldR[mi], rCash = cashR[mi], rBond = bondR[mi], rBtc = btcR[mi];
         eqBal *= (1 + rEq - etfTerMonthly);
         goldBal *= (1 + rGold);
         cashBal *= (1 + rCash);
+        bondBal *= (1 + rBond);
         btcBal *= (1 + rBtc);
         eqIndex *= (1 + rEq);
         if (eqIndex > eqATH) eqATH = eqIndex;
@@ -533,13 +540,13 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, btcR, wEq, wGol
     }
 
     spends.push(yearSpending);
-    const totalAfter = eqBal + goldBal + cashBal + btcBal;
+    const totalAfter = eqBal + goldBal + cashBal + bondBal + btcBal;
     balances.push(Math.max(totalAfter, 0));
     failedByYear.push(failed);
     prevAnnualSpending = yearSpending;
   }
 
-  const finalBalance = Math.max(eqBal + goldBal + cashBal + btcBal, 0);
+  const finalBalance = Math.max(eqBal + goldBal + cashBal + bondBal + btcBal, 0);
   return {
     failed, finalBalance, balances, spends, failedByYear, hardFloor: hardFloorAnnual, staticAmount,
     dynStartAmount: spends[0],
@@ -606,26 +613,28 @@ function aggregate(paths, horizon) {
 
 function runMonteCarlo(p) {
   seedRng(p.seed);
-  const { eq, gold, cash, rhoEqGold } = ASSUMPTIONS;
+  const { eq, gold, cash, bond, rhoEqGold, rhoEqBond } = ASSUMPTIONS;
   // Monatliche Parameter aus den jährlichen Annahmen abgeleitet (geometrisches Mittel / sqrt(12)-Vol).
   const eqMuM = Math.pow(1 + eq.mu, 1 / 12) - 1, eqSigM = eq.sig / Math.sqrt(12);
+  const bondMuM = Math.pow(1 + bond.mu, 1 / 12) - 1, bondSigM = bond.sig / Math.sqrt(12);
   const goldMuM = Math.pow(1 + gold.mu, 1 / 12) - 1, goldSigM = gold.sig / Math.sqrt(12);
   const cashMuM = Math.pow(1 + cash.mu, 1 / 12) - 1, cashSigM = cash.sig / Math.sqrt(12);
   const muLogM = BTC_MU_LOG / 12, sigLogM = BTC_SIG_LOG / Math.sqrt(12);
-  const wEq = p.aktien / 100, wGold = p.gold / 100, wCash = p.cash / 100, wBtc = p.bitcoin / 100;
+  const wEq = p.aktien / 100, wGold = p.gold / 100, wCash = p.cash / 100, wBond = p.anleihen / 100, wBtc = p.bitcoin / 100;
   const rhoBtc = BTC_ASSUMPTIONS.rhoWithEq;
   const horizonM = p.horizon * 12;
   const paths = [];
   for (let s = 0; s < p.numSims; s++) {
-    const eqR = [], goldR = [], cashR = [], btcR = [];
+    const eqR = [], goldR = [], cashR = [], bondR = [], btcR = [];
     for (let t = 0; t < horizonM; t++) {
       const z1 = randNormal(), z2 = randNormal(), z3 = randNormal(), z4 = randNormal();
       eqR.push(eqMuM + eqSigM * z1);
       goldR.push(goldMuM + goldSigM * (rhoEqGold * z1 + Math.sqrt(1 - rhoEqGold * rhoEqGold) * z2));
       cashR.push(cashMuM + cashSigM * z3);
+      bondR.push(bondMuM + bondSigM * (rhoEqBond * z1 + Math.sqrt(1 - rhoEqBond * rhoEqBond) * z2));
       btcR.push(Math.exp(muLogM + sigLogM * (rhoBtc * z1 + Math.sqrt(1 - rhoBtc * rhoBtc) * z4)) - 1);
     }
-    paths.push(simulateWithdrawalBuckets(p.vermoegen, eqR, goldR, cashR, btcR, wEq, wGold, wCash, wBtc, p));
+    paths.push(simulateWithdrawalBuckets(p.vermoegen, eqR, goldR, cashR, bondR, btcR, wEq, wGold, wCash, wBond, wBtc, p));
   }
   return aggregate(paths, p.horizon);
 }
@@ -669,10 +678,14 @@ function buildMonthlyWorld() {
   return { eqM, goldM, cashM };
 }
 const { eqM: MONTHLY_EQ_WORLD, goldM: MONTHLY_GOLD_WORLD, cashM: MONTHLY_CASH_WORLD } = buildMonthlyWorld();
+const MONTHLY_BOND_WORLD = MONTHLY_CASH_WORLD.map((_, i) => {
+  const row = HIST_WORLD[Math.floor(i / 12)];
+  return Math.pow(1.025 / (1 + row.cpi / 100), 1 / 12) - 1;
+});
 
 function runHistoricalRolling(p) {
   seedRng(p.seed);
-  const wEq = p.aktien / 100, wGold = p.gold / 100, wCash = p.cash / 100, wBtc = p.bitcoin / 100;
+  const wEq = p.aktien / 100, wGold = p.gold / 100, wCash = p.cash / 100, wBond = p.anleihen / 100, wBtc = p.bitcoin / 100;
   const horizonM = p.horizon * 12;
   const totalM = MONTHLY_EQ_SP.length;
   const paths = [];
@@ -680,15 +693,16 @@ function runHistoricalRolling(p) {
     const eqR = MONTHLY_EQ_SP.slice(start, start + horizonM);
     const goldR = MONTHLY_GOLD_SP.slice(start, start + horizonM);
     const cashR = MONTHLY_CASH_SP.slice(start, start + horizonM);
+    const bondR = MONTHLY_BOND_SP.slice(start, start + horizonM);
     const btcR = generateBtcReturnsMonthly(horizonM);
-    paths.push(simulateWithdrawalBuckets(p.vermoegen, eqR, goldR, cashR, btcR, wEq, wGold, wCash, wBtc, p));
+    paths.push(simulateWithdrawalBuckets(p.vermoegen, eqR, goldR, cashR, bondR, btcR, wEq, wGold, wCash, wBond, wBtc, p));
   }
   return aggregate(paths, p.horizon);
 }
 
 function runWorldRolling(p) {
   seedRng(p.seed);
-  const wEq = p.aktien / 100, wGold = p.gold / 100, wCash = p.cash / 100, wBtc = p.bitcoin / 100;
+  const wEq = p.aktien / 100, wGold = p.gold / 100, wCash = p.cash / 100, wBond = p.anleihen / 100, wBtc = p.bitcoin / 100;
   const horizonM = p.horizon * 12;
   const totalM = MONTHLY_EQ_WORLD.length;
   const paths = [];
@@ -696,32 +710,34 @@ function runWorldRolling(p) {
     const eqR = MONTHLY_EQ_WORLD.slice(start, start + horizonM);
     const goldR = MONTHLY_GOLD_WORLD.slice(start, start + horizonM);
     const cashR = MONTHLY_CASH_WORLD.slice(start, start + horizonM);
+    const bondR = MONTHLY_BOND_WORLD.slice(start, start + horizonM);
     const btcR = generateBtcReturnsMonthly(horizonM);
-    paths.push(simulateWithdrawalBuckets(p.vermoegen, eqR, goldR, cashR, btcR, wEq, wGold, wCash, wBtc, p));
+    paths.push(simulateWithdrawalBuckets(p.vermoegen, eqR, goldR, cashR, bondR, btcR, wEq, wGold, wCash, wBond, wBtc, p));
   }
   return aggregate(paths, p.horizon);
 }
 
 function runHistoricalBootstrap(p) {
   seedRng(p.seed);
-  const wEq = p.aktien / 100, wGold = p.gold / 100, wCash = p.cash / 100, wBtc = p.bitcoin / 100;
+  const wEq = p.aktien / 100, wGold = p.gold / 100, wCash = p.cash / 100, wBond = p.anleihen / 100, wBtc = p.bitcoin / 100;
   const srcEq = p.bootstrapSource === 'world' ? MONTHLY_EQ_WORLD : MONTHLY_EQ_SP;
   const srcGold = p.bootstrapSource === 'world' ? MONTHLY_GOLD_WORLD : MONTHLY_GOLD_SP;
   const srcCash = p.bootstrapSource === 'world' ? MONTHLY_CASH_WORLD : MONTHLY_CASH_SP;
+  const srcBond = p.bootstrapSource === 'world' ? MONTHLY_BOND_WORLD : MONTHLY_BOND_SP;
   const horizonM = p.horizon * 12;
   const blockLenM = p.blockLen * 12;
   const paths = [];
   for (let s = 0; s < p.numSims; s++) {
-    const eqR = [], goldR = [], cashR = [];
+    const eqR = [], goldR = [], cashR = [], bondR = [];
     while (eqR.length < horizonM) {
       const start = Math.floor(_rng() * srcEq.length);
       for (let i = 0; i < blockLenM && eqR.length < horizonM; i++) {
         const idx = (start + i) % srcEq.length;
-        eqR.push(srcEq[idx]); goldR.push(srcGold[idx]); cashR.push(srcCash[idx]);
+        eqR.push(srcEq[idx]); goldR.push(srcGold[idx]); cashR.push(srcCash[idx]); bondR.push(srcBond[idx]);
       }
     }
     const btcR = generateBtcReturnsMonthly(horizonM);
-    paths.push(simulateWithdrawalBuckets(p.vermoegen, eqR, goldR, cashR, btcR, wEq, wGold, wCash, wBtc, p));
+    paths.push(simulateWithdrawalBuckets(p.vermoegen, eqR, goldR, cashR, bondR, btcR, wEq, wGold, wCash, wBond, wBtc, p));
   }
   return aggregate(paths, p.horizon);
 }
@@ -935,29 +951,30 @@ function EntnahmeSimulator() {
 
   const [mode, setMode] = useState('bootstrap'); // 'montecarlo' | 'rolling' | 'world' | 'bootstrap'
   const [showGuide, setShowGuide] = useState(false);
-  const [vermoegen, setVermoegen] = useState(1130000);
-  const [aktien, setAktien] = useState(87);
-  const [gold, setGold] = useState(7);
+  const [vermoegen, setVermoegen] = useState(300000);
+  const [aktien, setAktien] = useState(80);
+  const [gold, setGold] = useState(0);
   const [bitcoin, setBitcoin] = useState(0);
   const [wohnung, setWohnung] = useState(0);
-  const cash = Math.max(0, 100 - aktien - gold - bitcoin - wohnung);
+  const [anleihen, setAnleihen] = useState(15);
+  const cash = Math.max(0, 100 - aktien - gold - anleihen - bitcoin - wohnung);
 
-  const [staticRate, setStaticRate] = useState(2.5);
-  const [dynStartRate, setDynStartRate] = useState(3.2);
+  const [staticRate, setStaticRate] = useState(10);
+  const [dynStartRate, setDynStartRate] = useState(12);
   const [ceiling, setCeiling] = useState(5.0);
   const [floor, setFloor] = useState(-2.5);
-  const [horizon, setHorizon] = useState(45);
+  const [horizon, setHorizon] = useState(20);
   const [entnahmeStrategie, setEntnahmeStrategie] = useState('dynamisch');
   const [entnahmeFrequenz, setEntnahmeFrequenz] = useState('jaehrlich');
   const [heutigeKaufkraft, setHeutigeKaufkraft] = useState(true);
   const [inflationRate, setInflationRate] = useState(2.0);
   const [blockLen, setBlockLen] = useState(7);
   const [bootstrapSource, setBootstrapSource] = useState('sp500');
-  const [startAge, setStartAge] = useState(50);
-  const [rentenpunkte, setRentenpunkte] = useState(25);
-  const [pensionStartAge, setPensionStartAge] = useState(70);
+  const [startAge, setStartAge] = useState(67);
+  const [rentenpunkte, setRentenpunkte] = useState(40);
+  const [pensionStartAge, setPensionStartAge] = useState(67);
   const [seed, setSeed] = useState(0);
-  const [etfTer, setEtfTer] = useState(0.25);
+  const [etfTer, setEtfTer] = useState(0.2);
 
   const [numSims, setNumSims] = useState(2500);
   const pensionAnnual = computePensionAnnual(rentenpunkte, pensionStartAge);
@@ -971,10 +988,10 @@ function EntnahmeSimulator() {
   // Slider-Labels selbst reagieren weiterhin sofort, nur die Neuberechnung verzögert sich leicht.
   const liveParams = useMemo(() => ({
     mode, vermoegen, aktien, gold, cash, bitcoin, staticRate, dynStartRate, ceiling, floor,
-    horizon, blockLen, bootstrapSource, startAge, pensionStartAge, pensionAnnual, rentalIncomeByYear, seed,
+    horizon, blockLen, bootstrapSource, startAge, pensionStartAge, pensionAnnual, rentalIncomeByYear, seed, anleihen,
     entnahmeStrategie, entnahmeFrequenz, numSims, etfTer,
   }), [mode, vermoegen, aktien, gold, cash, bitcoin, staticRate, dynStartRate, ceiling, floor,
-    horizon, blockLen, bootstrapSource, startAge, pensionStartAge, pensionAnnual, rentalIncomeByYear, seed,
+    horizon, blockLen, bootstrapSource, startAge, pensionStartAge, pensionAnnual, rentalIncomeByYear, seed, anleihen,
     entnahmeStrategie, entnahmeFrequenz, numSims, etfTer]);
   const [debounced, isCalculating] = useDebounced(liveParams, 200);
 
@@ -982,7 +999,7 @@ function EntnahmeSimulator() {
     const d = debounced;
     const params = { vermoegen: d.vermoegen, aktien: d.aktien, gold: d.gold, cash: d.cash, bitcoin: d.bitcoin,
       staticRate: d.staticRate, dynStartRate: d.dynStartRate, ceiling: d.ceiling, floor: d.floor,
-      horizon: d.horizon, numSims: d.numSims, blockLen: d.blockLen, bootstrapSource: d.bootstrapSource,
+      horizon: d.horizon, numSims: d.numSims, blockLen: d.blockLen, bootstrapSource: d.bootstrapSource, anleihen: d.anleihen,
       startAge: d.startAge, pensionStartAge: d.pensionStartAge, pensionAnnual: d.pensionAnnual,
       rentalIncomeByYear: d.rentalIncomeByYear, seed: d.seed,
       entnahmeStrategie: d.entnahmeStrategie, entnahmeFrequenz: d.entnahmeFrequenz, etfTer: d.etfTer };
@@ -995,7 +1012,7 @@ function EntnahmeSimulator() {
     const sensNumSims = 500;
     const base = { vermoegen: d.vermoegen, aktien: d.aktien, gold: d.gold, cash: d.cash, bitcoin: d.bitcoin,
       staticRate: d.staticRate, dynStartRate: d.dynStartRate, ceiling: d.ceiling, floor: d.floor,
-      horizon: d.horizon, numSims: sensNumSims, blockLen: d.blockLen,
+      horizon: d.horizon, numSims: sensNumSims, blockLen: d.blockLen, anleihen: d.anleihen,
       bootstrapSource: d.bootstrapSource, startAge: d.startAge, pensionStartAge: d.pensionStartAge,
       pensionAnnual: d.pensionAnnual, rentalIncomeByYear: d.rentalIncomeByYear, seed: d.seed,
       entnahmeStrategie: d.entnahmeStrategie, entnahmeFrequenz: d.entnahmeFrequenz, etfTer: d.etfTer };
@@ -1021,7 +1038,7 @@ function EntnahmeSimulator() {
       items.push({ label: 'Horizont ±5 Jahre', delta: impact(rLo, rHi) });
     }
     {
-      const ageLo = Math.max(63, d.pensionStartAge - 1), ageHi = Math.min(70, d.pensionStartAge + 1);
+      const ageLo = Math.max(63, d.pensionStartAge - 1), ageHi = Math.min(75, d.pensionStartAge + 1);
       const rLo = run({ pensionStartAge: ageLo, pensionAnnual: computePensionAnnual(rentenpunkte, ageLo) });
       const rHi = run({ pensionStartAge: ageHi, pensionAnnual: computePensionAnnual(rentenpunkte, ageHi) });
       items.push({ label: 'Rentenbeginn ±1 Jahr', delta: impact(rLo, rHi) });
@@ -1050,7 +1067,7 @@ function EntnahmeSimulator() {
       const str = (k, setter) => { if (sp.has(k)) setter(sp.get(k)); };
       str('mode', setMode);
       num('vermoegen', setVermoegen); num('aktien', setAktien); num('gold', setGold);
-      num('bitcoin', setBitcoin); num('wohnung', setWohnung); num('etfTer', setEtfTer);
+      num('bitcoin', setBitcoin); num('anleihen', setAnleihen); num('wohnung', setWohnung); num('etfTer', setEtfTer);
       num('staticRate', setStaticRate); num('dynStartRate', setDynStartRate);
       num('ceiling', setCeiling); num('floor', setFloor);
       num('horizon', setHorizon); num('blockLen', setBlockLen); str('bootstrapSource', setBootstrapSource);
@@ -1060,10 +1077,11 @@ function EntnahmeSimulator() {
   }, []);
 
   const [shareLabel, setShareLabel] = useState('🔗 Konfiguration teilen');
+  const [selectedPreset, setSelectedPreset] = useState('rentner');
   function shareConfig() {
     const sp = new URLSearchParams();
     sp.set('mode', mode); sp.set('vermoegen', vermoegen); sp.set('aktien', aktien); sp.set('gold', gold);
-    sp.set('bitcoin', bitcoin); sp.set('wohnung', wohnung); sp.set('etfTer', etfTer); sp.set('staticRate', staticRate);
+    sp.set('bitcoin', bitcoin); sp.set('anleihen', anleihen); sp.set('wohnung', wohnung); sp.set('etfTer', etfTer); sp.set('staticRate', staticRate);
     sp.set('dynStartRate', dynStartRate); sp.set('ceiling', ceiling); sp.set('floor', floor);
     sp.set('horizon', horizon); sp.set('blockLen', blockLen);
     sp.set('bootstrapSource', bootstrapSource); sp.set('startAge', startAge); sp.set('rentenpunkte', rentenpunkte);
@@ -1076,6 +1094,16 @@ function EntnahmeSimulator() {
       setShareLabel('Kopieren fehlgeschlagen');
     }
     setTimeout(() => setShareLabel('🔗 Konfiguration teilen'), 2000);
+  }
+
+  function applyPreset(preset) {
+    setSelectedPreset(preset);
+    const values = preset === 'rentner'
+      ? { vermoegen: 300000, aktien: 80, gold: 0, bitcoin: 0, anleihen: 15, wohnung: 0, etfTer: 0.2, staticRate: 8, dynStartRate: 12, ceiling: 5, floor: -2.5, horizon: 25, blockLen: 7, bootstrapSource: 'sp500', startAge: 67, rentenpunkte: 40, pensionStartAge: 67 }
+      : { vermoegen: 1150000, aktien: 87, gold: 7, bitcoin: 0, anleihen: 0, wohnung: 0, etfTer: 0.2, staticRate: 2.5, dynStartRate: 3.2, ceiling: 5, floor: -2.5, horizon: 45, blockLen: 7, bootstrapSource: 'sp500', startAge: 50, rentenpunkte: 30, pensionStartAge: 67 };
+    setMode('bootstrap'); setVermoegen(values.vermoegen); setAktien(values.aktien); setGold(values.gold); setBitcoin(values.bitcoin); setAnleihen(values.anleihen); setWohnung(values.wohnung); setEtfTer(values.etfTer);
+    setStaticRate(values.staticRate); setDynStartRate(values.dynStartRate); setCeiling(values.ceiling); setFloor(values.floor); setHorizon(values.horizon); setBlockLen(values.blockLen); setBootstrapSource(values.bootstrapSource);
+    setStartAge(values.startAge); setRentenpunkte(values.rentenpunkte); setPensionStartAge(values.pensionStartAge); setSeed((s) => s + 1);
   }
 
   const chartData = result.yearsStats.map((y, idx) => {
@@ -1093,6 +1121,11 @@ function EntnahmeSimulator() {
   });
 
   const pensionStartYear = Math.max(0, pensionStartAge - startAge);
+  const firstPensionYearSpending = result.yearsStats[pensionStartYear]?.spendP50 || 0;
+  const firstPensionYearRental = rentalIncomeByYear[pensionStartYear] || 0;
+  const firstPensionYearPortfolioIncome = Math.max(firstPensionYearSpending - pensionAnnual - firstPensionYearRental, 0);
+  const firstPensionYearTotalIncome = pensionAnnual + firstPensionYearRental + firstPensionYearPortfolioIncome;
+  const pensionIncomeShare = firstPensionYearTotalIncome > 0 ? (pensionAnnual / firstPensionYearTotalIncome) * 100 : 0;
   const failureChartData = result.failureCurve.map((point) => ({ ...point, age: startAge + point.year }));
   const maxWindows = MONTHLY_EQ_SP.length - horizon * 12 + 1;
   const maxWorldWindows = MONTHLY_EQ_WORLD.length - horizon * 12 + 1;
@@ -1176,12 +1209,42 @@ function EntnahmeSimulator() {
         </div>
 
         <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-          <button onClick={() => setSeed((s) => s + 1)} style={{
-            background: 'transparent', border: '1px solid #D3DAD6', color: '#5B6B65',
-            fontSize: 12, padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
-          }}>
-            ↻ {mode === 'rolling' ? 'Neu berechnen' : 'Neue Zufallsstichprobe'}
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
+            {(mode === 'bootstrap' || mode === 'montecarlo') && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 11.5, color: '#5B6B65', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center' }}>Stichproben:<InfoDot text="Anzahl der simulierten bzw. gebootstrapten Verläufe. Mehr Stichproben = präziseres Ergebnis, aber längere Rechenzeit." /></span>
+                <select
+                  value={numSims}
+                  onChange={(e) => setNumSims(parseInt(e.target.value, 10))}
+                  style={{
+                    fontSize: 12, padding: '6px 10px', borderRadius: 8,
+                    border: '1px solid #D3DAD6', background: '#FFFFFF', color: '#1C2521',
+                    cursor: 'pointer', accentColor: '#2F5D62',
+                  }}
+                >
+                  <option value={2500}>2.500</option>
+                  <option value={5000}>5.000</option>
+                  <option value={10000}>10.000</option>
+                </select>
+              </div>
+            )}
+            <button onClick={() => setSeed((s) => s + 1)} style={{
+              background: 'transparent', border: '1px solid #D3DAD6', color: '#5B6B65',
+              fontSize: 12, padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
+            }}>
+              ↻ {mode === 'rolling' ? 'Neu berechnen' : 'Neue Zufallsstichprobe'}
+            </button>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: 12, color: '#5B6B65' }}>Defaults:</span>
+            <select value={selectedPreset} onChange={(e) => { if (e.target.value) applyPreset(e.target.value); }} style={{
+              fontSize: 12, padding: '6px 10px', borderRadius: 8, border: '1px solid #2F5D62', background: '#FFFFFF', color: '#2F5D62', cursor: 'pointer',
+            }}>
+              <option value="" disabled>Auswählen …</option>
+              <option value="rentner">Standard-Rentner</option>
+              <option value="fire">FIRE-Fan</option>
+            </select>
+          </div>
           {isCalculating && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <svg width="14" height="14" viewBox="0 0 14 14" style={{ animation: 'spin 0.8s linear infinite', flexShrink: 0 }}>
@@ -1197,24 +1260,7 @@ function EntnahmeSimulator() {
           }}>
             {shareLabel}
           </button>
-          {(mode === 'bootstrap' || mode === 'montecarlo') && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 11.5, color: '#5B6B65', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center' }}>Stichproben:<InfoDot text="Anzahl der simulierten bzw. gebootstrapten Verläufe. Mehr Stichproben = präziseres Ergebnis, aber längere Rechenzeit." /></span>
-              <select
-                value={numSims}
-                onChange={(e) => setNumSims(parseInt(e.target.value, 10))}
-                style={{
-                  fontSize: 12, padding: '6px 10px', borderRadius: 8,
-                  border: '1px solid #D3DAD6', background: '#FFFFFF', color: '#1C2521',
-                  cursor: 'pointer', accentColor: '#2F5D62',
-                }}
-              >
-                <option value={2500}>2.500</option>
-                <option value={5000}>5.000</option>
-                <option value={10000}>10.000</option>
-              </select>
-            </div>
-          )}
+
         </div>
 
         {/* Kaufkraft / Nominal Toggle — ganz oben */}
@@ -1244,30 +1290,34 @@ function EntnahmeSimulator() {
             <Slider label="Startvermögen" value={vermoegen} min={100000} max={3000000} step={10000}
               onChange={setVermoegen} format={fmtEUR}
               tip="Dein frei verfügbares Gesamtvermögen zu Beginn der Entnahmephase (Aktien + Gold + Bitcoin + Liquidität). Die Eigentumswohnung zählt hier nicht dazu." />
-            <Slider label="Aktienquote" value={aktien} min={50} max={100} step={1}
-              onChange={(v) => setAktien(Math.min(v, 100 - gold - bitcoin - wohnung))} format={(v) => v + '%'}
+            <Slider label="Aktien-ETF" value={aktien} min={50} max={100} step={1}
+              onChange={(v) => setAktien(Math.min(v, 100 - gold - anleihen - bitcoin - wohnung))} format={(v) => v + '%'}
               tip="Anteil des Portfolios in Aktien. Mehr Aktien bedeuten langfristig mehr Rendite, aber auch stärkere Wertschwankungen in einzelnen Jahren." />
-            <Slider label="Goldquote" value={gold} min={0} max={30} step={1}
-              onChange={(v) => setGold(Math.min(v, 100 - aktien - bitcoin - wohnung))} format={(v) => v + '%'}
+            <Slider label="Anleihen-ETF" value={anleihen} min={0} max={50} step={1}
+              onChange={(v) => setAnleihen(Math.min(v, 100 - aktien - gold - bitcoin - wohnung))} format={(v) => v + '%'}
+              hint="Europäische Staats- und Unternehmensanleihen mit bis zu 5 Jahren Laufzeit"
+              tip="Defensiver Baustein mit angenommener realer Rendite von 2,0% p.a. und 4,0% Volatilität. Modellannahme für einen EUR-ETF mit Staats- und Investment-Grade-Unternehmensanleihen bis 5 Jahre Laufzeit." />
+            <Slider label="Gold" value={gold} min={0} max={30} step={1}
+              onChange={(v) => setGold(Math.min(v, 100 - aktien - anleihen - bitcoin - wohnung))} format={(v) => v + '%'}
               tip="Beimischung zur Absicherung gegen Börsencrashs. Gold wird nur entnommen, wenn die Aktien ≥20% unter ihrem Höchststand liegen (Reserve-Modus)." />
-            <Slider label="Bitcoin" value={bitcoin} min={0} max={20} step={1}
-              onChange={(v) => setBitcoin(Math.min(v, 100 - aktien - gold - wohnung))} format={(v) => v + '%'}
-              hint="Eigene, unabhängig vom Modus simulierte Rendite (siehe Hinweise unten)"
-              tip="Risiko-Baustein, separat und unabhängig vom Modus parametrisch simuliert (real ~15% Rendite, 65% Volatilität p.a.). Grobe Schätzung." />
-            <Slider label="Eigentumswohnung" value={wohnung} min={0} max={20} step={1}
-              onChange={(v) => setWohnung(Math.min(v, 100 - aktien - gold - bitcoin))} format={(v) => v + '%'}
+            <Slider label="Vermietete Immobilie" value={wohnung} min={0} max={20} step={1}
+              onChange={(v) => setWohnung(Math.min(v, 100 - aktien - gold - anleihen - bitcoin))} format={(v) => v + '%'}
               hint="Illiquide — fließt nicht in die Entnahme-Simulation ein, nur als Sachwert ausgewiesen"
               tip="Fließt NICHT in die Entnahme-Simulation ein, weil sie illiquide ist — nur als Sachwert ausgewiesen. Die Miete reduziert aber die nötige Entnahme." />
+            <Slider label="Crypto" value={bitcoin} min={0} max={20} step={1}
+              onChange={(v) => setBitcoin(Math.min(v, 100 - aktien - gold - anleihen - wohnung))} format={(v) => v + '%'}
+              hint="Eigene, unabhängig vom Modus simulierte Rendite (siehe Hinweise unten)"
+              tip="Risiko-Baustein, separat und unabhängig vom Modus parametrisch simuliert (real ~15% Rendite, 65% Volatilität p.a.). Grobe Schätzung." />
             <Slider label="ETF-TER (Kosten p.a.)" value={etfTer} min={0} max={1.0} step={0.01}
               onChange={setEtfTer} format={(v) => v.toFixed(2) + '%'}
               hint="Wird monatlich vom Aktien-Anteil abgezogen"
               tip="Gesamtkostenquote (TER) des Aktien-ETF in % pro Jahr. Typische Werte: 0,05–0,20% für Welt-ETFs, 0,15–0,50% für Themen-/Faktor-ETFs. Wird monatlich (TER/12) vom Aktien-Anteil abgezogen." />
-            <div style={{ fontSize: 11.5, color: '#5B6B65' }}>Liquidität (Rest): {cash}%</div>
+            <div style={{ marginTop: 8, padding: '8px 10px', borderRadius: 6, background: '#EEF1EF', border: '1px solid #D3DAD6', color: '#1C2521', fontSize: 12, fontWeight: 600 }}>Liquidität (Rest): {cash}%</div>
           </div>
 
           <div>
             <SectionLabel color="#3A6B8A">Person &amp; GRV-Rente</SectionLabel>
-            <Slider label="Alter bei Entnahmebeginn" value={startAge} min={40} max={65} step={1}
+            <Slider label="Alter bei Entnahmebeginn" value={startAge} min={40} max={70} step={1}
               onChange={setStartAge} format={(v) => v + ' Jahre'}
               tip="Dein Alter beim Start der Entnahmephase — davon hängt ab, wie viele Jahre das Portfolio reichen muss." />
             <Slider label="Rentenpunkte" value={rentenpunkte} min={0} max={80} step={1}
@@ -1276,7 +1326,7 @@ function EntnahmeSimulator() {
               tip="Summe deiner bis zum Rentenbeginn erwarteten Entgeltpunkte — bestimmt zusammen mit dem aktuellen Rentenwert die Höhe der gesetzlichen Rente." />
             <Slider label="Rentenbeginn" value={pensionStartAge} min={63} max={75} step={1}
               onChange={setPensionStartAge} format={(v) => v + ' Jahre'}
-              hint="z.B. 70 (Regelaltersgrenze)"
+              hint="z.B. 67 (Regelaltersgrenze)"
               tip="Ab welchem Alter die gesetzliche Rente gezahlt wird. Vor der Regelaltersgrenze (67) gelten vereinfachte Ab- und Zuschläge." />
             <div style={{ fontSize: 11.5, color: '#5B6B65' }}>
               → {fmtEUR(pensionMonthly)}/Monat ab Alter {pensionStartAge} (Jahr {pensionStartYear} der Entnahmephase)
@@ -1310,11 +1360,11 @@ function EntnahmeSimulator() {
               )}
             </div>
             {entnahmeStrategie === 'dynamisch' && (
-              <Slider label="Statische Referenzrate" value={staticRate} min={2} max={4.5} step={0.1}
+              <Slider label="Statische Referenzrate" value={staticRate} min={2} max={20} step={0.1}
                 onChange={setStaticRate} format={(v) => v.toFixed(1) + '%'} hint="Basis für den Boden"
                 tip="Der feste Prozentsatz vom Startvermögen, der als harter Mindestboden auch in schlechten Jahren nie unterschritten wird." />
             )}
-            <Slider label={entnahmeStrategie === 'statisch' ? 'Startentnahmerate' : 'Dynamische Startrate'} value={dynStartRate} min={2} max={8} step={0.1}
+            <Slider label={entnahmeStrategie === 'statisch' ? 'Startentnahmerate' : 'Dynamische Startrate'} value={dynStartRate} min={2} max={20} step={0.1}
               onChange={setDynStartRate} format={(v) => v.toFixed(1) + '%'}
               tip="Entnahmerate im ersten Jahr in Prozent vom Startvermögen. Danach folgt die Entnahme der Ceiling/Floor-Regel bzw. bleibt real konstant." />
             {entnahmeStrategie === 'dynamisch' && (
@@ -1331,7 +1381,7 @@ function EntnahmeSimulator() {
 
           <div>
             <SectionLabel color="#3A6B8A">{`Zeitraum${mode === 'bootstrap' ? ' & Bootstrap' : ''}`}</SectionLabel>
-            <Slider label="Entnahmehorizont" value={horizon} min={25} max={60} step={1}
+            <Slider label="Entnahmehorizont" value={horizon} min={20} max={60} step={1}
               onChange={setHorizon} format={(v) => v + ' Jahre'}
               tip="Wie viele Jahre die Entnahmephase dauern soll — das Portfolio muss diesen Zeitraum überbrücken." />
             <div style={{ marginBottom: 4 }}>
@@ -1425,11 +1475,11 @@ function EntnahmeSimulator() {
                 tip="Der mittlere (typische) Vermögensstand am Ende des Zeitraums über alle getesteten Verläufe." />
               <Stat label="Jahre im Reserve-Modus" value={result.avgBadYearFraction.toFixed(0) + '%'} sub="Anteil Jahre mit ≥20% Drawdown" color="#C08A2E"
                 tip="Wie oft im Schnitt die Börse mindestens 20% unter ihrem bisherigen Höchststand lag und deshalb aus Cash/Gold statt aus dem ETF entnommen wurde." />
-              <Stat label="GRV-Rente"
-                value={fmtEUR(heutigeKaufkraft ? pensionMonthly : pensionMonthly * Math.pow(1 + inflationRate / 100, pensionStartYear)) + '/Mon.'}
-                sub={heutigeKaufkraft ? `ab Alter ${pensionStartAge} (Jahr ${pensionStartYear})` : `ab Alter ${pensionStartAge} (nominal im Jahr ${pensionStartYear})`}
+              <Stat label="GRV-Rente (pro Jahr)"
+                value={fmtEUR(heutigeKaufkraft ? pensionAnnual : pensionAnnual * Math.pow(1 + inflationRate / 100, pensionStartYear))}
+                sub={`${heutigeKaufkraft ? `ab Alter ${pensionStartAge}` : `nominal ab Alter ${pensionStartAge}`} · ${pensionIncomeShare.toFixed(1)}% des Gesamteinkommens im 1. GRV-Jahr`}
                 color="#3A6B8A"
-                tip="Deine gesetzliche Rente, die ab dem eingestellten Alter die nötige Entnahme aus dem Portfolio verringert." />
+                tip="Jährlicher Betrag der gesetzlichen Rente. Der Prozentwert zeigt ihren Anteil am Gesamteinkommen im ersten Jahr des Rentenbezugs, zusammen mit Portfolioentnahme und Mieteinnahmen." />
               <Stat label="Sachwert Wohnung" value={fmtEUR(wohnungWert)} sub={`+ ${fmtEUR(rentalYear1)}/J. Miete (Jahr 1)`} color="#5B6B65"
                 tip="Wert deiner Eigentumswohnung (fließt nicht in die Entnahme-Simulation ein) plus die Mieteinnahmen, die den nötigen Entnahmebetrag senken." />
             </div>
