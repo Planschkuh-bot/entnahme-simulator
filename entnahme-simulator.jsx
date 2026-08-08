@@ -712,7 +712,7 @@ function runHistoricalBootstrap(p) {
 
 const fmtEUR = (v) => v.toLocaleString('de-DE', { maximumFractionDigits: 0 }) + ' \u20ac';
 const fmtEURk = (v) => {
-  if (Math.abs(v) >= 1000) return (v / 1000).toLocaleString('de-DE', { maximumFractionDigits: 0 }) + 'k \u20ac';
+  if (Math.abs(v) >= 1000) return (v / 1000).toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + 'k';
   return fmtEUR(v);
 };
 
@@ -857,17 +857,17 @@ function LightTooltip({ active, payload, label }) {
       <div style={{ display: 'grid', gridTemplateColumns: '80px repeat(4, 1fr)', columnGap: 4, fontSize: 10.5, color: '#5B6B65', marginTop: 4, textAlign: 'right' }}>
         <span />
         <span>P90</span>
-        <span>P50</span>
+        <span>Median</span>
         <span>P10</span>
         <span style={{ color: '#A8432F' }}>Boden</span>
       </div>
       {base && band && (
         <div style={{ display: 'grid', gridTemplateColumns: '80px repeat(4, 1fr)', columnGap: 4, fontSize: 11.5, color: '#5B6B65', textAlign: 'right' }}>
           <span style={{ textAlign: 'left' }}>Bereich:</span>
-          <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(base.value + band.value)}</span>
+          <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEURk(base.value + band.value)}</span>
           <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(p50.value)}</span>
-          <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(base.value)}</span>
-          <span style={{ fontFamily: "'IBM Plex Mono', monospace", color: '#A8432F' }}>{hardFloorAmount ? fmtEUR(hardFloorAmount.value) : '–'}</span>
+          <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEURk(base.value)}</span>
+          <span style={{ fontFamily: "'IBM Plex Mono', monospace", color: '#A8432F' }}>{hardFloorAmount ? fmtEURk(hardFloorAmount.value) : '–'}</span>
         </div>
       )}
       {pensionAmount && pensionAmount.value !== null && p50 && base && band && (
@@ -882,9 +882,9 @@ function LightTooltip({ active, payload, label }) {
       {pensionAmount && pensionAmount.value !== null && base && band && p50 && (
         <div style={{ display: 'grid', gridTemplateColumns: '80px repeat(4, 1fr)', columnGap: 4, fontSize: 11.5, color: '#2F5D62', marginTop: 3, textAlign: 'right' }}>
           <span style={{ textAlign: 'left' }}>Nach Abzug GRV:</span>
-          <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(Math.max(base.value + band.value - pensionAmount.value, 0))}</span>
-          <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(Math.max(p50.value - pensionAmount.value, 0))}</span>
-          <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(Math.max(base.value - pensionAmount.value, 0))}</span>
+          <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEURk(Math.max(base.value + band.value - pensionAmount.value, 0))}</span>
+          <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEURk(Math.max(p50.value - pensionAmount.value, 0))}</span>
+          <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEURk(Math.max(base.value - pensionAmount.value, 0))}</span>
           <span style={{ fontFamily: "'IBM Plex Mono', monospace", color: '#A8432F' }}>{hardFloorAmount ? fmtEUR(Math.max(hardFloorAmount.value - pensionAmount.value, 0)) : '–'}</span>
         </div>
       )}
