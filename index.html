@@ -887,6 +887,7 @@ function LightTooltip({ active, payload, label }) {
       {p50 && (
         <div style={{ fontSize: 13, fontWeight: 600, color: '#1C2521', marginBottom: 3 }}>
           Median: <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(p50.value)}</span>
+          {pensionAmount && pensionAmount.value !== null && <span style={{ color: '#3A6B8A', fontSize: 12 }}> · GRV: {fmtEUR(pensionAmount.value)} / {(pensionAmount.value / p50.value * 100).toFixed(1)} %</span>}
         </div>
       )}
       <div style={{ display: 'grid', gridTemplateColumns: '80px repeat(4, 1fr)', columnGap: 4, fontSize: 10.5, color: '#5B6B65', marginTop: 4, textAlign: 'right' }}>
