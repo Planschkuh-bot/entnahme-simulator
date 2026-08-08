@@ -827,7 +827,7 @@ function LightTooltip({ active, payload, label }) {
       color: '#1C2521',
       lineHeight: 1.4,
     }}>
-      <div style={{ fontWeight: 600, color: '#5B6B65', marginBottom: 4, fontSize: 11.5 }}>Jahr {label}</div>
+      <div style={{ fontWeight: 600, color: '#5B6B65', marginBottom: 4, fontSize: 11.5 }}>Alter {label}</div>
       {p50 && (
         <div style={{ fontSize: 13, fontWeight: 600, color: '#1C2521', marginBottom: 3 }}>
           Median: <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(p50.value)}</span>
@@ -857,7 +857,7 @@ function FailTooltip({ active, payload, label }) {
       color: '#1C2521',
       lineHeight: 1.4,
     }}>
-      <div style={{ fontWeight: 600, color: '#5B6B65', marginBottom: 4, fontSize: 11.5 }}>Jahr {label}</div>
+      <div style={{ fontWeight: 600, color: '#5B6B65', marginBottom: 4, fontSize: 11.5 }}>Alter {label}</div>
       <div style={{ fontSize: 13, fontWeight: 600, color: '#A8432F' }}>
         Ausfallwahrscheinlichkeit: <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{entry.value.toFixed(1)}%</span>
       </div>
@@ -1041,6 +1041,7 @@ export default function EntnahmeSimulator() {
     const factor = heutigeKaufkraft ? 1 : Math.pow(1 + inflationRate / 100, idx);
     return {
       year: y.year,
+      age: startAge + y.year,
       balP10: y.balP10 * factor,
       balBand: y.balBand * factor,
       balP50: y.balP50 * factor,
@@ -1051,6 +1052,7 @@ export default function EntnahmeSimulator() {
   });
 
   const pensionStartYear = Math.max(0, pensionStartAge - startAge);
+  const failureChartData = result.failureCurve.map((point) => ({ ...point, age: startAge + point.year }));
   const maxWindows = MONTHLY_EQ_SP.length - horizon * 12 + 1;
   const maxWorldWindows = MONTHLY_EQ_WORLD.length - horizon * 12 + 1;
 
@@ -1424,14 +1426,14 @@ export default function EntnahmeSimulator() {
         <ChartBlock title="Vermögensverlauf" subtitle={`10./50./90. Perzentil, ${heutigeKaufkraft ? 'real (heutige Kaufkraft)' : `nominal (inkl. ${inflationRate.toFixed(1)}% p.a. Inflation)`}, Gesamtvermögen (ETF+Gold+Cash)`}>
           <ComposedChart data={chartData} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid stroke="#E3E8E5" vertical={false} />
-            <XAxis dataKey="year" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
+            <XAxis dataKey="age" label={{ value: 'Lebensalter', position: 'insideBottom', offset: -5, fill: '#5B6B65', fontSize: 11 }} tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
             <YAxis tickFormatter={fmtEUR} tick={{ fill: '#5B6B65', fontSize: 11, dy: 4 }} tickLine={false} axisLine={false} width={60} />
             <Tooltip content={<LightTooltip />} />
             <Area dataKey="balP10" stackId="b" stroke="none" fill="transparent" />
             <Area dataKey="balBand" stackId="b" stroke="none" fill="#2F5D62" fillOpacity={0.15} />
             <Line dataKey="balP50" stroke="#2F5D62" strokeWidth={2} dot={false} />
             {pensionStartYear > 0 && pensionStartYear <= horizon && (
-              <ReferenceLine x={pensionStartYear} stroke="#3A6B8A" strokeDasharray="3 3" label={{ value: 'Rentenbeginn', position: 'insideTopRight', fill: '#3A6B8A', fontSize: 10 }} />
+              <ReferenceLine x={pensionStartAge} stroke="#3A6B8A" strokeDasharray="3 3" label={{ value: 'Rentenbeginn', position: 'insideTopRight', fill: '#3A6B8A', fontSize: 10 }} />
             )}
           </ComposedChart>
         </ChartBlock>
@@ -1439,7 +1441,7 @@ export default function EntnahmeSimulator() {
         <ChartBlock title="Entnahmeverlauf" subtitle={`10./50./90. Perzentil, ${heutigeKaufkraft ? 'real (heutige Kaufkraft)' : `nominal (inkl. ${inflationRate.toFixed(1)}% p.a. Inflation)`} pro Jahr${entnahmeStrategie === 'dynamisch' ? ' · Bodenlinie gestrichelt' : ''}`}>}
           <ComposedChart data={chartData} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid stroke="#E3E8E5" vertical={false} />
-            <XAxis dataKey="year" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
+            <XAxis dataKey="age" label={{ value: 'Lebensalter', position: 'insideBottom', offset: -5, fill: '#5B6B65', fontSize: 11 }} tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
             <YAxis tickFormatter={fmtEUR} tick={{ fill: '#5B6B65', fontSize: 11, dy: 4 }} tickLine={false} axisLine={false} width={60} />
             <Tooltip content={<LightTooltip />} />
             <Area dataKey="spendP10" stackId="s" stroke="none" fill="transparent" />
@@ -1449,15 +1451,15 @@ export default function EntnahmeSimulator() {
               <Line dataKey={() => result.hardFloor} stroke="#A8432F" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
             )}
             {pensionStartYear > 0 && pensionStartYear <= horizon && (
-              <ReferenceLine x={pensionStartYear} stroke="#3A6B8A" strokeDasharray="3 3" label={{ value: 'Rentenbeginn', position: 'insideTopRight', fill: '#3A6B8A', fontSize: 10 }} />
+              <ReferenceLine x={pensionStartAge} stroke="#3A6B8A" strokeDasharray="3 3" label={{ value: 'Rentenbeginn', position: 'insideTopRight', fill: '#3A6B8A', fontSize: 10 }} />
             )}
           </ComposedChart>
         </ChartBlock>
 
         <ChartBlock title="Ausfallwahrscheinlichkeit im Zeitverlauf" subtitle="Anteil Pfade, deren Vermögen bis zu diesem Jahr bereits aufgebraucht war (kumulativ) &middot; rote Linie = 2,5%-Zielgrenze">
-          <ComposedChart data={result.failureCurve} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+          <ComposedChart data={failureChartData} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid stroke="#E3E8E5" vertical={false} />
-            <XAxis dataKey="year" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
+            <XAxis dataKey="age" label={{ value: 'Lebensalter', position: 'insideBottom', offset: -5, fill: '#5B6B65', fontSize: 11 }} tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
             <YAxis tickFormatter={(v) => v.toFixed(1) + '%'} tick={{ fill: '#5B6B65', fontSize: 11, dy: 4 }} tickLine={false} axisLine={false} width={44} />
             <Tooltip content={<FailTooltip />} />
             <Area dataKey="failRate" stroke="none" fill="#A8432F" fillOpacity={0.15} />
