@@ -918,7 +918,7 @@ export default function EntnahmeSimulator() {
   const [rentenpunkte, setRentenpunkte] = useState(25);
   const [pensionStartAge, setPensionStartAge] = useState(70);
   const [seed, setSeed] = useState(0);
-  const [etfTer, setEtfTer] = useState(0.15);
+  const [etfTer, setEtfTer] = useState(0.25);
 
   const [numSims, setNumSims] = useState(2500);
   const pensionAnnual = computePensionAnnual(rentenpunkte, pensionStartAge);
