@@ -832,6 +832,10 @@ function LightTooltip({ active, payload, label }) {
   const p50 = payload.find((p) => p.dataKey && p.dataKey.toString().endsWith('P50'));
   const band = payload.find((p) => p.dataKey && p.dataKey.toString().endsWith('Band'));
   const base = payload.find((p) => p.dataKey && p.dataKey.toString().endsWith('P10'));
+  const pensionAmount = payload.find((p) => p.dataKey === 'pensionAmount');
+  const afterP50 = payload.find((p) => p.dataKey === 'spendAfterPensionP50');
+  const afterBand = payload.find((p) => p.dataKey === 'spendAfterPensionBand');
+  const afterBase = payload.find((p) => p.dataKey === 'spendAfterPensionP10');
   return (
     <div style={{
       background: '#FFFFFF',
@@ -849,9 +853,19 @@ function LightTooltip({ active, payload, label }) {
           Median: <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(p50.value)}</span>
         </div>
       )}
+      {pensionAmount && pensionAmount.value !== null && (
+        <div style={{ fontSize: 12, color: '#3A6B8A', marginBottom: 3 }}>
+          GRV-Rente: <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(pensionAmount.value)}</span> / Jahr
+        </div>
+      )}
       {base && band && (
         <div style={{ fontSize: 11.5, color: '#5B6B65' }}>
           Bereich: <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(base.value)} – {fmtEUR(base.value + band.value)}</span>
+        </div>
+      )}
+      {pensionAmount && pensionAmount.value !== null && base && band && (
+        <div style={{ fontSize: 11.5, color: '#2F5D62', marginTop: 3 }}>
+          Nach Abzug GRV: <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(Math.max(base.value - pensionAmount.value, 0))} – {fmtEUR(Math.max(base.value + band.value - pensionAmount.value, 0))}</span>
         </div>
       )}
     </div>
@@ -1065,6 +1079,7 @@ export default function EntnahmeSimulator() {
     setStartAge(values.startAge); setRentenpunkte(values.rentenpunkte); setPensionStartAge(values.pensionStartAge); setSeed((s) => s + 1);
   }
 
+  const pensionStartYear = Math.max(0, pensionStartAge - startAge);
   const chartData = result.yearsStats.map((y, idx) => {
     const factor = heutigeKaufkraft ? 1 : Math.pow(1 + inflationRate / 100, idx);
     return {
@@ -1076,10 +1091,14 @@ export default function EntnahmeSimulator() {
       spendP10: y.spendP10 !== null ? y.spendP10 * factor : null,
       spendBand: y.spendBand !== null ? y.spendBand * factor : null,
       spendP50: y.spendP50 !== null ? y.spendP50 * factor : null,
+      pensionAmount: startAge + y.year >= pensionStartAge ? pensionAnnual * factor : null,
+      spendAfterPensionP10: y.spendP10 !== null && startAge + y.year >= pensionStartAge ? Math.max(y.spendP10 - pensionAnnual, 0) * factor : null,
+      spendAfterPensionP50: y.spendP50 !== null && startAge + y.year >= pensionStartAge ? Math.max(y.spendP50 - pensionAnnual, 0) * factor : null,
+      spendAfterPensionBand: y.spendP10 !== null && y.spendP90 !== null && startAge + y.year >= pensionStartAge ? Math.max(y.spendP90 - pensionAnnual, 0) * factor - Math.max(y.spendP10 - pensionAnnual, 0) * factor : null,
+      pensionShare: startAge + y.year >= pensionStartAge && y.spendP50 > 0 ? Math.min(100, (pensionAnnual / y.spendP50) * 100) : 0,
     };
   });
 
-  const pensionStartYear = Math.max(0, pensionStartAge - startAge);
   const firstPensionYearSpending = result.yearsStats[pensionStartYear]?.spendP50 || 0;
   const firstPensionYearRental = rentalIncomeByYear[pensionStartYear] || 0;
   const firstPensionYearPortfolioIncome = Math.max(firstPensionYearSpending - pensionAnnual - firstPensionYearRental, 0);
@@ -1474,7 +1493,7 @@ export default function EntnahmeSimulator() {
 
         {/* Charts */}
         <ChartBlock title="Vermögensverlauf" subtitle={`10./50./90. Perzentil, ${heutigeKaufkraft ? 'real (heutige Kaufkraft)' : `nominal (inkl. ${inflationRate.toFixed(1)}% p.a. Inflation)`}, Gesamtvermögen (ETF+Gold+Cash)`}>
-          <ComposedChart data={chartData} margin={{ top: 20, right: 8, left: 0, bottom: 4 }}>
+          <ComposedChart data={chartData} margin={{ top: 20, right: 8, left: 0, bottom: 28 }}>
             <CartesianGrid stroke="#E3E8E5" vertical={false} />
             <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
             <YAxis tickFormatter={fmtEUR} tick={{ fill: '#5B6B65', fontSize: 11, dy: 4 }} tickLine={false} axisLine={false} width={60} />
@@ -1490,14 +1509,17 @@ export default function EntnahmeSimulator() {
         </ChartBlock>
 
         <ChartBlock title="Entnahmeverlauf" subtitle={`10./50./90. Perzentil, ${heutigeKaufkraft ? 'real (heutige Kaufkraft)' : `nominal (inkl. ${inflationRate.toFixed(1)}% p.a. Inflation)`} pro Jahr${entnahmeStrategie === 'dynamisch' ? ' · Bodenlinie gestrichelt' : ''}`}>}
-          <ComposedChart data={chartData} margin={{ top: 20, right: 8, left: 0, bottom: 4 }}>
+          <div style={{ fontSize: 11.5, color: '#3A6B8A', margin: '0 8px 4px' }}>GRV-Anteil am Gesamteinkommen im ersten GRV-Jahr: {pensionIncomeShare.toFixed(1)}%</div>
+          <ComposedChart data={chartData} margin={{ top: 20, right: 8, left: 0, bottom: 28 }}>
             <CartesianGrid stroke="#E3E8E5" vertical={false} />
             <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
             <YAxis tickFormatter={fmtEUR} tick={{ fill: '#5B6B65', fontSize: 11, dy: 4 }} tickLine={false} axisLine={false} width={60} />
             <Tooltip content={<LightTooltip />} />
             <Area dataKey="spendP10" stackId="s" stroke="none" fill="transparent" />
             <Area dataKey="spendBand" stackId="s" stroke="none" fill="#C08A2E" fillOpacity={0.15} />
-            <Line dataKey="spendP50" stroke="#C08A2E" strokeWidth={2} dot={false} />
+            <Line dataKey="spendP50" name="Gesamtentnahme" stroke="#C08A2E" strokeWidth={2} dot={false} />
+            <Line dataKey="spendAfterPensionP50" name="Nach Abzug GRV" stroke="#2F5D62" strokeWidth={2} dot={false} />
+            <Line dataKey="pensionAmount" stroke="none" dot={false} activeDot={false} />
             {entnahmeStrategie === 'dynamisch' && (
               <Line dataKey={() => result.hardFloor} stroke="#A8432F" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
             )}
@@ -1509,7 +1531,7 @@ export default function EntnahmeSimulator() {
         </ChartBlock>
 
         <ChartBlock title="Ausfallwahrscheinlichkeit im Zeitverlauf" subtitle="Anteil Pfade, deren Vermögen bis zu diesem Jahr bereits aufgebraucht war (kumulativ) &middot; rote Linie = 2,5%-Zielgrenze">
-          <ComposedChart data={failureChartData} margin={{ top: 6, right: 8, left: 0, bottom: 4 }}>
+          <ComposedChart data={failureChartData} margin={{ top: 6, right: 8, left: 0, bottom: 28 }}>
             <CartesianGrid stroke="#E3E8E5" vertical={false} />
             <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
             <YAxis tickFormatter={(v) => v.toFixed(1) + '%'} tick={{ fill: '#5B6B65', fontSize: 11, dy: 4 }} tickLine={false} axisLine={false} width={44} />
