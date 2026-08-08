@@ -801,7 +801,7 @@ function SectionLabel({ children, color }) {
 
 function ChartBlock({ title, subtitle, children }) {
   return (
-    <div style={{ background: '#FFFFFF', border: '1px solid #D3DAD6', borderRadius: 12, padding: '16px 12px 8px', marginBottom: 18 }}>
+    <div style={{ position: 'relative', background: '#FFFFFF', border: '1px solid #D3DAD6', borderRadius: 12, padding: '16px 12px 8px', marginBottom: 18 }}>
       <div style={{ padding: '0 8px', marginBottom: 6 }}>
         <div style={{ fontSize: 14, fontWeight: 600 }}>{title}</div>
         <div style={{ fontSize: 11.5, color: '#5B6B65' }} dangerouslySetInnerHTML={{ __html: subtitle }} />
@@ -1424,9 +1424,9 @@ export default function EntnahmeSimulator() {
 
         {/* Charts */}
         <ChartBlock title="Vermögensverlauf" subtitle={`10./50./90. Perzentil, ${heutigeKaufkraft ? 'real (heutige Kaufkraft)' : `nominal (inkl. ${inflationRate.toFixed(1)}% p.a. Inflation)`}, Gesamtvermögen (ETF+Gold+Cash)`}>
-          <ComposedChart data={chartData} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
+          <ComposedChart data={chartData} margin={{ top: 20, right: 8, left: 0, bottom: 4 }}>
             <CartesianGrid stroke="#E3E8E5" vertical={false} />
-            <XAxis dataKey="age" label={{ value: 'Lebensalter', position: 'insideBottom', offset: -5, fill: '#5B6B65', fontSize: 11 }} tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
+            <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
             <YAxis tickFormatter={fmtEUR} tick={{ fill: '#5B6B65', fontSize: 11, dy: 4 }} tickLine={false} axisLine={false} width={60} />
             <Tooltip content={<LightTooltip />} />
             <Area dataKey="balP10" stackId="b" stroke="none" fill="transparent" />
@@ -1436,12 +1436,13 @@ export default function EntnahmeSimulator() {
               <ReferenceLine x={pensionStartAge} stroke="#3A6B8A" strokeDasharray="3 3" label={{ value: 'Rentenbeginn', position: 'insideTopRight', fill: '#3A6B8A', fontSize: 10 }} />
             )}
           </ComposedChart>
+          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 6, textAlign: 'center', color: '#1C2521', fontSize: 12 }}>Lebensalter</div>
         </ChartBlock>
 
         <ChartBlock title="Entnahmeverlauf" subtitle={`10./50./90. Perzentil, ${heutigeKaufkraft ? 'real (heutige Kaufkraft)' : `nominal (inkl. ${inflationRate.toFixed(1)}% p.a. Inflation)`} pro Jahr${entnahmeStrategie === 'dynamisch' ? ' · Bodenlinie gestrichelt' : ''}`}>}
-          <ComposedChart data={chartData} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
+          <ComposedChart data={chartData} margin={{ top: 20, right: 8, left: 0, bottom: 4 }}>
             <CartesianGrid stroke="#E3E8E5" vertical={false} />
-            <XAxis dataKey="age" label={{ value: 'Lebensalter', position: 'insideBottom', offset: -5, fill: '#5B6B65', fontSize: 11 }} tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
+            <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
             <YAxis tickFormatter={fmtEUR} tick={{ fill: '#5B6B65', fontSize: 11, dy: 4 }} tickLine={false} axisLine={false} width={60} />
             <Tooltip content={<LightTooltip />} />
             <Area dataKey="spendP10" stackId="s" stroke="none" fill="transparent" />
@@ -1454,18 +1455,20 @@ export default function EntnahmeSimulator() {
               <ReferenceLine x={pensionStartAge} stroke="#3A6B8A" strokeDasharray="3 3" label={{ value: 'Rentenbeginn', position: 'insideTopRight', fill: '#3A6B8A', fontSize: 10 }} />
             )}
           </ComposedChart>
+          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 6, textAlign: 'center', color: '#1C2521', fontSize: 12 }}>Lebensalter</div>
         </ChartBlock>
 
         <ChartBlock title="Ausfallwahrscheinlichkeit im Zeitverlauf" subtitle="Anteil Pfade, deren Vermögen bis zu diesem Jahr bereits aufgebraucht war (kumulativ) &middot; rote Linie = 2,5%-Zielgrenze">
-          <ComposedChart data={failureChartData} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+          <ComposedChart data={failureChartData} margin={{ top: 6, right: 8, left: 0, bottom: 4 }}>
             <CartesianGrid stroke="#E3E8E5" vertical={false} />
-            <XAxis dataKey="age" label={{ value: 'Lebensalter', position: 'insideBottom', offset: -5, fill: '#5B6B65', fontSize: 11 }} tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
+            <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
             <YAxis tickFormatter={(v) => v.toFixed(1) + '%'} tick={{ fill: '#5B6B65', fontSize: 11, dy: 4 }} tickLine={false} axisLine={false} width={44} />
             <Tooltip content={<FailTooltip />} />
             <Area dataKey="failRate" stroke="none" fill="#A8432F" fillOpacity={0.15} />
             <Line dataKey="failRate" stroke="#A8432F" strokeWidth={2} dot={false} />
             <Line dataKey={() => 2.5} stroke="#5B6B65" strokeWidth={1} strokeDasharray="4 4" dot={false} />
           </ComposedChart>
+          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 6, textAlign: 'center', color: '#1C2521', fontSize: 12 }}>Lebensalter</div>
         </ChartBlock>
 
         {/* Notes */}
