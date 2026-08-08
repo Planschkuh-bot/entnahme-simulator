@@ -833,6 +833,7 @@ function LightTooltip({ active, payload, label }) {
   const band = payload.find((p) => p.dataKey && p.dataKey.toString().endsWith('Band'));
   const base = payload.find((p) => p.dataKey && p.dataKey.toString().endsWith('P10'));
   const pensionAmount = payload.find((p) => p.dataKey === 'pensionAmount');
+  const hardFloorAmount = payload.find((p) => p.dataKey === 'hardFloorAmount');
   const afterP50 = payload.find((p) => p.dataKey === 'spendAfterPensionP50');
   const afterBand = payload.find((p) => p.dataKey === 'spendAfterPensionBand');
   const afterBase = payload.find((p) => p.dataKey === 'spendAfterPensionP10');
@@ -853,19 +854,38 @@ function LightTooltip({ active, payload, label }) {
           Median: <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(p50.value)}</span>
         </div>
       )}
-      {pensionAmount && pensionAmount.value !== null && (
-        <div style={{ fontSize: 12, color: '#3A6B8A', marginBottom: 3 }}>
-          GRV-Rente: <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(pensionAmount.value)}</span> / Jahr
-        </div>
-      )}
+      <div style={{ display: 'grid', gridTemplateColumns: '80px repeat(4, 1fr)', columnGap: 4, fontSize: 10.5, color: '#5B6B65', marginTop: 4, textAlign: 'right' }}>
+        <span />
+        <span>P90</span>
+        <span>P50</span>
+        <span>P10</span>
+        <span style={{ color: '#A8432F' }}>Boden</span>
+      </div>
       {base && band && (
-        <div style={{ fontSize: 11.5, color: '#5B6B65' }}>
-          Bereich: <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(base.value)} – {fmtEUR(base.value + band.value)}</span>
+        <div style={{ display: 'grid', gridTemplateColumns: '80px repeat(4, 1fr)', columnGap: 4, fontSize: 11.5, color: '#5B6B65', textAlign: 'right' }}>
+          <span style={{ textAlign: 'left' }}>Bereich:</span>
+          <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(base.value + band.value)}</span>
+          <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(p50.value)}</span>
+          <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(base.value)}</span>
+          <span style={{ fontFamily: "'IBM Plex Mono', monospace", color: '#A8432F' }}>{hardFloorAmount ? fmtEUR(hardFloorAmount.value) : '–'}</span>
         </div>
       )}
-      {pensionAmount && pensionAmount.value !== null && base && band && (
-        <div style={{ fontSize: 11.5, color: '#2F5D62', marginTop: 3 }}>
-          Nach Abzug GRV: <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(Math.max(base.value - pensionAmount.value, 0))} – {fmtEUR(Math.max(base.value + band.value - pensionAmount.value, 0))}</span>
+      {pensionAmount && pensionAmount.value !== null && p50 && base && band && (
+        <div style={{ display: 'grid', gridTemplateColumns: '80px repeat(4, 1fr)', columnGap: 4, fontSize: 12, color: '#3A6B8A', marginBottom: 3, textAlign: 'right' }}>
+          <span style={{ textAlign: 'left' }}>GRV-Rente:</span>
+          <span>{(pensionAmount.value / (base.value + band.value) * 100).toFixed(1)} %</span>
+          <span>{(pensionAmount.value / p50.value * 100).toFixed(1)} %</span>
+          <span>{(pensionAmount.value / base.value * 100).toFixed(1)} %</span>
+          <span style={{ color: '#A8432F' }}>{hardFloorAmount && hardFloorAmount.value > 0 ? `${(pensionAmount.value / hardFloorAmount.value * 100).toFixed(1)} %` : '–'}</span>
+        </div>
+      )}
+      {pensionAmount && pensionAmount.value !== null && base && band && p50 && (
+        <div style={{ display: 'grid', gridTemplateColumns: '80px repeat(4, 1fr)', columnGap: 4, fontSize: 11.5, color: '#2F5D62', marginTop: 3, textAlign: 'right' }}>
+          <span style={{ textAlign: 'left' }}>Nach Abzug GRV:</span>
+          <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(Math.max(base.value + band.value - pensionAmount.value, 0))}</span>
+          <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(Math.max(p50.value - pensionAmount.value, 0))}</span>
+          <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(Math.max(base.value - pensionAmount.value, 0))}</span>
+          <span style={{ fontFamily: "'IBM Plex Mono', monospace", color: '#A8432F' }}>{hardFloorAmount ? fmtEUR(Math.max(hardFloorAmount.value - pensionAmount.value, 0)) : '–'}</span>
         </div>
       )}
     </div>
@@ -1092,6 +1112,7 @@ export default function EntnahmeSimulator() {
       spendBand: y.spendBand !== null ? y.spendBand * factor : null,
       spendP50: y.spendP50 !== null ? y.spendP50 * factor : null,
       pensionAmount: startAge + y.year >= pensionStartAge ? pensionAnnual * factor : null,
+      hardFloorAmount: result.hardFloor * factor,
       spendAfterPensionP10: y.spendP10 !== null && startAge + y.year >= pensionStartAge ? Math.max(y.spendP10 - pensionAnnual, 0) * factor : null,
       spendAfterPensionP50: y.spendP50 !== null && startAge + y.year >= pensionStartAge ? Math.max(y.spendP50 - pensionAnnual, 0) * factor : null,
       spendAfterPensionBand: y.spendP10 !== null && y.spendP90 !== null && startAge + y.year >= pensionStartAge ? Math.max(y.spendP90 - pensionAnnual, 0) * factor - Math.max(y.spendP10 - pensionAnnual, 0) * factor : null,
@@ -1509,7 +1530,6 @@ export default function EntnahmeSimulator() {
         </ChartBlock>
 
         <ChartBlock title="Entnahmeverlauf" subtitle={`10./50./90. Perzentil, ${heutigeKaufkraft ? 'real (heutige Kaufkraft)' : `nominal (inkl. ${inflationRate.toFixed(1)}% p.a. Inflation)`} pro Jahr${entnahmeStrategie === 'dynamisch' ? ' · Bodenlinie gestrichelt' : ''}`}>}
-          <div style={{ fontSize: 11.5, color: '#3A6B8A', margin: '0 8px 4px' }}>GRV-Anteil am Gesamteinkommen im ersten GRV-Jahr: {pensionIncomeShare.toFixed(1)}%</div>
           <ComposedChart data={chartData} margin={{ top: 20, right: 8, left: 0, bottom: 28 }}>
             <CartesianGrid stroke="#E3E8E5" vertical={false} />
             <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
@@ -1520,6 +1540,7 @@ export default function EntnahmeSimulator() {
             <Line dataKey="spendP50" name="Gesamtentnahme" stroke="#C08A2E" strokeWidth={2} dot={false} />
             <Line dataKey="spendAfterPensionP50" name="Nach Abzug GRV" stroke="#2F5D62" strokeWidth={2} dot={false} />
             <Line dataKey="pensionAmount" stroke="none" dot={false} activeDot={false} />
+            <Line dataKey="hardFloorAmount" stroke="none" dot={false} activeDot={false} />
             {entnahmeStrategie === 'dynamisch' && (
               <Line dataKey={() => result.hardFloor} stroke="#A8432F" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
             )}
