@@ -1005,7 +1005,7 @@ function EntnahmeSimulator() {
   const [entnahmeFrequenz, setEntnahmeFrequenz] = useState('jaehrlich');
   const [heutigeKaufkraft, setHeutigeKaufkraft] = useState(true);
   const [inflationRate, setInflationRate] = useState(2.0);
-  const [blockLen, setBlockLen] = useState(7);
+  const [blockLen, setBlockLen] = useState(5);
   const [bootstrapSource, setBootstrapSource] = useState('sp500');
   const [startAge, setStartAge] = useState(67);
   const [rentenpunkte, setRentenpunkte] = useState(40);
@@ -1136,8 +1136,8 @@ function EntnahmeSimulator() {
   function applyPreset(preset) {
     setSelectedPreset(preset);
     const values = preset === 'rentner'
-      ? { vermoegen: 300000, aktien: 80, gold: 0, bitcoin: 0, anleihen: 15, wohnung: 0, etfTer: 0.2, staticRate: 8, dynStartRate: 12, ceiling: 5, floor: -2.5, horizon: 25, blockLen: 7, bootstrapSource: 'sp500', startAge: 67, rentenpunkte: 40, pensionStartAge: 67 }
-      : { vermoegen: 1150000, aktien: 87, gold: 7, bitcoin: 0, anleihen: 0, wohnung: 0, etfTer: 0.2, staticRate: 2.5, dynStartRate: 3.2, ceiling: 5, floor: -2.5, horizon: 45, blockLen: 7, bootstrapSource: 'sp500', startAge: 50, rentenpunkte: 30, pensionStartAge: 67 };
+      ? { vermoegen: 300000, aktien: 80, gold: 0, bitcoin: 0, anleihen: 15, wohnung: 0, etfTer: 0.2, staticRate: 8, dynStartRate: 12, ceiling: 5, floor: -2.5, horizon: 25, blockLen: 5, bootstrapSource: 'sp500', startAge: 67, rentenpunkte: 40, pensionStartAge: 67 }
+      : { vermoegen: 1150000, aktien: 87, gold: 7, bitcoin: 0, anleihen: 0, wohnung: 0, etfTer: 0.2, staticRate: 2.5, dynStartRate: 3.2, ceiling: 5, floor: -2.5, horizon: 45, blockLen: 5, bootstrapSource: 'sp500', startAge: 50, rentenpunkte: 30, pensionStartAge: 67 };
     setMode('bootstrap'); setVermoegen(values.vermoegen); setAktien(values.aktien); setGold(values.gold); setBitcoin(values.bitcoin); setAnleihen(values.anleihen); setWohnung(values.wohnung); setEtfTer(values.etfTer);
     setStaticRate(values.staticRate); setDynStartRate(values.dynStartRate); setCeiling(values.ceiling); setFloor(values.floor); setHorizon(values.horizon); setBlockLen(values.blockLen); setBootstrapSource(values.bootstrapSource);
     setStartAge(values.startAge); setRentenpunkte(values.rentenpunkte); setPensionStartAge(values.pensionStartAge); setSeed((s) => s + 1);
@@ -1273,6 +1273,12 @@ function EntnahmeSimulator() {
                 </select>
               </div>
             )}
+            {mode === 'bootstrap' && (
+              <Slider label="Blocklänge" value={blockLen} min={1} max={30} step={1}
+                onChange={setBlockLen} format={(v) => v + ' Jahre'}
+                hint="Zusammenhängende Blöcke beim Ziehen"
+                tip="Länge der zusammenhängenden Jahresblöcke. Kleinere Blöcke = mehr Unabhängigkeit zwischen den Zufallsjahren." />
+            )}
             <button onClick={() => setSeed((s) => s + 1)} style={{
               background: 'transparent', border: '1px solid #D3DAD6', color: '#5B6B65',
               fontSize: 12, padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
@@ -1282,7 +1288,7 @@ function EntnahmeSimulator() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
             <span style={{ fontSize: 12, color: '#5B6B65' }}>Defaults:</span>
-            <select value={selectedPreset} onChange={(e) => { if (e.target.value) applyPreset(e.target.value); }} style={{
+            <select value={selectedPreset || 'rentner'} onChange={(e) => { if (e.target.value) { applyPreset(e.target.value); setSelectedPreset(e.target.value); } }} style={{
               fontSize: 12, padding: '6px 10px', borderRadius: 8, border: '1px solid #2F5D62', background: '#FFFFFF', color: '#2F5D62', cursor: 'pointer',
             }}>
               <option value="" disabled>Auswählen …</option>
@@ -1454,12 +1460,6 @@ function EntnahmeSimulator() {
                 obwohl der entnommene Betrag selbst sicherer verwahrt ist.
               </div>
             </div>
-            {mode === 'bootstrap' && (
-              <Slider label="Blocklänge" value={blockLen} min={1} max={20} step={1}
-                onChange={setBlockLen} format={(v) => v + ' Jahre'}
-                hint="Länge zusammenhängender Jahresblöcke beim Ziehen"
-                tip="Länge der zusammenhängenden Jahresblöcke, die beim Block-Bootstrap zufällig aus der Historie gezogen werden. Kleinere Blöcke = mehr Unabhängigkeit zwischen den Zufallsjahren." />
-            )}
             <div style={{ fontSize: 11.5, color: '#5B6B65', marginTop: 4 }}>
               Reserve-Trigger: ETF ≥20% unter Allzeithoch (fest, nicht einstellbar)
             </div>
