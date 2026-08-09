@@ -996,11 +996,11 @@ function EntnahmeSimulator() {
   const [anleihen, setAnleihen] = useState(15);
   const cash = Math.max(0, 100 - aktien - gold - anleihen - bitcoin - wohnung);
 
-  const [staticRate, setStaticRate] = useState(10);
+  const [staticRate, setStaticRate] = useState(8);
   const [dynStartRate, setDynStartRate] = useState(12);
   const [ceiling, setCeiling] = useState(5.0);
   const [floor, setFloor] = useState(-2.5);
-  const [horizon, setHorizon] = useState(20);
+  const [horizon, setHorizon] = useState(25);
   const [entnahmeStrategie, setEntnahmeStrategie] = useState('dynamisch');
   const [entnahmeFrequenz, setEntnahmeFrequenz] = useState('jaehrlich');
   const [heutigeKaufkraft, setHeutigeKaufkraft] = useState(true);
@@ -1335,6 +1335,37 @@ function EntnahmeSimulator() {
           )}
         </div>
 
+
+          <div>
+            <SectionLabel color="#3A6B8A">Zeitraum</SectionLabel>
+            <Slider label="Entnahmehorizont" value={horizon} min={20} max={60} step={1}
+              onChange={setHorizon} format={(v) => v + ' Jahre'}
+              tip="Wie viele Jahre die Entnahmephase dauern soll — das Portfolio muss diesen Zeitraum überbrücken." />
+            <div style={{ marginBottom: 4 }}>
+              <div style={{ fontSize: 12, color: '#5B6B65', marginBottom: 6, display: 'flex', alignItems: 'center' }}>Entnahme-Frequenz<InfoDot text="Wie oft du im Jahr entnimmst. 'Monatlich' verteilt die Entnahmesumme; 'Jährlich' entnimmt den Jahresbetrag auf einmal zu Jahresbeginn (echter Cash-Puffer, aber engere Grenzfälle)." /></div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={() => setEntnahmeFrequenz('monatlich')} style={{
+                  flex: 1, padding: '7px 6px', fontSize: 11.5, borderRadius: 6, cursor: 'pointer',
+                  border: entnahmeFrequenz === 'monatlich' ? '1px solid #2F5D62' : '1px solid #D3DAD6',
+                  background: entnahmeFrequenz === 'monatlich' ? 'rgba(47,93,98,0.16)' : 'transparent',
+                  color: entnahmeFrequenz === 'monatlich' ? '#2F5D62' : '#5B6B65',
+                }}>Monatlich</button>
+                <button onClick={() => setEntnahmeFrequenz('jaehrlich')} style={{
+                  flex: 1, padding: '7px 6px', fontSize: 11.5, borderRadius: 6, cursor: 'pointer',
+                  border: entnahmeFrequenz === 'jaehrlich' ? '1px solid #2F5D62' : '1px solid #D3DAD6',
+                  background: entnahmeFrequenz === 'jaehrlich' ? 'rgba(47,93,98,0.16)' : 'transparent',
+                  color: entnahmeFrequenz === 'jaehrlich' ? '#2F5D62' : '#5B6B65',
+                }}>Jährlich</button>
+              </div>
+              <div style={{ fontSize: 10.5, color: '#5B6B65', marginTop: 4 }}>
+                "Jährlich" entnimmt die komplette Jahressumme auf einen Schlag zu Jahresbeginn — dieser Betrag ist damit
+                für den Rest des Jahres von der Marktentwicklung abgeschirmt (echter Cash-Puffer-Effekt), nur das
+                Restvermögen bleibt investiert. Dadurch braucht "Jährlich" die volle Summe aber sofort verfügbar,
+                bevor die Rendite des Jahres wirken konnte — "Monatlich" kann sich dagegen im Jahresverlauf noch
+                in eine knappe Lage hineinwachsen. Das kann "Jährlich" ausgerechnet in Grenzfällen strenger machen,
+                obwohl der entnommene Betrag selbst sicherer verwahrt ist.
+              </div>
+            </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
           <div>
             <SectionLabel color="#2F5D62">Portfolio</SectionLabel>
@@ -1429,37 +1460,6 @@ function EntnahmeSimulator() {
               </>
             )}
           </div>
-
-          <div>
-            <SectionLabel color="#3A6B8A">{`Zeitraum${mode === 'bootstrap' ? ' & Bootstrap' : ''}`}</SectionLabel>
-            <Slider label="Entnahmehorizont" value={horizon} min={20} max={60} step={1}
-              onChange={setHorizon} format={(v) => v + ' Jahre'}
-              tip="Wie viele Jahre die Entnahmephase dauern soll — das Portfolio muss diesen Zeitraum überbrücken." />
-            <div style={{ marginBottom: 4 }}>
-              <div style={{ fontSize: 12, color: '#5B6B65', marginBottom: 6, display: 'flex', alignItems: 'center' }}>Entnahme-Frequenz<InfoDot text="Wie oft du im Jahr entnimmst. 'Monatlich' verteilt die Entnahmesumme; 'Jährlich' entnimmt den Jahresbetrag auf einmal zu Jahresbeginn (echter Cash-Puffer, aber engere Grenzfälle)." /></div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button onClick={() => setEntnahmeFrequenz('monatlich')} style={{
-                  flex: 1, padding: '7px 6px', fontSize: 11.5, borderRadius: 6, cursor: 'pointer',
-                  border: entnahmeFrequenz === 'monatlich' ? '1px solid #2F5D62' : '1px solid #D3DAD6',
-                  background: entnahmeFrequenz === 'monatlich' ? 'rgba(47,93,98,0.16)' : 'transparent',
-                  color: entnahmeFrequenz === 'monatlich' ? '#2F5D62' : '#5B6B65',
-                }}>Monatlich</button>
-                <button onClick={() => setEntnahmeFrequenz('jaehrlich')} style={{
-                  flex: 1, padding: '7px 6px', fontSize: 11.5, borderRadius: 6, cursor: 'pointer',
-                  border: entnahmeFrequenz === 'jaehrlich' ? '1px solid #2F5D62' : '1px solid #D3DAD6',
-                  background: entnahmeFrequenz === 'jaehrlich' ? 'rgba(47,93,98,0.16)' : 'transparent',
-                  color: entnahmeFrequenz === 'jaehrlich' ? '#2F5D62' : '#5B6B65',
-                }}>Jährlich</button>
-              </div>
-              <div style={{ fontSize: 10.5, color: '#5B6B65', marginTop: 4 }}>
-                "Jährlich" entnimmt die komplette Jahressumme auf einen Schlag zu Jahresbeginn — dieser Betrag ist damit
-                für den Rest des Jahres von der Marktentwicklung abgeschirmt (echter Cash-Puffer-Effekt), nur das
-                Restvermögen bleibt investiert. Dadurch braucht "Jährlich" die volle Summe aber sofort verfügbar,
-                bevor die Rendite des Jahres wirken konnte — "Monatlich" kann sich dagegen im Jahresverlauf noch
-                in eine knappe Lage hineinwachsen. Das kann "Jährlich" ausgerechnet in Grenzfällen strenger machen,
-                obwohl der entnommene Betrag selbst sicherer verwahrt ist.
-              </div>
-            </div>
             <div style={{ fontSize: 11.5, color: '#5B6B65', marginTop: 4 }}>
               Reserve-Trigger: ETF ≥20% unter Allzeithoch (fest, nicht einstellbar)
             </div>

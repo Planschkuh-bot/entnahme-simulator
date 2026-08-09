@@ -996,11 +996,11 @@ function EntnahmeSimulator() {
   const [anleihen, setAnleihen] = useState(15);
   const cash = Math.max(0, 100 - aktien - gold - anleihen - bitcoin - wohnung);
 
-  const [staticRate, setStaticRate] = useState(10);
+  const [staticRate, setStaticRate] = useState(8);
   const [dynStartRate, setDynStartRate] = useState(12);
   const [ceiling, setCeiling] = useState(5.0);
   const [floor, setFloor] = useState(-2.5);
-  const [horizon, setHorizon] = useState(20);
+  const [horizon, setHorizon] = useState(25);
   const [entnahmeStrategie, setEntnahmeStrategie] = useState('dynamisch');
   const [entnahmeFrequenz, setEntnahmeFrequenz] = useState('jaehrlich');
   const [heutigeKaufkraft, setHeutigeKaufkraft] = useState(true);
@@ -1431,7 +1431,7 @@ function EntnahmeSimulator() {
           </div>
 
           <div>
-            <SectionLabel color="#3A6B8A">{`Zeitraum${mode === 'bootstrap' ? ' & Bootstrap' : ''}`}</SectionLabel>
+            <SectionLabel color="#3A6B8A">Zeitraum</SectionLabel>
             <Slider label="Entnahmehorizont" value={horizon} min={20} max={60} step={1}
               onChange={setHorizon} format={(v) => v + ' Jahre'}
               tip="Wie viele Jahre die Entnahmephase dauern soll — das Portfolio muss diesen Zeitraum überbrücken." />
