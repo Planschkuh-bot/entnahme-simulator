@@ -1068,6 +1068,9 @@ export default function EntnahmeSimulator() {
       num('ceiling', setCeiling); num('floor', setFloor);
       num('horizon', setHorizon); num('blockLen', setBlockLen); str('bootstrapSource', setBootstrapSource);
       num('startAge', setStartAge); num('rentenpunkte', setRentenpunkte); num('pensionStartAge', setPensionStartAge);
+      str('entnahmeStrategie', setEntnahmeStrategie); str('entnahmeFrequenz', setEntnahmeFrequenz);
+      const hk = sp.get('heutigeKaufkraft'); if (hk !== null) setHeutigeKaufkraft(hk === 'true');
+      num('inflationRate', setInflationRate); num('numSims', setNumSims); num('seed', setSeed);
     } catch (e) { /* URL-Zugriff nicht verfügbar — Standardwerte bleiben aktiv */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1081,7 +1084,9 @@ export default function EntnahmeSimulator() {
     sp.set('dynStartRate', dynStartRate); sp.set('ceiling', ceiling); sp.set('floor', floor);
     sp.set('horizon', horizon); sp.set('blockLen', blockLen);
     sp.set('bootstrapSource', bootstrapSource); sp.set('startAge', startAge); sp.set('rentenpunkte', rentenpunkte);
-    sp.set('pensionStartAge', pensionStartAge);
+    sp.set('pensionStartAge', pensionStartAge); sp.set('entnahmeStrategie', entnahmeStrategie);
+    sp.set('entnahmeFrequenz', entnahmeFrequenz); sp.set('heutigeKaufkraft', heutigeKaufkraft);
+    sp.set('inflationRate', inflationRate); sp.set('numSims', numSims); sp.set('seed', seed);
     const url = window.location.origin + window.location.pathname + '?' + sp.toString();
     try {
       navigator.clipboard.writeText(url);
