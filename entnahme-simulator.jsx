@@ -827,16 +827,18 @@ function ChartBlock({ title, subtitle, children }) {
   );
 }
 
-function LightTooltip({ active, payload, label }) {
+function LightTooltip({ active, payload, label, showFloor = true }) {
   if (!active || !payload || !payload.length) return null;
-  const p50 = payload.find((p) => p.dataKey && p.dataKey.toString().endsWith('P50'));
-  const band = payload.find((p) => p.dataKey && p.dataKey.toString().endsWith('Band'));
-  const base = payload.find((p) => p.dataKey && p.dataKey.toString().endsWith('P10'));
-  const pensionAmount = payload.find((p) => p.dataKey === 'pensionAmount');
-  const hardFloorAmount = payload.find((p) => p.dataKey === 'hardFloorAmount');
-  const afterP50 = payload.find((p) => p.dataKey === 'spendAfterPensionP50');
-  const afterBand = payload.find((p) => p.dataKey === 'spendAfterPensionBand');
-  const afterBase = payload.find((p) => p.dataKey === 'spendAfterPensionP10');
+  const hasNumber = (p) => p && Number.isFinite(Number(p.value));
+  const p50 = payload.find((p) => hasNumber(p) && p.dataKey && p.dataKey.toString().endsWith('P50'));
+  const p90 = payload.find((p) => hasNumber(p) && p.dataKey && p.dataKey.toString().endsWith('P90'));
+  const band = payload.find((p) => hasNumber(p) && p.dataKey && p.dataKey.toString().endsWith('Band'));
+  const base = payload.find((p) => hasNumber(p) && p.dataKey && p.dataKey.toString().endsWith('P10'));
+  const pensionAmount = payload.find((p) => hasNumber(p) && p.dataKey === 'pensionAmount');
+  const hardFloorAmount = payload.find((p) => hasNumber(p) && p.dataKey === 'hardFloorAmount') || payload.find((p) => hasNumber(p) && p.dataKey === 'hardFloor');
+  const afterP50 = payload.find((p) => hasNumber(p) && p.dataKey === 'spendAfterPensionP50');
+  const afterBand = payload.find((p) => hasNumber(p) && p.dataKey === 'spendAfterPensionBand');
+  const afterBase = payload.find((p) => hasNumber(p) && p.dataKey === 'spendAfterPensionP10');
   return (
     <div style={{
       background: '#FFFFFF',
@@ -855,38 +857,38 @@ function LightTooltip({ active, payload, label }) {
           {pensionAmount && pensionAmount.value !== null && <span style={{ color: '#3A6B8A', fontSize: 12 }}> · GRV: {fmtEUR(pensionAmount.value)} / {(pensionAmount.value / p50.value * 100).toFixed(1)} %</span>}
         </div>
       )}
-      <div style={{ display: 'grid', gridTemplateColumns: '80px repeat(4, 1fr)', columnGap: 4, fontSize: 10.5, color: '#5B6B65', marginTop: 4, textAlign: 'right' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: showFloor ? '80px repeat(4, 1fr)' : '80px repeat(3, 1fr)', columnGap: 4, fontSize: 10.5, color: '#5B6B65', marginTop: 4, textAlign: 'right' }}>
         <span />
         <span>P90</span>
         <span>Median</span>
         <span>P10</span>
-        <span style={{ color: '#A8432F' }}>Boden</span>
+        {showFloor && <span style={{ color: '#A8432F' }}>Boden</span>
       </div>
       {base && band && (
-        <div style={{ display: 'grid', gridTemplateColumns: '80px repeat(4, 1fr)', columnGap: 4, fontSize: 11.5, color: '#5B6B65', textAlign: 'right' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: showFloor ? '80px repeat(4, 1fr)' : '80px repeat(3, 1fr)', columnGap: 4, fontSize: 11.5, color: '#5B6B65', textAlign: 'right' }}>
           <span style={{ textAlign: 'left' }}>Bereich:</span>
           <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEURk(base.value + band.value)}</span>
           <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(p50.value)}</span>
           <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEURk(base.value)}</span>
-          <span style={{ fontFamily: "'IBM Plex Mono', monospace", color: '#A8432F' }}>{hardFloorAmount ? fmtEURk(hardFloorAmount.value) : '–'}</span>
+          {showFloor && <span style={{ fontFamily: "'IBM Plex Mono', monospace", color: '#A8432F' }}>{hardFloorAmount ? fmtEURk(hardFloorAmount.value) : '–'}</span>}
         </div>
       )}
       {pensionAmount && pensionAmount.value !== null && p50 && base && band && (
-        <div style={{ display: 'grid', gridTemplateColumns: '80px repeat(4, 1fr)', columnGap: 4, fontSize: 12, color: '#3A6B8A', marginBottom: 3, textAlign: 'right' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: showFloor ? '80px repeat(4, 1fr)' : '80px repeat(3, 1fr)', columnGap: 4, fontSize: 12, color: '#3A6B8A', marginBottom: 3, textAlign: 'right' }}>
           <span style={{ textAlign: 'left' }}>GRV-Rente:</span>
           <span>{(pensionAmount.value / (base.value + band.value) * 100).toFixed(1)} %</span>
           <span>{(pensionAmount.value / p50.value * 100).toFixed(1)} %</span>
           <span>{(pensionAmount.value / base.value * 100).toFixed(1)} %</span>
-          <span style={{ color: '#A8432F' }}>{hardFloorAmount && hardFloorAmount.value > 0 ? `${(pensionAmount.value / hardFloorAmount.value * 100).toFixed(1)} %` : '–'}</span>
+          {showFloor && <span style={{ color: '#A8432F' }}>{hardFloorAmount && hardFloorAmount.value > 0 ? `${(pensionAmount.value / hardFloorAmount.value * 100).toFixed(1)} %` : '–'}</span>}
         </div>
       )}
       {pensionAmount && pensionAmount.value !== null && base && band && p50 && (
-        <div style={{ display: 'grid', gridTemplateColumns: '80px repeat(4, 1fr)', columnGap: 4, fontSize: 11.5, color: '#2F5D62', marginTop: 3, textAlign: 'right' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: showFloor ? '80px repeat(4, 1fr)' : '80px repeat(3, 1fr)', columnGap: 4, fontSize: 11.5, color: '#2F5D62', marginTop: 3, textAlign: 'right' }}>
           <span style={{ textAlign: 'left' }}>Nach Abzug GRV:</span>
           <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEURk(Math.max(base.value + band.value - pensionAmount.value, 0))}</span>
           <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEURk(Math.max(p50.value - pensionAmount.value, 0))}</span>
           <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEURk(Math.max(base.value - pensionAmount.value, 0))}</span>
-          <span style={{ fontFamily: "'IBM Plex Mono', monospace", color: '#A8432F' }}>{hardFloorAmount ? fmtEUR(Math.max(hardFloorAmount.value - pensionAmount.value, 0)) : '–'}</span>
+          {showFloor && <span style={{ fontFamily: "'IBM Plex Mono', monospace", color: '#A8432F' }}>{hardFloorAmount ? fmtEURk(Math.max(hardFloorAmount.value - pensionAmount.value, 0)) : '–'}</span>}
         </div>
       )}
     </div>
@@ -1117,6 +1119,7 @@ export default function EntnahmeSimulator() {
       spendAfterPensionP10: y.spendP10 !== null && startAge + y.year >= pensionStartAge ? Math.max(y.spendP10 - pensionAnnual, 0) * factor : null,
       spendAfterPensionP50: y.spendP50 !== null && startAge + y.year >= pensionStartAge ? Math.max(y.spendP50 - pensionAnnual, 0) * factor : null,
       spendAfterPensionBand: y.spendP10 !== null && y.spendP90 !== null && startAge + y.year >= pensionStartAge ? Math.max(y.spendP90 - pensionAnnual, 0) * factor - Math.max(y.spendP10 - pensionAnnual, 0) * factor : null,
+      hardFloor: y.spendP50 !== null ? result.hardFloor * factor : null,
       pensionShare: startAge + y.year >= pensionStartAge && y.spendP50 > 0 ? Math.min(100, (pensionAnnual / y.spendP50) * 100) : 0,
     };
   });
@@ -1519,7 +1522,7 @@ export default function EntnahmeSimulator() {
             <CartesianGrid stroke="#E3E8E5" vertical={false} />
             <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
             <YAxis tickFormatter={fmtEUR} tick={{ fill: '#5B6B65', fontSize: 11, dy: 4 }} tickLine={false} axisLine={false} width={60} />
-            <Tooltip content={<LightTooltip />} />
+            <Tooltip content={<LightTooltip showFloor={false} />} />
             <Area dataKey="balP10" stackId="b" stroke="none" fill="transparent" />
             <Area dataKey="balBand" stackId="b" stroke="none" fill="#2F5D62" fillOpacity={0.15} />
             <Line dataKey="balP50" stroke="#2F5D62" strokeWidth={2} dot={false} />
@@ -1541,9 +1544,8 @@ export default function EntnahmeSimulator() {
             <Line dataKey="spendP50" name="Gesamtentnahme" stroke="#C08A2E" strokeWidth={2} dot={false} />
             <Line dataKey="spendAfterPensionP50" name="Nach Abzug GRV" stroke="#2F5D62" strokeWidth={2} dot={false} />
             <Line dataKey="pensionAmount" stroke="none" dot={false} activeDot={false} />
-            <Line dataKey="hardFloorAmount" stroke="none" dot={false} activeDot={false} />
             {entnahmeStrategie === 'dynamisch' && (
-              <Line dataKey={() => result.hardFloor} stroke="#A8432F" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
+              <Line dataKey="hardFloor" name="Bodenlinie" stroke="#A8432F" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
             )}
             {pensionStartYear > 0 && pensionStartYear <= horizon && (
               <ReferenceLine x={pensionStartAge} stroke="#3A6B8A" strokeDasharray="3 3" label={{ value: 'Rentenbeginn', position: 'insideTopRight', fill: '#3A6B8A', fontSize: 10 }} />
