@@ -1105,22 +1105,23 @@ export default function EntnahmeSimulator() {
   const pensionStartYear = Math.max(0, pensionStartAge - startAge);
   const chartData = result.yearsStats.map((y, idx) => {
     const factor = heutigeKaufkraft ? 1 : Math.pow(1 + inflationRate / 100, idx);
+    const spending = Number.isFinite(y.spendP50) ? y : result.yearsStats[idx - 1] || y;
     return {
       year: y.year,
       age: startAge + y.year,
       balP10: y.balP10 * factor,
       balBand: y.balBand * factor,
       balP50: y.balP50 * factor,
-      spendP10: y.spendP10 !== null ? y.spendP10 * factor : null,
-      spendBand: y.spendBand !== null ? y.spendBand * factor : null,
-      spendP50: y.spendP50 !== null ? y.spendP50 * factor : null,
+      spendP10: Number.isFinite(spending.spendP10) ? spending.spendP10 * factor : null,
+      spendBand: Number.isFinite(spending.spendBand) ? spending.spendBand * factor : null,
+      spendP50: Number.isFinite(spending.spendP50) ? spending.spendP50 * factor : null,
       pensionAmount: startAge + y.year >= pensionStartAge ? pensionAnnual * factor : null,
       hardFloorAmount: result.hardFloor * factor,
-      spendAfterPensionP10: y.spendP10 !== null && startAge + y.year >= pensionStartAge ? Math.max(y.spendP10 - pensionAnnual, 0) * factor : null,
-      spendAfterPensionP50: y.spendP50 !== null && startAge + y.year >= pensionStartAge ? Math.max(y.spendP50 - pensionAnnual, 0) * factor : null,
-      spendAfterPensionBand: y.spendP10 !== null && y.spendP90 !== null && startAge + y.year >= pensionStartAge ? Math.max(y.spendP90 - pensionAnnual, 0) * factor - Math.max(y.spendP10 - pensionAnnual, 0) * factor : null,
-      hardFloor: y.spendP50 !== null ? result.hardFloor * factor : null,
-      pensionShare: startAge + y.year >= pensionStartAge && y.spendP50 > 0 ? Math.min(100, (pensionAnnual / y.spendP50) * 100) : 0,
+      spendAfterPensionP10: Number.isFinite(spending.spendP10) && startAge + y.year >= pensionStartAge ? Math.max(spending.spendP10 - pensionAnnual, 0) * factor : null,
+      spendAfterPensionP50: Number.isFinite(spending.spendP50) && startAge + y.year >= pensionStartAge ? Math.max(spending.spendP50 - pensionAnnual, 0) * factor : null,
+      spendAfterPensionBand: Number.isFinite(spending.spendP10) && Number.isFinite(spending.spendP90) && startAge + y.year >= pensionStartAge ? Math.max(spending.spendP90 - pensionAnnual, 0) * factor - Math.max(spending.spendP10 - pensionAnnual, 0) * factor : null,
+      hardFloor: Number.isFinite(spending.spendP50) ? result.hardFloor * factor : null,
+      pensionShare: startAge + y.year >= pensionStartAge && spending.spendP50 > 0 ? Math.min(100, (pensionAnnual / spending.spendP50) * 100) : 0,
     };
   });
 
@@ -1570,18 +1571,8 @@ export default function EntnahmeSimulator() {
         {/* Notes */}
         <div style={{ background: '#FFFFFF', border: '1px solid #D3DAD6', borderRadius: 12, padding: '16px 18px', fontSize: 12.5, color: '#5B6B65', lineHeight: 1.6, marginTop: 8 }}>
           <div style={{ color: '#1C2521', fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Annahmen &amp; Grenzen</div>
-          Die Entnahmehöhe folgt weiterhin der Vanguard-Ceiling/Floor-Regel (jährlich neu berechnet als Entnahmerate × aktueller Portfoliowert, begrenzt durch Ceiling/Floor relativ zur tatsächlichen Vorjahresentnahme) mit hartem Boden. Neu ist die <em>Entnahme-Reihenfolge</em>:
-          Cash und Gold werden nur in Jahren mit ≥20% ETF-Drawdown (ggü. dem bisherigen Höchststand) angezapft — zuerst Cash, dann Gold,
-          erst wenn beide leer sind wieder der ETF. In normalen/guten Jahren kommt die gesamte Entnahme aus dem ETF. Einmal geleerte
-          Reserven werden nie wieder aufgefüllt (keine Rebalancierung) — das Portfolio "rutscht" also mit der Zeit in Richtung 100% ETF.{' '}
-          <strong style={{ color: '#1C2521' }}>Bitcoin:</strong> wird als weiterer Risiko-Baustein behandelt (Reihenfolge gute Jahre: ETF → Bitcoin →
-          Gold → Cash; schlechte Jahre: Cash → Gold → Bitcoin → ETF). Da keine ausreichend lange Kursreihe existiert, wird Bitcoin — anders als
-          Aktien/Gold/Cash — in <em>jedem</em> Modus, auch den "historischen", parametrisch simuliert (real: 15% Rendite-Erwartung, 65% Volatilität
-          p.a., Korrelation zu Aktien 0,3, lognormalverteilt damit keine Jahresrendite unter −100% möglich ist — grobe Schätzwerte). <strong style={{ color: '#1C2521' }}>Eigentumswohnung:</strong> geht NICHT in die
-          Entnahme-Simulation ein (illiquide, nicht kurzfristig verwertbar) — nur als separater, deterministisch mit 1,5% p.a. real fortgeschriebener
-          Sachwert ausgewiesen. Die laufenden <strong style={{ color: '#1C2521' }}>Mieteinnahmen</strong> (angenommen: 3% des jeweils aktuellen
-          Werts p.a., real, ohne Instandhaltungskosten/Leerstand) wirken dagegen wie die GRV-Rente: Sie reduzieren ab Jahr 1 den nötigen
-          Portfolio-Entnahmebetrag, ohne dass die Wohnung selbst verkauft oder liquidiert wird.{' '}
+          Die Entnahmehöhe folgt der Vanguard-Ceiling/Floor-Regel: Sie wird jährlich aus dem aktuellen Portfoliowert berechnet und durch maximalen Anstieg, maximalen Rückgang und den harten Boden begrenzt. Die Entnahme-Reihenfolge lautet in normalen Jahren: Aktien-ETF → Crypto → Anleihen-ETF → Gold → Liquidität. Bei einem ETF-Drawdown von mindestens 20% werden zuerst Liquidität, dann Anleihen-ETF, Gold und Crypto genutzt; erst danach wird der Aktien-ETF verkauft. Leere Reserven werden nicht wieder aufgefüllt.{' '}
+          Crypto wird in allen Modi parametrisch simuliert, mit grob angenommenen 15% realer Rendite und 65% Volatilität pro Jahr. Der Anleihen-ETF steht für europäische Staats- und Investment-Grade-Unternehmensanleihen mit bis zu fünf Jahren Laufzeit; dafür werden 2% reale Rendite und 4% Volatilität angenommen. Die <strong style={{ color: '#1C2521' }}>vermietete Immobilie</strong> ist nicht Teil der Entnahmesimulation, sondern wird als illiquider Sachwert fortgeschrieben. Die Mieteinnahmen von angenommenen 3% des aktuellen Immobilienwerts reduzieren den nötigen Portfolio-Entnahmebetrag.{' '}
           <strong style={{ color: '#1C2521' }}>GRV-Rente:</strong> Ab dem eingestellten Rentenbeginn-Alter deckt die gesetzliche Rente
           (Rentenpunkte × aktueller Rentenwert, 42,52 €/Monat seit 1.7.2026, plus vereinfachter Ab-/Zuschlag von 0,3%/Monat vor bzw. 0,5%/Monat
           nach der Regelaltersgrenze 67) einen Teil der Zielentnahme — das Portfolio muss nur noch die Differenz liefern. Der Rentenwert wird über
