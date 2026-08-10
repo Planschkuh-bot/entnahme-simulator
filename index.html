@@ -571,6 +571,7 @@ function aggregate(paths, horizon) {
   const endBalances = [];
   const totalWithdrawals = [];
   const spendVolatilities = [];
+  const allYearSpends = [];
   let badYearSum = 0;
   for (const res of paths) {
     for (let t = 0; t <= horizon; t++) balanceByYear[t].push(res.balances[t]);
@@ -586,6 +587,9 @@ function aggregate(paths, horizon) {
     const spendMean = totalWithdrawn / res.spends.length;
     const spendStd = Math.sqrt(res.spends.reduce((sum, s) => sum + Math.pow(s - spendMean, 2), 0) / res.spends.length);
     spendVolatilities.push(spendStd);
+    for (let t = 0; t < res.spends.length; t++) {
+      if (!res.failedByYear[t]) allYearSpends.push(res.spends[t]);
+    }
   }
   const failureCurve = [{ year: 0, failRate: 0 }];
   for (let t = 0; t < horizon; t++) {
@@ -622,8 +626,8 @@ function aggregate(paths, horizon) {
     medianTotalWithdrawal: percentile(totalWithdrawals, 50),
     medianSpendVolatility: percentile(spendVolatilities, 50),
     avgSpend: totalWithdrawals.reduce((a, b) => a + b, 0) / totalWithdrawals.length / horizon,
-    p10Spend: percentile(spendVolatilities, 10),
-    p90Spend: percentile(spendVolatilities, 90),
+    p10Spend: percentile(allYearSpends, 10),
+    p90Spend: percentile(allYearSpends, 90),
     p10TotalWithdrawal: percentile(totalWithdrawals, 10),
     numPaths: paths.length,
     hardFloor: paths[0]?.hardFloor ?? 0,
@@ -1078,10 +1082,10 @@ function EntnahmeSimulator() {
   const strategyComparison = useMemo(() => {
     const d = debounced;
     const strategies = [
-      { key: 'dynamisch', label: 'Dynamisch (Vanguard)' },
-      { key: 'konstant', label: 'Konstante %' },
-      { key: 'bengen', label: '4%-Regel (Bengen)' },
-      { key: 'statisch', label: 'Statisch (fest, real)' },
+      { key: 'dynamisch', label: 'Dynamisch (Vanguard)', rate: d.dynStartRate, floor: d.floor, ceiling: d.ceiling, note: 'Ceiling/Floor/Boden' },
+      { key: 'konstant', label: 'Konstante %', rate: d.dynStartRate, floor: null, ceiling: null, note: d.dynStartRate + '% des aktuellen Portfolios' },
+      { key: 'bengen', label: '4%-Regel (Bengen)', rate: 4, floor: null, ceiling: null, note: 'Fix 4%, real konstant' },
+      { key: 'statisch', label: 'Statisch (fest, real)', rate: d.dynStartRate, floor: null, ceiling: null, note: d.dynStartRate + '% real konstant' },
     ];
     return strategies.map(s => {
       const params = { vermoegen: d.vermoegen, aktien: d.aktien, gold: d.gold, cash: d.cash, bitcoin: d.bitcoin,
@@ -1660,7 +1664,9 @@ function EntnahmeSimulator() {
               <thead>
                 <tr style={{ borderBottom: '2px solid #D3DAD6' }}>
                   <th style={{ textAlign: 'left', padding: '6px 8px', fontWeight: 600, color: '#1C2521', fontFamily: "'Inter', sans-serif" }}>Strategie</th>
+                  <th style={{ textAlign: 'left', padding: '6px 8px', fontWeight: 600, color: '#1C2521', fontFamily: "'Inter', sans-serif" }}>Rate</th>
                   <th style={{ textAlign: 'right', padding: '6px 8px', fontWeight: 600, color: '#1C2521', fontFamily: "'Inter', sans-serif" }}>Erfolgsquote</th>
+                  <th style={{ textAlign: 'right', padding: '6px 8px', fontWeight: 600, color: '#1C2521', fontFamily: "'Inter', sans-serif" }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>Schwankung<InfoDot text="Koeffizient der Variation: (P90-P10)/Ø × 100. Je höher, desto stärker schwankt die jährliche Entnahme. Nur Jahre mit aktivem Portfolio." /></span></th>
                   <th style={{ textAlign: 'right', padding: '6px 8px', fontWeight: 600, color: '#1C2521', fontFamily: "'Inter', sans-serif" }}>Ø Jahresentnahme</th>
                   <th style={{ textAlign: 'right', padding: '6px 8px', fontWeight: 600, color: '#1C2521', fontFamily: "'Inter', sans-serif" }}>Min. (P10)</th>
                   <th style={{ textAlign: 'right', padding: '6px 8px', fontWeight: 600, color: '#1C2521', fontFamily: "'Inter', sans-serif" }}>Max. (P90)</th>
@@ -1673,13 +1679,15 @@ function EntnahmeSimulator() {
                 {strategyComparison.map(s => (
                   <tr key={s.key} style={{ borderBottom: '1px solid #E8ECE9', background: s.key === entnahmeStrategie ? 'rgba(47,93,98,0.06)' : 'transparent' }}>
                     <td style={{ padding: '6px 8px', color: s.key === entnahmeStrategie ? '#2F5D62' : '#5B6B65', fontWeight: s.key === entnahmeStrategie ? 600 : 400, fontFamily: "'Inter', sans-serif" }}>{s.label}</td>
-                    <td style={{ textAlign: 'right', padding: '6px 8px', color: s.result.successRate >= 97.5 ? '#2F5D62' : s.result.successRate >= 90 ? '#C08A2E' : '#A8432F', fontWeight: 600 }}>{s.result.successRate.toFixed(1)}%</td>
-                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmtEUR(s.result.avgSpend)}</td>
-                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmtEUR(s.result.p10Spend)}</td>
-                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmtEUR(s.result.p90Spend)}</td>
-                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmtEUR(s.result.medianTotalWithdrawal)}</td>
-                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmtEUR(s.result.p10TotalWithdrawal)}</td>
-                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmtEUR(s.result.medianEnd)}</td>
+                    <td style={{ padding: '6px 8px', fontSize: 10, color: '#5B6B65' }}>{s.note}</td>
+                  <td style={{ textAlign: 'right', padding: '6px 8px', color: s.result.successRate >= 97.5 ? '#2F5D62' : s.result.successRate >= 90 ? '#C08A2E' : '#A8432F', fontWeight: 600 }}>{s.result.successRate.toFixed(1)}%</td>
+                  <td style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'IBM Plex Mono', monospace" }}>{s.result.avgSpend > 0 ? ((s.result.p90Spend - s.result.p10Spend) / s.result.avgSpend * 100).toFixed(0) + '%' : '–'}</td>
+                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmtEURk(heutigeKaufkraft ? s.result.avgSpend : s.result.avgSpend * Math.pow(1 + inflationRate / 100, horizon))}</td>
+                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmtEURk(heutigeKaufkraft ? s.result.p10Spend : s.result.p10Spend * Math.pow(1 + inflationRate / 100, horizon))}</td>
+                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmtEURk(heutigeKaufkraft ? s.result.p90Spend : s.result.p90Spend * Math.pow(1 + inflationRate / 100, horizon))}</td>
+                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmtEURk(heutigeKaufkraft ? s.result.medianTotalWithdrawal : s.result.medianTotalWithdrawal * Math.pow(1 + inflationRate / 100, horizon))}</td>
+                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmtEURk(heutigeKaufkraft ? s.result.p10TotalWithdrawal : s.result.p10TotalWithdrawal * Math.pow(1 + inflationRate / 100, horizon))}</td>
+                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmtEURk(heutigeKaufkraft ? s.result.medianEnd : s.result.medianEnd * Math.pow(1 + inflationRate / 100, horizon))}</td>
                   </tr>
                 ))}
               </tbody>
