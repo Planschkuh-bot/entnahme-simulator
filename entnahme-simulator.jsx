@@ -827,7 +827,7 @@ function ChartBlock({ title, subtitle, children }) {
   );
 }
 
-function LightTooltip({ active, payload, label, showFloor = true }) {
+function LightTooltip({ active, payload, label, showFloor = true, startAge = 67 }) {
   if (!active || !payload || !payload.length) return null;
   const hasNumber = (p) => p && Number.isFinite(Number(p.value));
   const p50 = payload.find((p) => hasNumber(p) && p.dataKey && p.dataKey.toString().endsWith('P50'));
@@ -839,6 +839,7 @@ function LightTooltip({ active, payload, label, showFloor = true }) {
   const afterP50 = payload.find((p) => hasNumber(p) && p.dataKey === 'spendAfterPensionP50');
   const afterBand = payload.find((p) => hasNumber(p) && p.dataKey === 'spendAfterPensionBand');
   const afterBase = payload.find((p) => hasNumber(p) && p.dataKey === 'spendAfterPensionP10');
+  const withdrawalYear = label - startAge + 1;
   return (
     <div style={{
       background: '#FFFFFF',
@@ -850,7 +851,7 @@ function LightTooltip({ active, payload, label, showFloor = true }) {
       color: '#1C2521',
       lineHeight: 1.4,
     }}>
-      <div style={{ fontWeight: 600, color: '#5B6B65', marginBottom: 4, fontSize: 11.5 }}>Alter {label}</div>
+      <div style={{ fontWeight: 600, color: '#5B6B65', marginBottom: 4, fontSize: 11.5 }}>Alter: {label} / Jahr der Entnahme: {withdrawalYear}</div>
       {p50 && (
         <div style={{ fontSize: 13, fontWeight: 600, color: '#1C2521', marginBottom: 3 }}>
           Median: <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(p50.value)}</span>
@@ -895,10 +896,11 @@ function LightTooltip({ active, payload, label, showFloor = true }) {
   );
 }
 
-function FailTooltip({ active, payload, label }) {
+function FailTooltip({ active, payload, label, startAge = 67 }) {
   if (!active || !payload || !payload.length) return null;
   const entry = payload.find((p) => p.dataKey === 'failRate');
   if (!entry) return null;
+  const withdrawalYear = label - startAge + 1;
   return (
     <div style={{
       background: '#FFFFFF',
@@ -910,7 +912,7 @@ function FailTooltip({ active, payload, label }) {
       color: '#1C2521',
       lineHeight: 1.4,
     }}>
-      <div style={{ fontWeight: 600, color: '#5B6B65', marginBottom: 4, fontSize: 11.5 }}>Alter {label}</div>
+      <div style={{ fontWeight: 600, color: '#5B6B65', marginBottom: 4, fontSize: 11.5 }}>Alter: {label} / Jahr der Entnahme: {withdrawalYear}</div>
       <div style={{ fontSize: 13, fontWeight: 600, color: '#A8432F' }}>
         Ausfallwahrscheinlichkeit: <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{entry.value.toFixed(1)}%</span>
       </div>
@@ -1003,57 +1005,63 @@ export default function EntnahmeSimulator() {
   }, [debounced]);
 
   // ---- Sensitivitätsanalyse: welcher Parameter bewegt die Erfolgsquote am meisten? ----
-  const sensitivity = useMemo(() => {
-    const d = debounced;
-    const sensNumSims = 500;
-    const base = { vermoegen: d.vermoegen, aktien: d.aktien, gold: d.gold, cash: d.cash, bitcoin: d.bitcoin,
-      staticRate: d.staticRate, dynStartRate: d.dynStartRate, ceiling: d.ceiling, floor: d.floor,
-      horizon: d.horizon, numSims: sensNumSims, blockLen: d.blockLen, anleihen: d.anleihen,
-      bootstrapSource: d.bootstrapSource, startAge: d.startAge, pensionStartAge: d.pensionStartAge,
-      pensionAnnual: d.pensionAnnual, rentalIncomeByYear: d.rentalIncomeByYear, seed: d.seed,
-      entnahmeStrategie: d.entnahmeStrategie, entnahmeFrequenz: d.entnahmeFrequenz };
-    const run = (overrides) => runForMode(d.mode, Object.assign({}, base, overrides)).successRate;
-    const baseline = run({});
-    const impact = (rLo, rHi) => Math.max(Math.abs(rLo - baseline), Math.abs(rHi - baseline));
-    const items = [];
+  const [sensitivity, setSensitivity] = useState([]);
+  const [sensitivityLoading, setSensitivityLoading] = useState(false);
+  function computeSensitivity() {
+    setSensitivityLoading(true);
+    setTimeout(() => {
+      const d = debounced;
+      const sensNumSims = 500;
+      const base = { vermoegen: d.vermoegen, aktien: d.aktien, gold: d.gold, cash: d.cash, bitcoin: d.bitcoin,
+        staticRate: d.staticRate, dynStartRate: d.dynStartRate, ceiling: d.ceiling, floor: d.floor,
+        horizon: d.horizon, numSims: sensNumSims, blockLen: d.blockLen, anleihen: d.anleihen,
+        bootstrapSource: d.bootstrapSource, startAge: d.startAge, pensionStartAge: d.pensionStartAge,
+        pensionAnnual: d.pensionAnnual, rentalIncomeByYear: d.rentalIncomeByYear, seed: d.seed,
+        entnahmeStrategie: d.entnahmeStrategie, entnahmeFrequenz: d.entnahmeFrequenz };
+      const run = (overrides) => runForMode(d.mode, Object.assign({}, base, overrides)).successRate;
+      const baseline = run({});
+      const impact = (rLo, rHi) => Math.max(Math.abs(rLo - baseline), Math.abs(rHi - baseline));
+      const items = [];
 
-    {
-      const lo = Math.max(50, d.aktien - 5), hi = Math.min(100 - d.gold - d.bitcoin - wohnung, d.aktien + 5);
-      const rLo = run({ aktien: lo, cash: Math.max(0, 100 - lo - d.gold - d.bitcoin - wohnung) });
-      const rHi = run({ aktien: hi, cash: Math.max(0, 100 - hi - d.gold - d.bitcoin - wohnung) });
-      items.push({ label: 'Aktienquote ±5%-Pkt.', delta: impact(rLo, rHi) });
-    }
-    {
-      const rLo = run({ dynStartRate: Math.max(2, d.dynStartRate - 0.3) });
-      const rHi = run({ dynStartRate: Math.min(6, d.dynStartRate + 0.3) });
-      items.push({ label: 'Dyn. Startrate ±0,3%-Pkt.', delta: impact(rLo, rHi) });
-    }
-    {
-      const rLo = run({ horizon: Math.max(25, d.horizon - 5) });
-      const rHi = run({ horizon: Math.min(55, d.horizon + 5) });
-      items.push({ label: 'Horizont ±5 Jahre', delta: impact(rLo, rHi) });
-    }
-    {
-      const ageLo = Math.max(63, d.pensionStartAge - 1), ageHi = Math.min(75, d.pensionStartAge + 1);
-      const rLo = run({ pensionStartAge: ageLo, pensionAnnual: computePensionAnnual(rentenpunkte, ageLo) });
-      const rHi = run({ pensionStartAge: ageHi, pensionAnnual: computePensionAnnual(rentenpunkte, ageHi) });
-      items.push({ label: 'Rentenbeginn ±1 Jahr', delta: impact(rLo, rHi) });
-    }
-    {
-      const lo = Math.max(0, d.bitcoin - 3), hi = Math.min(20, d.bitcoin + 3);
-      const rLo = run({ bitcoin: lo, cash: Math.max(0, 100 - d.aktien - d.gold - lo - wohnung) });
-      const rHi = run({ bitcoin: hi, cash: Math.max(0, 100 - d.aktien - d.gold - hi - wohnung) });
-      items.push({ label: 'Bitcoin ±3%-Pkt.', delta: impact(rLo, rHi) });
-    }
-    {
-      const rLo = run({ pensionAnnual: computePensionAnnual(Math.max(0, rentenpunkte - 5), d.pensionStartAge) });
-      const rHi = run({ pensionAnnual: computePensionAnnual(rentenpunkte + 5, d.pensionStartAge) });
-      items.push({ label: 'Rentenpunkte ±5', delta: impact(rLo, rHi) });
-    }
+      {
+        const lo = Math.max(50, d.aktien - 5), hi = Math.min(100 - d.gold - d.bitcoin - wohnung, d.aktien + 5);
+        const rLo = run({ aktien: lo, cash: Math.max(0, 100 - lo - d.gold - d.bitcoin - wohnung) });
+        const rHi = run({ aktien: hi, cash: Math.max(0, 100 - hi - d.gold - d.bitcoin - wohnung) });
+        items.push({ label: 'Aktienquote ±5%-Pkt.', delta: impact(rLo, rHi) });
+      }
+      {
+        const rLo = run({ dynStartRate: Math.max(2, d.dynStartRate - 0.3) });
+        const rHi = run({ dynStartRate: Math.min(6, d.dynStartRate + 0.3) });
+        items.push({ label: 'Dyn. Startrate ±0,3%-Pkt.', delta: impact(rLo, rHi) });
+      }
+      {
+        const rLo = run({ horizon: Math.max(25, d.horizon - 5) });
+        const rHi = run({ horizon: Math.min(55, d.horizon + 5) });
+        items.push({ label: 'Horizont ±5 Jahre', delta: impact(rLo, rHi) });
+      }
+      {
+        const ageLo = Math.max(63, d.pensionStartAge - 1), ageHi = Math.min(75, d.pensionStartAge + 1);
+        const rLo = run({ pensionStartAge: ageLo, pensionAnnual: computePensionAnnual(rentenpunkte, ageLo) });
+        const rHi = run({ pensionStartAge: ageHi, pensionAnnual: computePensionAnnual(rentenpunkte, ageHi) });
+        items.push({ label: 'Rentenbeginn ±1 Jahr', delta: impact(rLo, rHi) });
+      }
+      {
+        const lo = Math.max(0, d.bitcoin - 3), hi = Math.min(20, d.bitcoin + 3);
+        const rLo = run({ bitcoin: lo, cash: Math.max(0, 100 - d.aktien - d.gold - lo - wohnung) });
+        const rHi = run({ bitcoin: hi, cash: Math.max(0, 100 - d.aktien - d.gold - hi - wohnung) });
+        items.push({ label: 'Bitcoin ±3%-Pkt.', delta: impact(rLo, rHi) });
+      }
+      {
+        const rLo = run({ pensionAnnual: computePensionAnnual(Math.max(0, rentenpunkte - 5), d.pensionStartAge) });
+        const rHi = run({ pensionAnnual: computePensionAnnual(rentenpunkte + 5, d.pensionStartAge) });
+        items.push({ label: 'Rentenpunkte ±5', delta: impact(rLo, rHi) });
+      }
 
-    items.sort((a, b) => b.delta - a.delta);
-    return items;
-  }, [debounced, wohnung, rentenpunkte]);
+      items.sort((a, b) => b.delta - a.delta);
+      setSensitivity(items);
+      setSensitivityLoading(false);
+    }, 50);
+  }
 
   // ---- URL-Konfiguration laden (einmalig beim Mount) ----
   useEffect(() => {
@@ -1101,11 +1109,11 @@ export default function EntnahmeSimulator() {
     setSelectedPreset(preset);
     let values;
     if (preset === 'rentner') {
-      values = { vermoegen: 300000, aktien: 80, gold: 0, bitcoin: 0, anleihen: 15, wohnung: 0, etfTer: 0.2, staticRate: 8, dynStartRate: 12, ceiling: 5, floor: -2.5, horizon: 25, blockLen: 5, bootstrapSource: 'sp500', startAge: 67, rentenpunkte: 40, pensionStartAge: 67, entnahmeStrategie: 'dynamisch', entnahmeFrequenz: 'jaehrlich', heutigeKaufkraft: true, inflationRate: 2, numSims: 10000, seed: 5 };
+      values = { vermoegen: 300000, aktien: 80, gold: 0, bitcoin: 0, anleihen: 15, wohnung: 0, etfTer: 0.2, staticRate: 8, dynStartRate: 12, ceiling: 5, floor: -2.5, horizon: 25, blockLen: 5, bootstrapSource: 'sp500', startAge: 67, rentenpunkte: 40, pensionStartAge: 67, entnahmeStrategie: 'dynamisch', entnahmeFrequenz: 'jaehrlich', heutigeKaufkraft: true, inflationRate: 2, numSims: 2500, seed: 5 };
     } else if (preset === 'fire-fan') {
-      values = { vermoegen: 1150000, aktien: 87, gold: 7, bitcoin: 0, anleihen: 0, wohnung: 0, etfTer: 0.25, staticRate: 2.4, dynStartRate: 3, ceiling: 5, floor: -2.5, horizon: 50, blockLen: 5, bootstrapSource: 'sp500', startAge: 50, rentenpunkte: 25, pensionStartAge: 67, entnahmeStrategie: 'dynamisch', entnahmeFrequenz: 'jaehrlich', heutigeKaufkraft: true, inflationRate: 2, numSims: 10000, seed: 5 };
+      values = { vermoegen: 1150000, aktien: 87, gold: 7, bitcoin: 0, anleihen: 0, wohnung: 0, etfTer: 0.25, staticRate: 2.4, dynStartRate: 3, ceiling: 5, floor: -2.5, horizon: 50, blockLen: 5, bootstrapSource: 'sp500', startAge: 50, rentenpunkte: 25, pensionStartAge: 67, entnahmeStrategie: 'dynamisch', entnahmeFrequenz: 'jaehrlich', heutigeKaufkraft: true, inflationRate: 2, numSims: 2500, seed: 5 };
     } else {
-      values = { vermoegen: 1150000, aktien: 87, gold: 7, bitcoin: 0, anleihen: 0, wohnung: 0, etfTer: 0.2, staticRate: 2.5, dynStartRate: 3.2, ceiling: 5, floor: -2.5, horizon: 45, blockLen: 5, bootstrapSource: 'sp500', startAge: 50, rentenpunkte: 30, pensionStartAge: 67, entnahmeStrategie: 'dynamisch', entnahmeFrequenz: 'jaehrlich', heutigeKaufkraft: true, inflationRate: 2, numSims: 10000, seed: 0 };
+      values = { vermoegen: 1150000, aktien: 87, gold: 7, bitcoin: 0, anleihen: 0, wohnung: 0, etfTer: 0.2, staticRate: 2.5, dynStartRate: 3.2, ceiling: 5, floor: -2.5, horizon: 45, blockLen: 5, bootstrapSource: 'sp500', startAge: 50, rentenpunkte: 30, pensionStartAge: 67, entnahmeStrategie: 'dynamisch', entnahmeFrequenz: 'jaehrlich', heutigeKaufkraft: true, inflationRate: 2, numSims: 2500, seed: 0 };
     }
     setMode('bootstrap'); setVermoegen(values.vermoegen); setAktien(values.aktien); setGold(values.gold); setBitcoin(values.bitcoin); setAnleihen(values.anleihen); setWohnung(values.wohnung); setEtfTer(values.etfTer);
     setStaticRate(values.staticRate); setDynStartRate(values.dynStartRate); setCeiling(values.ceiling); setFloor(values.floor); setHorizon(values.horizon); setBlockLen(values.blockLen); setBootstrapSource(values.bootstrapSource);
@@ -1510,10 +1518,20 @@ export default function EntnahmeSimulator() {
 
         {/* Sensitivität: welcher Parameter bewegt die Erfolgsquote am meisen? */}
         <div style={{ background: '#FFFFFF', border: '1px solid #D3DAD6', borderRadius: 12, padding: '16px 18px', marginBottom: 20 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>Sensitivität</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>Sensitivität</div>
+            <button onClick={computeSensitivity} disabled={sensitivityLoading} style={{
+              fontSize: 11, padding: '4px 10px', borderRadius: 6, border: '1px solid #2F5D62', background: sensitivityLoading ? '#E3E8E5' : '#FFFFFF', color: '#2F5D62', cursor: sensitivityLoading ? 'default' : 'pointer',
+            }}>
+              {sensitivityLoading ? '⏳ Berechne…' : '▶ Berechnen'}
+            </button>
+          </div>
           <div style={{ fontSize: 11, color: '#5B6B65', marginBottom: 12 }}>
             Wirkung einer kleinen Parameteränderung auf die Erfolgsquote (Prozentpunkte, größere Balken = größerer Hebel)
           </div>
+          {sensitivity.length === 0 && !sensitivityLoading && (
+            <div style={{ fontSize: 11, color: '#5B6B65', fontStyle: 'italic' }}>Auf „Berechnen" klicken, um die Analyse durchzuführen.</div>
+          )}
           {sensitivity.map((item) => {
             const maxDelta = Math.max(...sensitivity.map((i) => i.delta), 0.1);
             return (
@@ -1536,7 +1554,7 @@ export default function EntnahmeSimulator() {
             <CartesianGrid stroke="#E3E8E5" vertical={false} />
             <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
             <YAxis tickFormatter={fmtEUR} tick={{ fill: '#5B6B65', fontSize: 11, dy: 4 }} tickLine={false} axisLine={false} width={60} />
-            <Tooltip content={<LightTooltip showFloor={false} />} />
+            <Tooltip content={<LightTooltip showFloor={false} startAge={startAge} />} />
             <Area dataKey="balP10" stackId="b" stroke="none" fill="transparent" />
             <Area dataKey="balBand" stackId="b" stroke="none" fill="#2F5D62" fillOpacity={0.15} />
             <Line dataKey="balP50" stroke="#2F5D62" strokeWidth={2} dot={false} />
@@ -1552,7 +1570,7 @@ export default function EntnahmeSimulator() {
             <CartesianGrid stroke="#E3E8E5" vertical={false} />
             <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
             <YAxis tickFormatter={fmtEUR} tick={{ fill: '#5B6B65', fontSize: 11, dy: 4 }} tickLine={false} axisLine={false} width={60} />
-            <Tooltip content={<LightTooltip />} />
+            <Tooltip content={<LightTooltip startAge={startAge} />} />
             <Area dataKey="spendP10" stackId="s" stroke="none" fill="transparent" />
             <Area dataKey="spendBand" stackId="s" stroke="none" fill="#C08A2E" fillOpacity={0.15} />
             <Line dataKey="spendP50" name="Gesamtentnahme" stroke="#C08A2E" strokeWidth={2} dot={false} />
@@ -1573,7 +1591,7 @@ export default function EntnahmeSimulator() {
             <CartesianGrid stroke="#E3E8E5" vertical={false} />
             <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
             <YAxis tickFormatter={(v) => v.toFixed(1) + '%'} tick={{ fill: '#5B6B65', fontSize: 11, dy: 4 }} tickLine={false} axisLine={false} width={44} />
-            <Tooltip content={<FailTooltip />} />
+            <Tooltip content={<FailTooltip startAge={startAge} />} />
             <Area dataKey="failRate" stroke="none" fill="#A8432F" fillOpacity={0.15} />
             <Line dataKey="failRate" stroke="#A8432F" strokeWidth={2} dot={false} />
             <Line dataKey={() => 2.5} stroke="#5B6B65" strokeWidth={1} strokeDasharray="4 4" dot={false} />
