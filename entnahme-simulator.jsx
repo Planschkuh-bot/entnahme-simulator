@@ -815,12 +815,19 @@ function SectionLabel({ children, color }) {
   );
 }
 
-function ChartBlock({ title, subtitle, children }) {
+function ChartBlock({ title, subtitle, children, onExpand }) {
   return (
     <div style={{ position: 'relative', background: '#FFFFFF', border: '1px solid #D3DAD6', borderRadius: 12, padding: '16px 12px 8px', marginBottom: 18 }}>
-      <div style={{ padding: '0 8px', marginBottom: 6 }}>
-        <div style={{ fontSize: 14, fontWeight: 600 }}>{title}</div>
-        <div style={{ fontSize: 11.5, color: '#5B6B65' }} dangerouslySetInnerHTML={{ __html: subtitle }} />
+      <div style={{ padding: '0 8px', marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{title}</div>
+          <div style={{ fontSize: 11.5, color: '#5B6B65' }} dangerouslySetInnerHTML={{ __html: subtitle }} />
+        </div>
+        {onExpand && (
+          <button onClick={onExpand} title="Diagramm vergrößern" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#5B6B65', fontSize: 16, lineHeight: 1, flexShrink: 0 }}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+        )}
       </div>
       <ResponsiveContainer width="100%" height={220}>{children}</ResponsiveContainer>
     </div>
@@ -1084,7 +1091,16 @@ export default function EntnahmeSimulator() {
   }, []);
 
   const [shareLabel, setShareLabel] = useState('🔗 Konfiguration teilen');
-  const [selectedPreset, setSelectedPreset] = useState('rentner');
+  const [expandedChart, setExpandedChart] = useState(null);
+  const matchedPreset = useMemo(() => {
+    const rentner = { vermoegen: 300000, aktien: 80, gold: 0, bitcoin: 0, anleihen: 15, wohnung: 0, etfTer: 0.2, staticRate: 8, dynStartRate: 12, ceiling: 5, floor: -2.5, horizon: 25, blockLen: 5, startAge: 67, rentenpunkte: 40, pensionStartAge: 67, numSims: 2500, seed: 5 };
+    const fireFan = { vermoegen: 1150000, aktien: 87, gold: 7, bitcoin: 0, anleihen: 0, wohnung: 0, etfTer: 0.25, staticRate: 2.4, dynStartRate: 3, ceiling: 5, floor: -2.5, horizon: 50, blockLen: 5, startAge: 50, rentenpunkte: 25, pensionStartAge: 67, numSims: 2500, seed: 5 };
+    const match = (p) => vermoegen === p.vermoegen && aktien === p.aktien && gold === p.gold && bitcoin === p.bitcoin && anleihen === p.anleihen && wohnung === p.wohnung && etfTer === p.etfTer && staticRate === p.staticRate && dynStartRate === p.dynStartRate && ceiling === p.ceiling && floor === p.floor && horizon === p.horizon && blockLen === p.blockLen && startAge === p.startAge && rentenpunkte === p.rentenpunkte && pensionStartAge === p.pensionStartAge && numSims === p.numSims && seed === p.seed;
+    if (match(rentner)) return 'rentner';
+    if (match(fireFan)) return 'fire-fan';
+    return '';
+  }, [vermoegen, aktien, gold, bitcoin, anleihen, wohnung, etfTer, staticRate, dynStartRate, ceiling, floor, horizon, blockLen, startAge, rentenpunkte, pensionStartAge, numSims, seed]);
+
   function shareConfig() {
     const sp = new URLSearchParams();
     sp.set('mode', mode); sp.set('vermoegen', vermoegen); sp.set('aktien', aktien); sp.set('gold', gold);
@@ -1106,7 +1122,6 @@ export default function EntnahmeSimulator() {
   }
 
   function applyPreset(preset) {
-    setSelectedPreset(preset);
     let values;
     if (preset === 'rentner') {
       values = { vermoegen: 300000, aktien: 80, gold: 0, bitcoin: 0, anleihen: 15, wohnung: 0, etfTer: 0.2, staticRate: 8, dynStartRate: 12, ceiling: 5, floor: -2.5, horizon: 25, blockLen: 5, bootstrapSource: 'sp500', startAge: 67, rentenpunkte: 40, pensionStartAge: 67, entnahmeStrategie: 'dynamisch', entnahmeFrequenz: 'jaehrlich', heutigeKaufkraft: true, inflationRate: 2, numSims: 2500, seed: 5 };
@@ -1268,7 +1283,7 @@ export default function EntnahmeSimulator() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
             <span style={{ fontSize: 12, color: '#5B6B65' }}>Defaults:</span>
-            <select value={selectedPreset || 'rentner'} onChange={(e) => { if (e.target.value) { applyPreset(e.target.value); setSelectedPreset(e.target.value); } }} style={{
+            <select value={matchedPreset} onChange={(e) => { if (e.target.value) { applyPreset(e.target.value); } }} style={{
               fontSize: 12, padding: '6px 10px', borderRadius: 8, border: '1px solid #2F5D62', background: '#FFFFFF', color: '#2F5D62', cursor: 'pointer',
             }}>
               <option value="" disabled>Auswählen …</option>
@@ -1549,7 +1564,7 @@ export default function EntnahmeSimulator() {
         </div>
 
         {/* Charts */}
-        <ChartBlock title="Vermögensverlauf" subtitle={`10./50./90. Perzentil, ${heutigeKaufkraft ? 'real (heutige Kaufkraft)' : `nominal (inkl. ${inflationRate.toFixed(1)}% p.a. Inflation)`}, Gesamtvermögen (ETF+Gold+Cash)`}>
+        <ChartBlock title="Vermögensverlauf" subtitle={`10./50./90. Perzentil, ${heutigeKaufkraft ? 'real (heutige Kaufkraft)' : `nominal (inkl. ${inflationRate.toFixed(1)}% p.a. Inflation)`}, Gesamtvermögen (ETF+Gold+Cash)`} onExpand={() => setExpandedChart('vermoegen')}>
           <ComposedChart data={chartData} margin={{ top: 20, right: 8, left: 0, bottom: 28 }}>
             <CartesianGrid stroke="#E3E8E5" vertical={false} />
             <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
@@ -1565,7 +1580,7 @@ export default function EntnahmeSimulator() {
           <div style={{ position: 'absolute', left: 0, right: 0, bottom: 6, textAlign: 'center', color: '#1C2521', fontSize: 12 }}>Lebensalter</div>
         </ChartBlock>
 
-        <ChartBlock title="Entnahmeverlauf" subtitle={`10./50./90. Perzentil, ${heutigeKaufkraft ? 'real (heutige Kaufkraft)' : `nominal (inkl. ${inflationRate.toFixed(1)}% p.a. Inflation)`} pro Jahr${entnahmeStrategie === 'dynamisch' ? ' · Bodenlinie gestrichelt' : ''}`}>}
+        <ChartBlock title="Entnahmeverlauf" subtitle={`10./50./90. Perzentil, ${heutigeKaufkraft ? 'real (heutige Kaufkraft)' : `nominal (inkl. ${inflationRate.toFixed(1)}% p.a. Inflation)`} pro Jahr${entnahmeStrategie === 'dynamisch' ? ' · Bodenlinie gestrichelt' : ''}`} onExpand={() => setExpandedChart('entnahme')}>}
           <ComposedChart data={chartData} margin={{ top: 20, right: 8, left: 0, bottom: 28 }}>
             <CartesianGrid stroke="#E3E8E5" vertical={false} />
             <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
@@ -1586,7 +1601,7 @@ export default function EntnahmeSimulator() {
           <div style={{ position: 'absolute', left: 0, right: 0, bottom: 6, textAlign: 'center', color: '#1C2521', fontSize: 12 }}>Lebensalter</div>
         </ChartBlock>
 
-        <ChartBlock title="Ausfallwahrscheinlichkeit im Zeitverlauf" subtitle="Anteil Pfade, deren Vermögen bis zu diesem Jahr bereits aufgebraucht war (kumulativ) &middot; rote Linie = 2,5%-Zielgrenze">
+        <ChartBlock title="Ausfallwahrscheinlichkeit im Zeitverlauf" subtitle="Anteil Pfade, deren Vermögen bis zu diesem Jahr bereits aufgebraucht war (kumulativ) &middot; rote Linie = 2,5%-Zielgrenze" onExpand={() => setExpandedChart('ausfall')}>
           <ComposedChart data={failureChartData} margin={{ top: 6, right: 8, left: 0, bottom: 28 }}>
             <CartesianGrid stroke="#E3E8E5" vertical={false} />
             <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
@@ -1639,6 +1654,78 @@ export default function EntnahmeSimulator() {
         .sim-grid > * { min-width: 0; }
         input[type="range"] { height: 4px; }
       `}</style>
+      {expandedChart && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setExpandedChart(null)}>
+          <div style={{ background: '#EEF1EF', borderRadius: 16, padding: 24, width: '90vw', maxWidth: 1200, height: '85vh', display: 'flex', flexDirection: 'column', position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setExpandedChart(null)} style={{ position: 'absolute', top: 12, right: 16, background: 'none', border: 'none', fontSize: 28, cursor: 'pointer', color: '#5B6B65', lineHeight: 1, zIndex: 1 }}>&times;</button>
+            {expandedChart === 'vermoegen' && (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Vermögensverlauf</div>
+                <div style={{ fontSize: 13, color: '#5B6B65', marginBottom: 12 }}>10./50./90. Perzentil, Gesamtvermögen (ETF+Gold+Cash)</div>
+                <div style={{ flex: 1, minHeight: 0 }}>
+                  <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 10, bottom: 30 }} width={1100} height={550}>
+                    <CartesianGrid stroke="#E3E8E5" vertical={false} />
+                    <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 13 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
+                    <YAxis tickFormatter={fmtEUR} tick={{ fill: '#5B6B65', fontSize: 13, dy: 4 }} tickLine={false} axisLine={false} width={80} />
+                    <Tooltip content={<LightTooltip showFloor={false} startAge={startAge} />} />
+                    <Area dataKey="balP10" stackId="b" stroke="none" fill="transparent" />
+                    <Area dataKey="balBand" stackId="b" stroke="none" fill="#2F5D62" fillOpacity={0.15} />
+                    <Line dataKey="balP50" stroke="#2F5D62" strokeWidth={2} dot={false} />
+                    {pensionStartYear > 0 && pensionStartYear <= horizon && (
+                      <ReferenceLine x={pensionStartAge} stroke="#3A6B8A" strokeDasharray="3 3" label={{ value: 'Rentenbeginn', position: 'insideTopRight', fill: '#3A6B8A', fontSize: 12 }} />
+                    )}
+                  </ComposedChart>
+                </div>
+                <div style={{ textAlign: 'center', color: '#1C2521', fontSize: 14 }}>Lebensalter</div>
+              </div>
+            )}
+            {expandedChart === 'entnahme' && (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Entnahmeverlauf</div>
+                <div style={{ fontSize: 13, color: '#5B6B65', marginBottom: 12 }}>10./50./90. Perzentil pro Jahr{entnahmeStrategie === 'dynamisch' ? ' · Bodenlinie gestrichelt' : ''}</div>
+                <div style={{ flex: 1, minHeight: 0 }}>
+                  <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 10, bottom: 30 }} width={1100} height={550}>
+                    <CartesianGrid stroke="#E3E8E5" vertical={false} />
+                    <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 13 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
+                    <YAxis tickFormatter={fmtEUR} tick={{ fill: '#5B6B65', fontSize: 13, dy: 4 }} tickLine={false} axisLine={false} width={80} />
+                    <Tooltip content={<LightTooltip showFloor startAge={startAge} />} />
+                    <Area dataKey="spendP10" stackId="s" stroke="none" fill="transparent" />
+                    <Area dataKey="spendBand" stackId="s" stroke="none" fill="#C08A2E" fillOpacity={0.15} />
+                    <Line dataKey="spendP50" name="Gesamtentnahme" stroke="#C08A2E" strokeWidth={2} dot={false} />
+                    <Line dataKey="spendAfterPensionP50" name="Nach Abzug GRV" stroke="#2F5D62" strokeWidth={2} dot={false} />
+                    <Line dataKey="pensionAmount" stroke="none" dot={false} activeDot={false} />
+                    {entnahmeStrategie === 'dynamisch' && (
+                      <Line dataKey="hardFloor" name="Bodenlinie" stroke="#A8432F" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
+                    )}
+                    {pensionStartYear > 0 && pensionStartYear <= horizon && (
+                      <ReferenceLine x={pensionStartAge} stroke="#3A6B8A" strokeDasharray="3 3" label={{ value: 'Rentenbeginn', position: 'insideTopRight', fill: '#3A6B8A', fontSize: 12 }} />
+                    )}
+                  </ComposedChart>
+                </div>
+                <div style={{ textAlign: 'center', color: '#1C2521', fontSize: 14 }}>Lebensalter</div>
+              </div>
+            )}
+            {expandedChart === 'ausfall' && (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Ausfallwahrscheinlichkeit im Zeitverlauf</div>
+                <div style={{ fontSize: 13, color: '#5B6B65', marginBottom: 12 }}>Anteil Pfade, deren Vermögen bis zu diesem Jahr bereits aufgebraucht war (kumulativ) · rote Linie = 2,5%-Zielgrenze</div>
+                <div style={{ flex: 1, minHeight: 0 }}>
+                  <ComposedChart data={failureChartData} margin={{ top: 20, right: 30, left: 10, bottom: 30 }} width={1100} height={550}>
+                    <CartesianGrid stroke="#E3E8E5" vertical={false} />
+                    <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 13 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
+                    <YAxis tickFormatter={(v) => v.toFixed(1) + '%'} tick={{ fill: '#5B6B65', fontSize: 13, dy: 4 }} tickLine={false} axisLine={false} width={55} />
+                    <Tooltip content={<FailTooltip startAge={startAge} />} />
+                    <Area dataKey="failRate" stroke="none" fill="#A8432F" fillOpacity={0.15} />
+                    <Line dataKey="failRate" stroke="#A8432F" strokeWidth={2} dot={false} />
+                    <Line dataKey={() => 2.5} stroke="#5B6B65" strokeWidth={1} strokeDasharray="4 4" dot={false} />
+                  </ComposedChart>
+                </div>
+                <div style={{ textAlign: 'center', color: '#1C2521', fontSize: 14 }}>Lebensalter</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
