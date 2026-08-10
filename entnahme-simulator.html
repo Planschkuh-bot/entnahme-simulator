@@ -427,9 +427,12 @@ function realAssetReturns(row) {
 // → ETF) laufen bei monatlicher Frequenz monatlich, bei jährlicher Frequenz einmal pro Jahr. Reserven
 // werden nie wieder aufgefüllt.
 function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, bondR, btcR, wEq, wGold, wCash, wBond, wBtc, p) {
-  const staticAmount = (p.staticRate / 100) * vermoegen;
+  const staticRate = p.entnahmeStrategie === 'bengen' ? 4 : p.staticRate;
+  const staticAmount = (staticRate / 100) * vermoegen;
   const hardFloorAnnual = staticAmount;
-  const isStatic = p.entnahmeStrategie === 'statisch';
+  const isStatic = p.entnahmeStrategie === 'statisch' || p.entnahmeStrategie === 'bengen';
+  const isKonstant = p.entnahmeStrategie === 'konstant';
+  const useBucket = p.eimerStrategie !== false;
   const isAnnualFreq = p.entnahmeFrequenz === 'jaehrlich';
   const etfTerMonthly = (p.etfTer || 0) / 100 / 12; // TER p.a. in % → monatlicher Kostenfaktor
 
@@ -441,7 +444,7 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, bondR, btcR, wE
   let eqIndex = 100;
   let eqATH = 100;
 
-  let prevAnnualSpending = (p.dynStartRate / 100) * vermoegen;
+  let prevAnnualSpending = p.entnahmeStrategie === 'bengen' ? staticAmount : (p.dynStartRate / 100) * vermoegen;
   let failed = false;
   const balances = [vermoegen];
   const spends = [];
@@ -454,11 +457,10 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, bondR, btcR, wE
     const totalAtYearStart = eqBal + goldBal + cashBal + bondBal + btcBal;
     let yearSpending;
     if (y === 0 || isStatic) {
-      // Statisch: bleibt für die gesamte Laufzeit real konstant (Jahr 0 = Startbetrag).
       yearSpending = prevAnnualSpending;
+    } else if (isKonstant) {
+      yearSpending = totalAtYearStart * (p.dynStartRate / 100);
     } else {
-      // Echte Vanguard-Dynamic-Spending-Formel: "raw" = Portfoliowert zu Jahresbeginn × Entnahmerate,
-      // begrenzt durch Ceiling/Floor relativ zur TATSÄCHLICHEN Vorjahresentnahme.
       const raw = totalAtYearStart * (p.dynStartRate / 100);
       const capped = Math.min(
         Math.max(raw, prevAnnualSpending * (1 + p.floor / 100)),
@@ -483,14 +485,16 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, bondR, btcR, wE
       let need = Math.min(needRaw, Math.max(totalBefore, 0));
 
       let remaining = need;
-      const order = badYear ? ['cash', 'bond', 'gold', 'btc', 'eq'] : ['eq', 'btc', 'bond', 'gold', 'cash'];
-      for (const bucket of order) {
-        if (remaining <= 0) break;
-        if (bucket === 'cash') { const take = Math.min(remaining, cashBal); cashBal -= take; remaining -= take; }
-        else if (bucket === 'bond') { const take = Math.min(remaining, bondBal); bondBal -= take; remaining -= take; }
-        else if (bucket === 'gold') { const take = Math.min(remaining, goldBal); goldBal -= take; remaining -= take; }
-        else if (bucket === 'btc') { const take = Math.min(remaining, btcBal); btcBal -= take; remaining -= take; }
-        else { const take = Math.min(remaining, eqBal); eqBal -= take; remaining -= take; }
+      if (useBucket) {
+        const order = badYear ? ['cash', 'bond', 'gold', 'btc', 'eq'] : ['eq', 'btc', 'bond', 'gold', 'cash'];
+        for (const bucket of order) {
+          if (remaining <= 0) break;
+          if (bucket === 'cash') { const take = Math.min(remaining, cashBal); cashBal -= take; remaining -= take; }
+          else if (bucket === 'bond') { const take = Math.min(remaining, bondBal); bondBal -= take; remaining -= take; }
+          else if (bucket === 'gold') { const take = Math.min(remaining, goldBal); goldBal -= take; remaining -= take; }
+          else if (bucket === 'btc') { const take = Math.min(remaining, btcBal); btcBal -= take; remaining -= take; }
+          else { const take = Math.min(remaining, eqBal); eqBal -= take; remaining -= take; }
+        }
       }
 
       for (let mm = 0; mm < 12; mm++) {
@@ -520,13 +524,16 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, bondR, btcR, wE
         let need = Math.min(needRaw, Math.max(totalBefore, 0));
 
         let remaining = need;
-        const order = badMonth ? ['cash', 'gold', 'btc', 'eq'] : ['eq', 'btc', 'gold', 'cash'];
-        for (const bucket of order) {
-          if (remaining <= 0) break;
-          if (bucket === 'cash') { const take = Math.min(remaining, cashBal); cashBal -= take; remaining -= take; }
-          else if (bucket === 'gold') { const take = Math.min(remaining, goldBal); goldBal -= take; remaining -= take; }
-          else if (bucket === 'btc') { const take = Math.min(remaining, btcBal); btcBal -= take; remaining -= take; }
-          else { const take = Math.min(remaining, eqBal); eqBal -= take; remaining -= take; }
+        if (useBucket) {
+          const order = badMonth ? ['cash', 'bond', 'gold', 'btc', 'eq'] : ['eq', 'btc', 'bond', 'gold', 'cash'];
+          for (const bucket of order) {
+            if (remaining <= 0) break;
+            if (bucket === 'cash') { const take = Math.min(remaining, cashBal); cashBal -= take; remaining -= take; }
+            else if (bucket === 'bond') { const take = Math.min(remaining, bondBal); bondBal -= take; remaining -= take; }
+            else if (bucket === 'gold') { const take = Math.min(remaining, goldBal); goldBal -= take; remaining -= take; }
+            else if (bucket === 'btc') { const take = Math.min(remaining, btcBal); btcBal -= take; remaining -= take; }
+            else { const take = Math.min(remaining, eqBal); eqBal -= take; remaining -= take; }
+          }
         }
 
         const rEq = eqR[mi], rGold = goldR[mi], rCash = cashR[mi], rBond = bondR[mi], rBtc = btcR[mi];
@@ -562,6 +569,8 @@ function aggregate(paths, horizon) {
   const failCountByYear = Array.from({ length: horizon }, () => 0);
   let successCount = 0;
   const endBalances = [];
+  const totalWithdrawals = [];
+  const spendVolatilities = [];
   let badYearSum = 0;
   for (const res of paths) {
     for (let t = 0; t <= horizon; t++) balanceByYear[t].push(res.balances[t]);
@@ -572,6 +581,11 @@ function aggregate(paths, horizon) {
     if (!res.failed) successCount++;
     endBalances.push(res.finalBalance);
     badYearSum += res.badYearFraction;
+    const totalWithdrawn = res.spends.reduce((sum, s) => sum + s, 0);
+    totalWithdrawals.push(totalWithdrawn);
+    const spendMean = totalWithdrawn / res.spends.length;
+    const spendStd = Math.sqrt(res.spends.reduce((sum, s) => sum + Math.pow(s - spendMean, 2), 0) / res.spends.length);
+    spendVolatilities.push(spendStd);
   }
   const failureCurve = [{ year: 0, failRate: 0 }];
   for (let t = 0; t < horizon; t++) {
@@ -605,6 +619,12 @@ function aggregate(paths, horizon) {
     yearsStats,
     failureCurve,
     medianEnd: percentile(endBalances, 50),
+    medianTotalWithdrawal: percentile(totalWithdrawals, 50),
+    medianSpendVolatility: percentile(spendVolatilities, 50),
+    avgSpend: totalWithdrawals.reduce((a, b) => a + b, 0) / totalWithdrawals.length / horizon,
+    p10Spend: percentile(spendVolatilities, 10),
+    p90Spend: percentile(spendVolatilities, 90),
+    p10TotalWithdrawal: percentile(totalWithdrawals, 10),
     numPaths: paths.length,
     hardFloor: paths[0]?.hardFloor ?? 0,
     staticAmount: paths[0]?.staticAmount ?? 0,
@@ -1013,6 +1033,7 @@ function EntnahmeSimulator() {
   const [floor, setFloor] = useState(-2.5);
   const [horizon, setHorizon] = useState(25);
   const [entnahmeStrategie, setEntnahmeStrategie] = useState('dynamisch');
+  const [eimerStrategie, setEimerStrategie] = useState(true);
   const [entnahmeFrequenz, setEntnahmeFrequenz] = useState('jaehrlich');
   const [heutigeKaufkraft, setHeutigeKaufkraft] = useState(true);
   const [inflationRate, setInflationRate] = useState(2.0);
@@ -1037,7 +1058,7 @@ function EntnahmeSimulator() {
   const liveParams = useMemo(() => ({
     mode, vermoegen, aktien, gold, cash, bitcoin, staticRate, dynStartRate, ceiling, floor,
     horizon, blockLen, bootstrapSource, startAge, pensionStartAge, pensionAnnual, rentalIncomeByYear, seed, anleihen,
-    entnahmeStrategie, entnahmeFrequenz, numSims, etfTer,
+    entnahmeStrategie, eimerStrategie, entnahmeFrequenz, numSims, etfTer,
   }), [mode, vermoegen, aktien, gold, cash, bitcoin, staticRate, dynStartRate, ceiling, floor,
     horizon, blockLen, bootstrapSource, startAge, pensionStartAge, pensionAnnual, rentalIncomeByYear, seed, anleihen,
     entnahmeStrategie, entnahmeFrequenz, numSims, etfTer]);
@@ -1050,8 +1071,28 @@ function EntnahmeSimulator() {
       horizon: d.horizon, numSims: d.numSims, blockLen: d.blockLen, bootstrapSource: d.bootstrapSource, anleihen: d.anleihen,
       startAge: d.startAge, pensionStartAge: d.pensionStartAge, pensionAnnual: d.pensionAnnual,
       rentalIncomeByYear: d.rentalIncomeByYear, seed: d.seed,
-      entnahmeStrategie: d.entnahmeStrategie, entnahmeFrequenz: d.entnahmeFrequenz, etfTer: d.etfTer };
+      entnahmeStrategie: d.entnahmeStrategie, eimerStrategie: d.eimerStrategie, entnahmeFrequenz: d.entnahmeFrequenz, etfTer: d.etfTer };
     return runForMode(d.mode, params);
+  }, [debounced]);
+  
+  const strategyComparison = useMemo(() => {
+    const d = debounced;
+    const strategies = [
+      { key: 'dynamisch', label: 'Dynamisch (Vanguard)' },
+      { key: 'konstant', label: 'Konstante %' },
+      { key: 'bengen', label: '4%-Regel (Bengen)' },
+      { key: 'statisch', label: 'Statisch (fest, real)' },
+    ];
+    return strategies.map(s => {
+      const params = { vermoegen: d.vermoegen, aktien: d.aktien, gold: d.gold, cash: d.cash, bitcoin: d.bitcoin,
+        staticRate: d.staticRate, dynStartRate: d.dynStartRate, ceiling: d.ceiling, floor: d.floor,
+        horizon: d.horizon, numSims: d.numSims, blockLen: d.blockLen, bootstrapSource: d.bootstrapSource, anleihen: d.anleihen,
+        startAge: d.startAge, pensionStartAge: d.pensionStartAge, pensionAnnual: d.pensionAnnual,
+        rentalIncomeByYear: d.rentalIncomeByYear, seed: d.seed,
+        entnahmeStrategie: s.key, eimerStrategie: d.eimerStrategie, entnahmeFrequenz: d.entnahmeFrequenz, etfTer: d.etfTer };
+      const r = runForMode(d.mode, params);
+      return { ...s, result: r };
+    });
   }, [debounced]);
 
   // ---- Sensitivitätsanalyse: welcher Parameter bewegt die Erfolgsquote am meisten? ----
@@ -1067,7 +1108,7 @@ function EntnahmeSimulator() {
         horizon: d.horizon, numSims: sensNumSims, blockLen: d.blockLen, anleihen: d.anleihen,
         bootstrapSource: d.bootstrapSource, startAge: d.startAge, pensionStartAge: d.pensionStartAge,
         pensionAnnual: d.pensionAnnual, rentalIncomeByYear: d.rentalIncomeByYear, seed: d.seed,
-        entnahmeStrategie: d.entnahmeStrategie, entnahmeFrequenz: d.entnahmeFrequenz, etfTer: d.etfTer };
+        entnahmeStrategie: d.entnahmeStrategie, eimerStrategie: d.eimerStrategie, entnahmeFrequenz: d.entnahmeFrequenz, etfTer: d.etfTer };
       const run = (overrides) => runForMode(d.mode, Object.assign({}, base, overrides)).successRate;
       const baseline = run({});
       const impact = (rLo, rHi) => Math.max(Math.abs(rLo - baseline), Math.abs(rHi - baseline));
@@ -1127,6 +1168,7 @@ function EntnahmeSimulator() {
       num('horizon', setHorizon); num('blockLen', setBlockLen); str('bootstrapSource', setBootstrapSource);
       num('startAge', setStartAge); num('rentenpunkte', setRentenpunkte); num('pensionStartAge', setPensionStartAge);
       str('entnahmeStrategie', setEntnahmeStrategie); str('entnahmeFrequenz', setEntnahmeFrequenz);
+      const es = sp.get('eimerStrategie'); if (es !== null) setEimerStrategie(es === 'true');
       const hk = sp.get('heutigeKaufkraft'); if (hk !== null) setHeutigeKaufkraft(hk === 'true');
       num('inflationRate', setInflationRate); num('numSims', setNumSims); num('seed', setSeed);
     } catch (e) { /* URL-Zugriff nicht verfügbar — Standardwerte bleiben aktiv */ }
@@ -1135,6 +1177,7 @@ function EntnahmeSimulator() {
 
   const [shareLabel, setShareLabel] = useState('🔗 Konfiguration teilen');
   const [expandedChart, setExpandedChart] = useState(null);
+  const [showStrategyComparison, setShowStrategyComparison] = useState(false);
   const matchedPreset = useMemo(() => {
     const rentner = { vermoegen: 300000, aktien: 80, gold: 0, bitcoin: 0, anleihen: 15, wohnung: 0, etfTer: 0.2, staticRate: 8, dynStartRate: 12, ceiling: 5, floor: -2.5, horizon: 25, blockLen: 5, startAge: 67, rentenpunkte: 40, pensionStartAge: 67, numSims: 2500, seed: 5 };
     const fireFan = { vermoegen: 1150000, aktien: 87, gold: 7, bitcoin: 0, anleihen: 0, wohnung: 0, etfTer: 0.25, staticRate: 2.4, dynStartRate: 3, ceiling: 5, floor: -2.5, horizon: 50, blockLen: 5, startAge: 50, rentenpunkte: 25, pensionStartAge: 67, numSims: 2500, seed: 5 };
@@ -1143,7 +1186,6 @@ function EntnahmeSimulator() {
     if (match(fireFan)) return 'fire-fan';
     return '';
   }, [vermoegen, aktien, gold, bitcoin, anleihen, wohnung, etfTer, staticRate, dynStartRate, ceiling, floor, horizon, blockLen, startAge, rentenpunkte, pensionStartAge, numSims, seed]);
-
   function shareConfig() {
     const sp = new URLSearchParams();
     sp.set('mode', mode); sp.set('vermoegen', vermoegen); sp.set('aktien', aktien); sp.set('gold', gold);
@@ -1152,7 +1194,7 @@ function EntnahmeSimulator() {
     sp.set('horizon', horizon); sp.set('blockLen', blockLen);
     sp.set('bootstrapSource', bootstrapSource); sp.set('startAge', startAge); sp.set('rentenpunkte', rentenpunkte);
     sp.set('pensionStartAge', pensionStartAge); sp.set('entnahmeStrategie', entnahmeStrategie);
-    sp.set('entnahmeFrequenz', entnahmeFrequenz); sp.set('heutigeKaufkraft', heutigeKaufkraft);
+    sp.set('eimerStrategie', eimerStrategie); sp.set('entnahmeFrequenz', entnahmeFrequenz); sp.set('heutigeKaufkraft', heutigeKaufkraft);
     sp.set('inflationRate', inflationRate); sp.set('numSims', numSims); sp.set('seed', seed);
     const url = window.location.origin + window.location.pathname + '?' + sp.toString();
     try {
@@ -1280,15 +1322,21 @@ function EntnahmeSimulator() {
         <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: 20 }} className="sim-grid">
           <div style={{ background: '#FFFFFF', border: '1px solid #D3DAD6', borderRadius: 6, padding: '18px 20px', alignSelf: 'start' }}>
         {/* Mode selector */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-          <ModeTab active={mode === 'rolling'} onClick={() => setMode('rolling')}
-            tip="Testet deine Angaben gegen jeden tatsächlichen historischen Startzeitpunkt seit 1872 — 'wie hätte es gestern, vor 30 Jahren, vor 80 Jahren usw. ausgesehen?'">Historisch · S&amp;P 500 (1872–2025)</ModeTab>
-          <ModeTab active={mode === 'world'} onClick={() => setMode('world')}
-            tip="Wie oben, aber mit einer Annäherung an ein weltweites Aktienportfolio (nicht nur USA) seit 1970.">Historisch · Welt-Proxy (1970–2025)</ModeTab>
-          <ModeTab active={mode === 'bootstrap'} onClick={() => setMode('bootstrap')}
-            tip="Würfelt aus echten historischen Jahren/Monaten tausende neue, zufällige Verlaufsmöglichkeiten zusammen — mehr Testfälle als die reine Geschichte hergibt.">Historisch · Block-Bootstrap</ModeTab>
-          <ModeTab active={mode === 'montecarlo'} onClick={() => setMode('montecarlo')}
-            tip="Erzeugt komplett zufällige, aber realistisch verteilte Marktverläufe nach mathematischem Modell — unabhängig von der tatsächlichen Geschichte.">Parametrisch · Monte Carlo</ModeTab>
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 12, color: '#5B6B65', marginBottom: 6, display: 'flex', alignItems: 'center' }}>Simulationsmethode<InfoDot text="Historisch: Testet gegen echte historische Daten. Block-Bootstrap: Würfelt aus historischen Daten neue Verläufe. Monte Carlo: Erzeugt zufällige, realistisch verteilte Marktverläufe." /></div>
+          <select
+            value={mode}
+            onChange={(e) => setMode(e.target.value)}
+            style={{
+              width: '100%', padding: '7px 6px', fontSize: 11.5, borderRadius: 6, cursor: 'pointer',
+              border: '1px solid #D3DAD6', background: 'transparent', color: '#5B6B65',
+            }}
+          >
+            <option value="rolling">Historisch · S&amp;P 500 (1872–2025)</option>
+            <option value="world">Historisch · Welt-Proxy (1970–2025)</option>
+            <option value="bootstrap">Historisch · Block-Bootstrap</option>
+            <option value="montecarlo">Parametrisch · Monte Carlo</option>
+          </select>
         </div>
 
         <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -1373,6 +1421,37 @@ function EntnahmeSimulator() {
           )}
         </div>
 
+
+          <div>
+            <SectionLabel color="#3A6B8A">Zeitraum</SectionLabel>
+            <Slider label="Entnahmehorizont" value={horizon} min={20} max={60} step={1}
+              onChange={setHorizon} format={(v) => v + ' Jahre'}
+              tip="Wie viele Jahre die Entnahmephase dauern soll — das Portfolio muss diesen Zeitraum überbrücken." />
+            <div style={{ marginBottom: 4 }}>
+              <div style={{ fontSize: 12, color: '#5B6B65', marginBottom: 6, display: 'flex', alignItems: 'center' }}>Entnahme-Frequenz<InfoDot text="Wie oft du im Jahr entnimmst. 'Monatlich' verteilt die Entnahmesumme; 'Jährlich' entnimmt den Jahresbetrag auf einmal zu Jahresbeginn (echter Cash-Puffer, aber engere Grenzfälle)." /></div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={() => setEntnahmeFrequenz('monatlich')} style={{
+                  flex: 1, padding: '7px 6px', fontSize: 11.5, borderRadius: 6, cursor: 'pointer',
+                  border: entnahmeFrequenz === 'monatlich' ? '1px solid #2F5D62' : '1px solid #D3DAD6',
+                  background: entnahmeFrequenz === 'monatlich' ? 'rgba(47,93,98,0.16)' : 'transparent',
+                  color: entnahmeFrequenz === 'monatlich' ? '#2F5D62' : '#5B6B65',
+                }}>Monatlich</button>
+                <button onClick={() => setEntnahmeFrequenz('jaehrlich')} style={{
+                  flex: 1, padding: '7px 6px', fontSize: 11.5, borderRadius: 6, cursor: 'pointer',
+                  border: entnahmeFrequenz === 'jaehrlich' ? '1px solid #2F5D62' : '1px solid #D3DAD6',
+                  background: entnahmeFrequenz === 'jaehrlich' ? 'rgba(47,93,98,0.16)' : 'transparent',
+                  color: entnahmeFrequenz === 'jaehrlich' ? '#2F5D62' : '#5B6B65',
+                }}>Jährlich</button>
+              </div>
+              <div style={{ fontSize: 10.5, color: '#5B6B65', marginTop: 4 }}>
+                "Jährlich" entnimmt die komplette Jahressumme auf einen Schlag zu Jahresbeginn — dieser Betrag ist damit
+                für den Rest des Jahres von der Marktentwicklung abgeschirmt (echter Cash-Puffer-Effekt), nur das
+                Restvermögen bleibt investiert. Dadurch braucht "Jährlich" die volle Summe aber sofort verfügbar,
+                bevor die Rendite des Jahres wirken konnte — "Monatlich" kann sich dagegen im Jahresverlauf noch
+                in eine knappe Lage hineinwachsen. Das kann "Jährlich" ausgerechnet in Grenzfällen strenger machen,
+                obwohl der entnommene Betrag selbst sicherer verwahrt ist.
+              </div>
+            </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
           <div>
             <SectionLabel color="#2F5D62">Portfolio</SectionLabel>
@@ -1426,36 +1505,49 @@ function EntnahmeSimulator() {
             <SectionLabel color="#C08A2E">Entnahme-Regel</SectionLabel>
             <div style={{ marginBottom: 12 }}>
               <div style={{ fontSize: 12, color: '#5B6B65', marginBottom: 6, display: 'flex', alignItems: 'center' }}>Strategie<InfoDot text="Legt fest, wie sich deine jährliche Entnahme entwickelt. 'Dynamisch (Vanguard)' passt sie an den Depotwert an (mit Ceiling/Floor/Boden); 'Statisch' hält den Realbetrag konstant." /></div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button onClick={() => setEntnahmeStrategie('dynamisch')} style={{
-                  flex: 1, padding: '7px 6px', fontSize: 11.5, borderRadius: 6, cursor: 'pointer',
-                  border: entnahmeStrategie === 'dynamisch' ? '1px solid #2F5D62' : '1px solid #D3DAD6',
-                  background: entnahmeStrategie === 'dynamisch' ? 'rgba(47,93,98,0.16)' : 'transparent',
-                  color: entnahmeStrategie === 'dynamisch' ? '#2F5D62' : '#5B6B65',
-                }}>Dynamisch (Vanguard)</button>
-                <button onClick={() => setEntnahmeStrategie('statisch')} style={{
-                  flex: 1, padding: '7px 6px', fontSize: 11.5, borderRadius: 6, cursor: 'pointer',
-                  border: entnahmeStrategie === 'statisch' ? '1px solid #2F5D62' : '1px solid #D3DAD6',
-                  background: entnahmeStrategie === 'statisch' ? 'rgba(47,93,98,0.16)' : 'transparent',
-                  color: entnahmeStrategie === 'statisch' ? '#2F5D62' : '#5B6B65',
-                }}>Statisch (fest, real)</button>
-              </div>
+              <select
+                value={entnahmeStrategie}
+                onChange={(e) => setEntnahmeStrategie(e.target.value)}
+                style={{
+                  width: '100%', padding: '7px 6px', fontSize: 11.5, borderRadius: 6, cursor: 'pointer',
+                  border: '1px solid #D3DAD6', background: 'transparent', color: '#5B6B65',
+                }}
+              >
+                <option value="dynamisch">Dynamisch (Vanguard)</option>
+                <option value="konstant">Konstante % (Portfoliobezogen)</option>
+                <option value="bengen">4%-Regel (Bengen)</option>
+                <option value="statisch">Statisch (fest, real)</option>
+              </select>
               {entnahmeStrategie === 'statisch' && (
                 <div style={{ fontSize: 10.5, color: '#5B6B65', marginTop: 6 }}>
-                  Jahr 1: Startrate × Vermögen. Danach bleibt der Betrag real (also nur um die bereits eingepreiste
-                  Inflation angepasst) konstant — unabhängig von Portfolioentwicklung. Ceiling/Floor/Boden-Faktor
-                  greifen hier nicht.
+                  Jahr 1: Startrate × Vermögen. Danach bleibt der Betrag real konstant.
                 </div>
               )}
+              {entnahmeStrategie === 'bengen' && (
+                <div style={{ fontSize: 10.5, color: '#5B6B65', marginTop: 6 }}>
+                  Jedes Jahr 4% des Startvermögens, real konstant.
+                </div>
+              )}
+              {entnahmeStrategie === 'konstant' && (
+                <div style={{ fontSize: 10.5, color: '#5B6B65', marginTop: 6 }}>
+                  Jedes Jahr ein fester Prozentsatz des aktuellen Portfolio-Werts.
+                </div>
+              )}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 12, color: '#5B6B65', cursor: 'pointer' }}>
+                <input type="checkbox" checked={eimerStrategie} onChange={(e) => setEimerStrategie(e.target.checked)} style={{ accentColor: '#2F5D62' }} />
+                Eimer-Strategie<InfoDot text="Aktiv: Entnahme aus dem besten Bucket. Inaktiv: Allokation bleibt proportional konstant." />
+              </label>
             </div>
             {entnahmeStrategie === 'dynamisch' && (
               <Slider label="Statische Referenzrate" value={staticRate} min={2} max={20} step={0.1}
                 onChange={setStaticRate} format={(v) => v.toFixed(1) + '%'} hint="Basis für den Boden"
                 tip="Der feste Prozentsatz vom Startvermögen, der als harter Mindestboden auch in schlechten Jahren nie unterschritten wird." />
             )}
-            <Slider label={entnahmeStrategie === 'statisch' ? 'Startentnahmerate' : 'Dynamische Startrate'} value={dynStartRate} min={2} max={20} step={0.1}
-              onChange={setDynStartRate} format={(v) => v.toFixed(1) + '%'}
-              tip="Entnahmerate im ersten Jahr in Prozent vom Startvermögen. Danach folgt die Entnahme der Ceiling/Floor-Regel bzw. bleibt real konstant." />
+            {entnahmeStrategie !== 'bengen' && entnahmeStrategie !== 'konstant' && (
+              <Slider label={entnahmeStrategie === 'statisch' ? 'Startentnahmerate' : 'Dynamische Startrate'} value={dynStartRate} min={2} max={20} step={0.1}
+                onChange={setDynStartRate} format={(v) => v.toFixed(1) + '%'}
+                tip="Entnahmerate im ersten Jahr in Prozent vom Startvermögen." />
+            )}
             {entnahmeStrategie === 'dynamisch' && (
               <>
                 <Slider label="Ceiling (max. Anstieg/Jahr)" value={ceiling} min={0} max={10} step={0.5}
@@ -1467,37 +1559,6 @@ function EntnahmeSimulator() {
               </>
             )}
           </div>
-
-          <div>
-            <SectionLabel color="#3A6B8A">Zeitraum</SectionLabel>
-            <Slider label="Entnahmehorizont" value={horizon} min={20} max={60} step={1}
-              onChange={setHorizon} format={(v) => v + ' Jahre'}
-              tip="Wie viele Jahre die Entnahmephase dauern soll — das Portfolio muss diesen Zeitraum überbrücken." />
-            <div style={{ marginBottom: 4 }}>
-              <div style={{ fontSize: 12, color: '#5B6B65', marginBottom: 6, display: 'flex', alignItems: 'center' }}>Entnahme-Frequenz<InfoDot text="Wie oft du im Jahr entnimmst. 'Monatlich' verteilt die Entnahmesumme; 'Jährlich' entnimmt den Jahresbetrag auf einmal zu Jahresbeginn (echter Cash-Puffer, aber engere Grenzfälle)." /></div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button onClick={() => setEntnahmeFrequenz('monatlich')} style={{
-                  flex: 1, padding: '7px 6px', fontSize: 11.5, borderRadius: 6, cursor: 'pointer',
-                  border: entnahmeFrequenz === 'monatlich' ? '1px solid #2F5D62' : '1px solid #D3DAD6',
-                  background: entnahmeFrequenz === 'monatlich' ? 'rgba(47,93,98,0.16)' : 'transparent',
-                  color: entnahmeFrequenz === 'monatlich' ? '#2F5D62' : '#5B6B65',
-                }}>Monatlich</button>
-                <button onClick={() => setEntnahmeFrequenz('jaehrlich')} style={{
-                  flex: 1, padding: '7px 6px', fontSize: 11.5, borderRadius: 6, cursor: 'pointer',
-                  border: entnahmeFrequenz === 'jaehrlich' ? '1px solid #2F5D62' : '1px solid #D3DAD6',
-                  background: entnahmeFrequenz === 'jaehrlich' ? 'rgba(47,93,98,0.16)' : 'transparent',
-                  color: entnahmeFrequenz === 'jaehrlich' ? '#2F5D62' : '#5B6B65',
-                }}>Jährlich</button>
-              </div>
-              <div style={{ fontSize: 10.5, color: '#5B6B65', marginTop: 4 }}>
-                "Jährlich" entnimmt die komplette Jahressumme auf einen Schlag zu Jahresbeginn — dieser Betrag ist damit
-                für den Rest des Jahres von der Marktentwicklung abgeschirmt (echter Cash-Puffer-Effekt), nur das
-                Restvermögen bleibt investiert. Dadurch braucht "Jährlich" die volle Summe aber sofort verfügbar,
-                bevor die Rendite des Jahres wirken konnte — "Monatlich" kann sich dagegen im Jahresverlauf noch
-                in eine knappe Lage hineinwachsen. Das kann "Jährlich" ausgerechnet in Grenzfällen strenger machen,
-                obwohl der entnommene Betrag selbst sicherer verwahrt ist.
-              </div>
-            </div>
             <div style={{ fontSize: 11.5, color: '#5B6B65', marginTop: 4 }}>
               Reserve-Trigger: ETF ≥20% unter Allzeithoch (fest, nicht einstellbar)
             </div>
@@ -1551,6 +1612,11 @@ function EntnahmeSimulator() {
                 <Stat label="Feste Entnahme" value={fmtEUR(result.dynStartAmount)} sub={`${dynStartRate.toFixed(1)}% vom Startvermögen, real konstant`} color="#2F5D62"
                   tip="Im statischen Modus bleibt die Entnahme über die gesamte Laufzeit real konstant (nur um Inflation bereinigt) — es gibt keinen zusätzlichen Boden." />
               )}
+              <Stat label="Median-Gesamtentnahme"
+                value={fmtEUR(heutigeKaufkraft ? result.medianTotalWithdrawal : result.medianTotalWithdrawal * Math.pow(1 + inflationRate / 100, horizon))}
+                sub={heutigeKaufkraft ? `über ${horizon} Jahre (heutige Kaufkraft)` : `nominal über ${horizon} Jahre (${inflationRate.toFixed(1)}% Infl.)`}
+                color="#2F5D62"
+                tip="Der mittlere Gesamtbetrag über den gesamten Entnahmehorizont." />
               <Stat label="Median-Endvermögen"
                 value={fmtEUR(heutigeKaufkraft ? result.medianEnd : result.medianEnd * Math.pow(1 + inflationRate / 100, horizon))}
                 sub={heutigeKaufkraft ? `nach ${horizon} Jahren (heutige Kaufkraft)` : `nominal nach ${horizon} Jahren (${inflationRate.toFixed(1)}% Infl.)`}
@@ -1582,6 +1648,44 @@ function EntnahmeSimulator() {
             {maxWorldWindows > 0 && maxWorldWindows < 120 && ' Wenige unterschiedliche Jahres-Startpunkte — Ergebnis mit Vorsicht als grobe Tendenz lesen.'}
           </div>
         )}
+
+        {/* Strategien-Vergleich */}
+        <div style={{ background: '#FFFFFF', border: '1px solid #D3DAD6', borderRadius: 12, padding: '16px 18px', marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: showStrategyComparison ? 12 : 0, cursor: 'pointer' }} onClick={() => setShowStrategyComparison(!showStrategyComparison)}>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>Strategien-Vergleich</div>
+            <div style={{ fontSize: 11, color: '#5B6B65', transform: showStrategyComparison ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▶</div>
+          </div>
+          {showStrategyComparison && (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid #D3DAD6' }}>
+                  <th style={{ textAlign: 'left', padding: '6px 8px', fontWeight: 600, color: '#1C2521', fontFamily: "'Inter', sans-serif" }}>Strategie</th>
+                  <th style={{ textAlign: 'right', padding: '6px 8px', fontWeight: 600, color: '#1C2521', fontFamily: "'Inter', sans-serif" }}>Erfolgsquote</th>
+                  <th style={{ textAlign: 'right', padding: '6px 8px', fontWeight: 600, color: '#1C2521', fontFamily: "'Inter', sans-serif" }}>Ø Jahresentnahme</th>
+                  <th style={{ textAlign: 'right', padding: '6px 8px', fontWeight: 600, color: '#1C2521', fontFamily: "'Inter', sans-serif" }}>Min. (P10)</th>
+                  <th style={{ textAlign: 'right', padding: '6px 8px', fontWeight: 600, color: '#1C2521', fontFamily: "'Inter', sans-serif" }}>Max. (P90)</th>
+                  <th style={{ textAlign: 'right', padding: '6px 8px', fontWeight: 600, color: '#1C2521', fontFamily: "'Inter', sans-serif" }}>Gesamt Median</th>
+                  <th style={{ textAlign: 'right', padding: '6px 8px', fontWeight: 600, color: '#1C2521', fontFamily: "'Inter', sans-serif" }}>Gesamt P10</th>
+                  <th style={{ textAlign: 'right', padding: '6px 8px', fontWeight: 600, color: '#1C2521', fontFamily: "'Inter', sans-serif" }}>Endkapital</th>
+                </tr>
+              </thead>
+              <tbody>
+                {strategyComparison.map(s => (
+                  <tr key={s.key} style={{ borderBottom: '1px solid #E8ECE9', background: s.key === entnahmeStrategie ? 'rgba(47,93,98,0.06)' : 'transparent' }}>
+                    <td style={{ padding: '6px 8px', color: s.key === entnahmeStrategie ? '#2F5D62' : '#5B6B65', fontWeight: s.key === entnahmeStrategie ? 600 : 400, fontFamily: "'Inter', sans-serif" }}>{s.label}</td>
+                    <td style={{ textAlign: 'right', padding: '6px 8px', color: s.result.successRate >= 97.5 ? '#2F5D62' : s.result.successRate >= 90 ? '#C08A2E' : '#A8432F', fontWeight: 600 }}>{s.result.successRate.toFixed(1)}%</td>
+                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmtEUR(s.result.avgSpend)}</td>
+                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmtEUR(s.result.p10Spend)}</td>
+                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmtEUR(s.result.p90Spend)}</td>
+                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmtEUR(s.result.medianTotalWithdrawal)}</td>
+                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmtEUR(s.result.p10TotalWithdrawal)}</td>
+                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmtEUR(s.result.medianEnd)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
 
         {/* Sensitivität: welcher Parameter bewegt die Erfolgsquote am meisen? */}
         <div style={{ background: '#FFFFFF', border: '1px solid #D3DAD6', borderRadius: 12, padding: '16px 18px', marginBottom: 20 }}>
