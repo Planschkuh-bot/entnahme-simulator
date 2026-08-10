@@ -1543,7 +1543,7 @@ function EntnahmeSimulator() {
                 onChange={setStaticRate} format={(v) => v.toFixed(1) + '%'} hint="Basis für den Boden"
                 tip="Der feste Prozentsatz vom Startvermögen, der als harter Mindestboden auch in schlechten Jahren nie unterschritten wird." />
             )}
-            {entnahmeStrategie !== 'bengen' && entnahmeStrategie !== 'konstant' && (
+            {entnahmeStrategie !== 'bengen' && (
               <Slider label={entnahmeStrategie === 'statisch' ? 'Startentnahmerate' : 'Dynamische Startrate'} value={dynStartRate} min={2} max={20} step={0.1}
                 onChange={setDynStartRate} format={(v) => v.toFixed(1) + '%'}
                 tip="Entnahmerate im ersten Jahr in Prozent vom Startvermögen." />
