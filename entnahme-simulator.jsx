@@ -1152,7 +1152,7 @@ export default function EntnahmeSimulator() {
             ENTNAHME-SIMULATION &middot; EIMER-STRATEGIE
           </div>
           <h1 style={{ fontSize: 26, fontWeight: 700, margin: '4px 0 6px', letterSpacing: -0.3 }}>
-            Vanguard-Dynamic + Cash/Gold-Reserve
+            Vanguard Dynamic mit Bodenlinie + Drawdown-Reserven
           </h1>
           <p style={{ fontSize: 13.5, color: '#5B6B65', lineHeight: 1.5, margin: 0 }}>
             In Jahren mit &ge;20% ETF-Drawdown wird zuerst Cash, dann Gold entnommen, erst danach der ETF.
