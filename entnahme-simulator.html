@@ -1709,66 +1709,72 @@ function EntnahmeSimulator() {
           <div style={{ background: '#EEF1EF', borderRadius: 16, padding: 24, width: '90vw', maxWidth: 1200, height: '85vh', display: 'flex', flexDirection: 'column', position: 'relative' }} onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setExpandedChart(null)} style={{ position: 'absolute', top: 12, right: 16, background: 'none', border: 'none', fontSize: 28, cursor: 'pointer', color: '#5B6B65', lineHeight: 1, zIndex: 1 }}>&times;</button>
             {expandedChart === 'vermoegen' && (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                 <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Vermögensverlauf</div>
                 <div style={{ fontSize: 13, color: '#5B6B65', marginBottom: 12 }}>10./50./90. Perzentil, Gesamtvermögen (ETF+Gold+Cash)</div>
-                <div style={{ flex: 1, minHeight: 0 }}>
-                  <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 10, bottom: 30 }} width={1100} height={550}>
-                    <CartesianGrid stroke="#E3E8E5" vertical={false} />
-                    <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 13 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
-                    <YAxis tickFormatter={fmtEUR} tick={{ fill: '#5B6B65', fontSize: 13, dy: 4 }} tickLine={false} axisLine={false} width={80} />
-                    <Tooltip content={<LightTooltip showFloor={false} startAge={startAge} />} />
-                    <Area dataKey="balP10" stackId="b" stroke="none" fill="transparent" />
-                    <Area dataKey="balBand" stackId="b" stroke="none" fill="#2F5D62" fillOpacity={0.15} />
-                    <Line dataKey="balP50" stroke="#2F5D62" strokeWidth={2} dot={false} />
-                    {pensionStartYear > 0 && pensionStartYear <= horizon && (
-                      <ReferenceLine x={pensionStartAge} stroke="#3A6B8A" strokeDasharray="3 3" label={{ value: 'Rentenbeginn', position: 'insideTopRight', fill: '#3A6B8A', fontSize: 12 }} />
-                    )}
-                  </ComposedChart>
+                <div style={{ flex: 1, minHeight: 300 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 10, bottom: 30 }}>
+                      <CartesianGrid stroke="#E3E8E5" vertical={false} />
+                      <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 13 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
+                      <YAxis tickFormatter={fmtEUR} tick={{ fill: '#5B6B65', fontSize: 13, dy: 4 }} tickLine={false} axisLine={false} width={80} />
+                      <Tooltip content={<LightTooltip showFloor={false} startAge={startAge} />} />
+                      <Area dataKey="balP10" stackId="b" stroke="none" fill="transparent" />
+                      <Area dataKey="balBand" stackId="b" stroke="none" fill="#2F5D62" fillOpacity={0.15} />
+                      <Line dataKey="balP50" stroke="#2F5D62" strokeWidth={2} dot={false} />
+                      {pensionStartYear > 0 && pensionStartYear <= horizon && (
+                        <ReferenceLine x={pensionStartAge} stroke="#3A6B8A" strokeDasharray="3 3" label={{ value: 'Rentenbeginn', position: 'insideTopRight', fill: '#3A6B8A', fontSize: 12 }} />
+                      )}
+                    </ComposedChart>
+                  </ResponsiveContainer>
                 </div>
                 <div style={{ textAlign: 'center', color: '#1C2521', fontSize: 14 }}>Lebensalter</div>
               </div>
             )}
             {expandedChart === 'entnahme' && (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                 <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Entnahmeverlauf</div>
                 <div style={{ fontSize: 13, color: '#5B6B65', marginBottom: 12 }}>10./50./90. Perzentil pro Jahr{entnahmeStrategie === 'dynamisch' ? ' · Bodenlinie gestrichelt' : ''}</div>
-                <div style={{ flex: 1, minHeight: 0 }}>
-                  <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 10, bottom: 30 }} width={1100} height={550}>
-                    <CartesianGrid stroke="#E3E8E5" vertical={false} />
-                    <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 13 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
-                    <YAxis tickFormatter={fmtEUR} tick={{ fill: '#5B6B65', fontSize: 13, dy: 4 }} tickLine={false} axisLine={false} width={80} />
-                    <Tooltip content={<LightTooltip showFloor startAge={startAge} />} />
-                    <Area dataKey="spendP10" stackId="s" stroke="none" fill="transparent" />
-                    <Area dataKey="spendBand" stackId="s" stroke="none" fill="#C08A2E" fillOpacity={0.15} />
-                    <Line dataKey="spendP50" name="Gesamtentnahme" stroke="#C08A2E" strokeWidth={2} dot={false} />
-                    <Line dataKey="spendAfterPensionP50" name="Nach Abzug GRV" stroke="#2F5D62" strokeWidth={2} dot={false} />
-                    <Line dataKey="pensionAmount" stroke="none" dot={false} activeDot={false} />
-                    {entnahmeStrategie === 'dynamisch' && (
-                      <Line dataKey="hardFloor" name="Bodenlinie" stroke="#A8432F" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
-                    )}
-                    {pensionStartYear > 0 && pensionStartYear <= horizon && (
-                      <ReferenceLine x={pensionStartAge} stroke="#3A6B8A" strokeDasharray="3 3" label={{ value: 'Rentenbeginn', position: 'insideTopRight', fill: '#3A6B8A', fontSize: 12 }} />
-                    )}
-                  </ComposedChart>
+                <div style={{ flex: 1, minHeight: 300 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 10, bottom: 30 }}>
+                      <CartesianGrid stroke="#E3E8E5" vertical={false} />
+                      <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 13 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
+                      <YAxis tickFormatter={fmtEUR} tick={{ fill: '#5B6B65', fontSize: 13, dy: 4 }} tickLine={false} axisLine={false} width={80} />
+                      <Tooltip content={<LightTooltip showFloor startAge={startAge} />} />
+                      <Area dataKey="spendP10" stackId="s" stroke="none" fill="transparent" />
+                      <Area dataKey="spendBand" stackId="s" stroke="none" fill="#C08A2E" fillOpacity={0.15} />
+                      <Line dataKey="spendP50" name="Gesamtentnahme" stroke="#C08A2E" strokeWidth={2} dot={false} />
+                      <Line dataKey="spendAfterPensionP50" name="Nach Abzug GRV" stroke="#2F5D62" strokeWidth={2} dot={false} />
+                      <Line dataKey="pensionAmount" stroke="none" dot={false} activeDot={false} />
+                      {entnahmeStrategie === 'dynamisch' && (
+                        <Line dataKey="hardFloor" name="Bodenlinie" stroke="#A8432F" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
+                      )}
+                      {pensionStartYear > 0 && pensionStartYear <= horizon && (
+                        <ReferenceLine x={pensionStartAge} stroke="#3A6B8A" strokeDasharray="3 3" label={{ value: 'Rentenbeginn', position: 'insideTopRight', fill: '#3A6B8A', fontSize: 12 }} />
+                      )}
+                    </ComposedChart>
+                  </ResponsiveContainer>
                 </div>
                 <div style={{ textAlign: 'center', color: '#1C2521', fontSize: 14 }}>Lebensalter</div>
               </div>
             )}
             {expandedChart === 'ausfall' && (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                 <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Ausfallwahrscheinlichkeit im Zeitverlauf</div>
                 <div style={{ fontSize: 13, color: '#5B6B65', marginBottom: 12 }}>Anteil Pfade, deren Vermögen bis zu diesem Jahr bereits aufgebraucht war (kumulativ) · rote Linie = 2,5%-Zielgrenze</div>
-                <div style={{ flex: 1, minHeight: 0 }}>
-                  <ComposedChart data={failureChartData} margin={{ top: 20, right: 30, left: 10, bottom: 30 }} width={1100} height={550}>
-                    <CartesianGrid stroke="#E3E8E5" vertical={false} />
-                    <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 13 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
-                    <YAxis tickFormatter={(v) => v.toFixed(1) + '%'} tick={{ fill: '#5B6B65', fontSize: 13, dy: 4 }} tickLine={false} axisLine={false} width={55} />
-                    <Tooltip content={<FailTooltip startAge={startAge} />} />
-                    <Area dataKey="failRate" stroke="none" fill="#A8432F" fillOpacity={0.15} />
-                    <Line dataKey="failRate" stroke="#A8432F" strokeWidth={2} dot={false} />
-                    <Line dataKey={() => 2.5} stroke="#5B6B65" strokeWidth={1} strokeDasharray="4 4" dot={false} />
-                  </ComposedChart>
+                <div style={{ flex: 1, minHeight: 300 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={failureChartData} margin={{ top: 20, right: 30, left: 10, bottom: 30 }}>
+                      <CartesianGrid stroke="#E3E8E5" vertical={false} />
+                      <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 13 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
+                      <YAxis tickFormatter={(v) => v.toFixed(1) + '%'} tick={{ fill: '#5B6B65', fontSize: 13, dy: 4 }} tickLine={false} axisLine={false} width={55} />
+                      <Tooltip content={<FailTooltip startAge={startAge} />} />
+                      <Area dataKey="failRate" stroke="none" fill="#A8432F" fillOpacity={0.15} />
+                      <Line dataKey="failRate" stroke="#A8432F" strokeWidth={2} dot={false} />
+                      <Line dataKey={() => 2.5} stroke="#5B6B65" strokeWidth={1} strokeDasharray="4 4" dot={false} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
                 </div>
                 <div style={{ textAlign: 'center', color: '#1C2521', fontSize: 14 }}>Lebensalter</div>
               </div>
