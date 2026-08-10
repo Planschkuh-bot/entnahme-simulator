@@ -1099,12 +1099,20 @@ export default function EntnahmeSimulator() {
 
   function applyPreset(preset) {
     setSelectedPreset(preset);
-    const values = preset === 'rentner'
-      ? { vermoegen: 300000, aktien: 80, gold: 0, bitcoin: 0, anleihen: 15, wohnung: 0, etfTer: 0.2, staticRate: 8, dynStartRate: 12, ceiling: 5, floor: -2.5, horizon: 25, blockLen: 5, bootstrapSource: 'sp500', startAge: 67, rentenpunkte: 40, pensionStartAge: 67 }
-      : { vermoegen: 1150000, aktien: 87, gold: 7, bitcoin: 0, anleihen: 0, wohnung: 0, etfTer: 0.2, staticRate: 2.5, dynStartRate: 3.2, ceiling: 5, floor: -2.5, horizon: 45, blockLen: 5, bootstrapSource: 'sp500', startAge: 50, rentenpunkte: 30, pensionStartAge: 67 };
+    let values;
+    if (preset === 'rentner') {
+      values = { vermoegen: 300000, aktien: 80, gold: 0, bitcoin: 0, anleihen: 15, wohnung: 0, etfTer: 0.2, staticRate: 8, dynStartRate: 12, ceiling: 5, floor: -2.5, horizon: 25, blockLen: 5, bootstrapSource: 'sp500', startAge: 67, rentenpunkte: 40, pensionStartAge: 67, entnahmeStrategie: 'dynamisch', entnahmeFrequenz: 'jaehrlich', heutigeKaufkraft: true, inflationRate: 2, numSims: 10000, seed: 5 };
+    } else if (preset === 'fire-fan') {
+      values = { vermoegen: 1150000, aktien: 87, gold: 7, bitcoin: 0, anleihen: 0, wohnung: 0, etfTer: 0.25, staticRate: 2.4, dynStartRate: 3, ceiling: 5, floor: -2.5, horizon: 50, blockLen: 5, bootstrapSource: 'sp500', startAge: 50, rentenpunkte: 25, pensionStartAge: 67, entnahmeStrategie: 'dynamisch', entnahmeFrequenz: 'jaehrlich', heutigeKaufkraft: true, inflationRate: 2, numSims: 10000, seed: 5 };
+    } else {
+      values = { vermoegen: 1150000, aktien: 87, gold: 7, bitcoin: 0, anleihen: 0, wohnung: 0, etfTer: 0.2, staticRate: 2.5, dynStartRate: 3.2, ceiling: 5, floor: -2.5, horizon: 45, blockLen: 5, bootstrapSource: 'sp500', startAge: 50, rentenpunkte: 30, pensionStartAge: 67, entnahmeStrategie: 'dynamisch', entnahmeFrequenz: 'jaehrlich', heutigeKaufkraft: true, inflationRate: 2, numSims: 10000, seed: 0 };
+    }
     setMode('bootstrap'); setVermoegen(values.vermoegen); setAktien(values.aktien); setGold(values.gold); setBitcoin(values.bitcoin); setAnleihen(values.anleihen); setWohnung(values.wohnung); setEtfTer(values.etfTer);
     setStaticRate(values.staticRate); setDynStartRate(values.dynStartRate); setCeiling(values.ceiling); setFloor(values.floor); setHorizon(values.horizon); setBlockLen(values.blockLen); setBootstrapSource(values.bootstrapSource);
-    setStartAge(values.startAge); setRentenpunkte(values.rentenpunkte); setPensionStartAge(values.pensionStartAge); setSeed((s) => s + 1);
+    setStartAge(values.startAge); setRentenpunkte(values.rentenpunkte); setPensionStartAge(values.pensionStartAge);
+    setEntnahmeStrategie(values.entnahmeStrategie); setEntnahmeFrequenz(values.entnahmeFrequenz);
+    setHeutigeKaufkraft(values.heutigeKaufkraft); setInflationRate(values.inflationRate);
+    setNumSims(values.numSims); setSeed(values.seed);
   }
 
   const pensionStartYear = Math.max(0, pensionStartAge - startAge);
@@ -1258,6 +1266,7 @@ export default function EntnahmeSimulator() {
               <option value="" disabled>Auswählen …</option>
               <option value="rentner">Standard-Rentner</option>
               <option value="fire">FIRE-Fan</option>
+              <option value="fire-fan">FIRE-Fan (persönlich)</option>
             </select>
           </div>
           <button onClick={shareConfig} style={{
