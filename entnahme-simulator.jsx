@@ -1265,8 +1265,7 @@ export default function EntnahmeSimulator() {
             }}>
               <option value="" disabled>Auswählen …</option>
               <option value="rentner">Standard-Rentner</option>
-              <option value="fire">FIRE-Fan</option>
-              <option value="fire-fan">FIRE-Fan (persönlich)</option>
+              <option value="fire-fan">FIRE-Fan</option>
             </select>
           </div>
           <button onClick={shareConfig} style={{
