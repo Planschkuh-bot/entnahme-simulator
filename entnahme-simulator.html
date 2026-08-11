@@ -1679,7 +1679,7 @@ function EntnahmeSimulator() {
               <tbody>
                 {strategyComparison.map(s => (
                   <tr key={s.key} style={{ borderBottom: '1px solid #E8ECE9', background: s.key === entnahmeStrategie ? 'rgba(47,93,98,0.06)' : 'transparent' }}>
-                    <td style={{ padding: '6px 8px', color: s.key === entnahmeStrategie ? '#2F5D62' : '#5B6B65', fontWeight: s.key === entnahmeStrategie ? 600 : 400, fontFamily: "'Inter', sans-serif" }}>{s.label}</td>
+                    <td style={{ padding: '6px 8px', color: s.key === entnahmeStrategie ? '#2F5D62' : '#5B6B65', fontWeight: s.key === entnahmeStrategie ? 600 : 400, fontFamily: "'Inter', sans-serif", position: 'sticky', left: 0, background: s.key === entnahmeStrategie ? 'rgba(47,93,98,0.06)' : '#FFFFFF', zIndex: 1 }}>{s.label}</td>
                     <td style={{ padding: '6px 8px', fontSize: 10, color: '#5B6B65' }}>{s.note}</td>
                   <td style={{ textAlign: 'right', padding: '6px 8px', color: s.result.successRate >= 97.5 ? '#2F5D62' : s.result.successRate >= 90 ? '#C08A2E' : '#A8432F', fontWeight: 600 }}>{s.result.successRate.toFixed(1)}%</td>
                   <td style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'IBM Plex Mono', monospace" }}>{s.result.avgSpend > 0 ? ((s.result.p90Spend - s.result.p10Spend) / s.result.avgSpend * 100).toFixed(0) + '%' : '–'}</td>
