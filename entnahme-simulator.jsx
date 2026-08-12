@@ -563,6 +563,7 @@ function aggregate(paths, horizon) {
     const sorted = [...balanceByYear[t]].sort((a, b) => a - b);
     const entry = {
       year: t,
+      balP1: percentile(sorted, 1),
       balP10: percentile(sorted, 10),
       balP50: percentile(sorted, 50),
       balP90: percentile(sorted, 90),
@@ -570,6 +571,7 @@ function aggregate(paths, horizon) {
     };
     if (t < horizon) {
       const sSorted = [...spendByYear[t]].sort((a, b) => a - b);
+      entry.spendP1 = percentile(sSorted, 1);
       entry.spendP10 = percentile(sSorted, 10);
       entry.spendP50 = percentile(sSorted, 50);
       entry.spendP90 = percentile(sSorted, 90);
@@ -1135,6 +1137,7 @@ export default function EntnahmeSimulator() {
   const [shareLabel, setShareLabel] = useState('🔗 Konfiguration teilen');
   const [expandedChart, setExpandedChart] = useState(null);
   const [showStrategyComparison, setShowStrategyComparison] = useState(false);
+  const [showWithdrawalDetail, setShowWithdrawalDetail] = useState(false);
   const matchedPreset = useMemo(() => {
     const rentner = { vermoegen: 300000, aktien: 80, gold: 0, bitcoin: 0, anleihen: 15, wohnung: 0, etfTer: 0.2, staticRate: 8, dynStartRate: 12, ceiling: 5, floor: -2.5, horizon: 25, blockLen: 5, startAge: 67, rentenpunkte: 40, pensionStartAge: 67, numSims: 2500, seed: 5 };
     const fireFan = { vermoegen: 1150000, aktien: 87, gold: 8, bitcoin: 0, anleihen: 0, wohnung: 0, etfTer: 0.2, staticRate: 2.4, dynStartRate: 3.2, ceiling: 5, floor: -2.5, horizon: 45, blockLen: 5, startAge: 50, rentenpunkte: 25, pensionStartAge: 67, numSims: 2500, seed: 6 };
@@ -1636,6 +1639,50 @@ export default function EntnahmeSimulator() {
                   <div style={{ textAlign: 'right', fontFamily: "'IBM Plex Mono', monospace" }}>{s.result.successRate.toFixed(1)}%</div>
                 </React.Fragment>
               ))}
+            </div>
+          )}
+        </div>
+
+        {/* Entnahmeverlauf der gewählten Strategie */}
+        <div style={{ background: '#FFFFFF', border: '1px solid #D3DAD6', borderRadius: 12, padding: '16px 18px', marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} onClick={() => setShowWithdrawalDetail(!showWithdrawalDetail)}>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>Entnahmeverlauf der gewählten Strategie</div>
+            <div style={{ fontSize: 11, color: '#5B6B65', transform: showWithdrawalDetail ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▶</div>
+          </div>
+          {showWithdrawalDetail && (
+            <div style={{ overflowX: 'auto', marginTop: 12 }}>
+              <table style={{ width: '100%', minWidth: '760px', borderCollapse: 'collapse', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #D3DAD6' }}>
+                    <th style={{ textAlign: 'right', padding: '5px 7px' }}>Jahr</th>
+                    <th style={{ textAlign: 'right', padding: '5px 7px' }}>Alter</th>
+                    <th style={{ textAlign: 'right', padding: '5px 7px' }}>Median Entnahme</th>
+                    <th style={{ textAlign: 'right', padding: '5px 7px' }}>P10 Entnahme</th>
+                    <th style={{ textAlign: 'right', padding: '5px 7px' }}>P1 Entnahme</th>
+                    <th style={{ textAlign: 'right', padding: '5px 7px' }}>Median Endvermögen</th>
+                    <th style={{ textAlign: 'right', padding: '5px 7px' }}>P10 Endvermögen</th>
+                    <th style={{ textAlign: 'right', padding: '5px 7px' }}>P1 Endvermögen</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.yearsStats.slice(0, horizon).map((row, index) => {
+                    const factor = heutigeKaufkraft ? 1 : Math.pow(1 + inflationRate / 100, index);
+                    const value = (amount) => fmtEURk(amount * factor);
+                    return (
+                      <tr key={row.year} style={{ borderBottom: '1px solid #E8ECE9', background: index % 2 === 0 ? '#FAFBFA' : '#FFFFFF' }}>
+                        <td style={{ textAlign: 'right', padding: '5px 7px' }}>{row.year + 1}</td>
+                        <td style={{ textAlign: 'right', padding: '5px 7px' }}>{startAge + row.year + 1}</td>
+                        <td style={{ textAlign: 'right', padding: '5px 7px' }}>{value(row.spendP50)}</td>
+                        <td style={{ textAlign: 'right', padding: '5px 7px' }}>{value(row.spendP10)}</td>
+                        <td style={{ textAlign: 'right', padding: '5px 7px' }}>{value(row.spendP1)}</td>
+                        <td style={{ textAlign: 'right', padding: '5px 7px' }}>{value(row.balP50)}</td>
+                        <td style={{ textAlign: 'right', padding: '5px 7px' }}>{value(row.balP10)}</td>
+                        <td style={{ textAlign: 'right', padding: '5px 7px' }}>{value(row.balP1)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
