@@ -1137,7 +1137,7 @@ export default function EntnahmeSimulator() {
   const [showStrategyComparison, setShowStrategyComparison] = useState(false);
   const matchedPreset = useMemo(() => {
     const rentner = { vermoegen: 300000, aktien: 80, gold: 0, bitcoin: 0, anleihen: 15, wohnung: 0, etfTer: 0.2, staticRate: 8, dynStartRate: 12, ceiling: 5, floor: -2.5, horizon: 25, blockLen: 5, startAge: 67, rentenpunkte: 40, pensionStartAge: 67, numSims: 2500, seed: 5 };
-    const fireFan = { vermoegen: 1150000, aktien: 87, gold: 7, bitcoin: 0, anleihen: 0, wohnung: 0, etfTer: 0.25, staticRate: 2.4, dynStartRate: 3, ceiling: 5, floor: -2.5, horizon: 50, blockLen: 5, startAge: 50, rentenpunkte: 25, pensionStartAge: 67, numSims: 2500, seed: 5 };
+    const fireFan = { vermoegen: 1150000, aktien: 87, gold: 8, bitcoin: 0, anleihen: 0, wohnung: 0, etfTer: 0.2, staticRate: 2.4, dynStartRate: 3.2, ceiling: 5, floor: -2.5, horizon: 45, blockLen: 5, startAge: 50, rentenpunkte: 25, pensionStartAge: 67, numSims: 2500, seed: 6 };
     const match = (p) => vermoegen === p.vermoegen && aktien === p.aktien && gold === p.gold && bitcoin === p.bitcoin && anleihen === p.anleihen && wohnung === p.wohnung && etfTer === p.etfTer && staticRate === p.staticRate && dynStartRate === p.dynStartRate && ceiling === p.ceiling && floor === p.floor && horizon === p.horizon && blockLen === p.blockLen && startAge === p.startAge && rentenpunkte === p.rentenpunkte && pensionStartAge === p.pensionStartAge && numSims === p.numSims && seed === p.seed;
     if (match(rentner)) return 'rentner';
     if (match(fireFan)) return 'fire-fan';
@@ -1169,7 +1169,7 @@ export default function EntnahmeSimulator() {
     if (preset === 'rentner') {
       values = { vermoegen: 300000, aktien: 80, gold: 0, bitcoin: 0, anleihen: 15, wohnung: 0, etfTer: 0.2, staticRate: 8, dynStartRate: 12, ceiling: 5, floor: -2.5, horizon: 25, blockLen: 5, bootstrapSource: 'sp500', startAge: 67, rentenpunkte: 40, pensionStartAge: 67, entnahmeStrategie: 'dynamisch', entnahmeFrequenz: 'jaehrlich', heutigeKaufkraft: true, inflationRate: 2, numSims: 2500, seed: 5 };
     } else if (preset === 'fire-fan') {
-      values = { vermoegen: 1150000, aktien: 87, gold: 7, bitcoin: 0, anleihen: 0, wohnung: 0, etfTer: 0.25, staticRate: 2.4, dynStartRate: 3, ceiling: 5, floor: -2.5, horizon: 50, blockLen: 5, bootstrapSource: 'sp500', startAge: 50, rentenpunkte: 25, pensionStartAge: 67, entnahmeStrategie: 'dynamisch', entnahmeFrequenz: 'jaehrlich', heutigeKaufkraft: true, inflationRate: 2, numSims: 2500, seed: 5 };
+      values = { vermoegen: 1150000, aktien: 87, gold: 8, bitcoin: 0, anleihen: 0, wohnung: 0, etfTer: 0.2, staticRate: 2.4, dynStartRate: 3.2, ceiling: 5, floor: -2.5, horizon: 45, blockLen: 5, bootstrapSource: 'sp500', startAge: 50, rentenpunkte: 25, pensionStartAge: 67, entnahmeStrategie: 'dynamisch', entnahmeFrequenz: 'jaehrlich', heutigeKaufkraft: true, inflationRate: 2, numSims: 2500, seed: 6 };
     } else {
       values = { vermoegen: 1150000, aktien: 87, gold: 7, bitcoin: 0, anleihen: 0, wohnung: 0, etfTer: 0.2, staticRate: 2.5, dynStartRate: 3.2, ceiling: 5, floor: -2.5, horizon: 45, blockLen: 5, bootstrapSource: 'sp500', startAge: 50, rentenpunkte: 30, pensionStartAge: 67, entnahmeStrategie: 'dynamisch', entnahmeFrequenz: 'jaehrlich', heutigeKaufkraft: true, inflationRate: 2, numSims: 2500, seed: 0 };
     }
