@@ -622,13 +622,13 @@ function aggregate(paths, horizon) {
     ciLow, ciHigh,
     yearsStats,
     failureCurve,
-    medianEnd: percentile(endBalances, 50),
-    medianTotalWithdrawal: percentile(totalWithdrawals, 50),
-    medianSpendVolatility: percentile(spendVolatilities, 50),
-    avgSpend: totalWithdrawals.reduce((a, b) => a + b, 0) / totalWithdrawals.length / horizon,
-    p10Spend: percentile(allYearSpends, 10),
-    p90Spend: percentile(allYearSpends, 90),
-    p10TotalWithdrawal: percentile(totalWithdrawals, 10),
+    medianEnd: percentile([...endBalances].sort((a, b) => a - b), 50),
+    medianTotalWithdrawal: percentile([...totalWithdrawals].sort((a, b) => a - b), 50),
+    medianSpendVolatility: 0,
+    avgSpend: yearsStats.slice(0, horizon).reduce((sum, entry) => sum + (entry.spendP50 || 0), 0) / horizon,
+    p10Spend: Math.min(...yearsStats.slice(0, horizon).map((entry) => entry.spendP10 || 0)),
+    p90Spend: Math.max(...yearsStats.slice(0, horizon).map((entry) => entry.spendP90 || 0)),
+    p10TotalWithdrawal: percentile([...totalWithdrawals].sort((a, b) => a - b), 10),
     numPaths: paths.length,
     hardFloor: paths[0]?.hardFloor ?? 0,
     staticAmount: paths[0]?.staticAmount ?? 0,
@@ -1661,39 +1661,39 @@ function EntnahmeSimulator() {
           </div>
           {showStrategyComparison && (
             <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', background: '#FFFFFF' }}>
-              <table style={{ width: '100%', minWidth: '700px', borderCollapse: 'separate', borderSpacing: 0, fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", background: '#FFFFFF' }}>
-              <thead>
-                <tr style={{ borderBottom: '2px solid #D3DAD6' }}>
-                  <th style={{ textAlign: 'left', padding: '6px 8px', fontWeight: 600, color: '#1C2521', fontFamily: "'Inter', sans-serif", position: 'sticky', left: 0, background: '#FFFFFF', zIndex: 2, borderBottom: '2px solid #D3DAD6' }}>Strategie</th>
-                  <th style={{ textAlign: 'left', padding: '6px 8px', fontWeight: 600, color: '#1C2521', fontFamily: "'Inter', sans-serif" }}>Rate</th>
-                  <th style={{ textAlign: 'right', padding: '6px 8px', fontWeight: 600, color: '#1C2521', fontFamily: "'Inter', sans-serif" }}>Erfolgsquote</th>
-                  <th style={{ textAlign: 'right', padding: '6px 8px', fontWeight: 600, color: '#1C2521', fontFamily: "'Inter', sans-serif" }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>Schwankung<InfoDot text="Koeffizient der Variation: (P90-P10)/Ø × 100. Je höher, desto stärker schwankt die jährliche Entnahme. Nur Jahre mit aktivem Portfolio." /></span></th>
-                  <th style={{ textAlign: 'right', padding: '6px 8px', fontWeight: 600, color: '#1C2521', fontFamily: "'Inter', sans-serif" }}>Ø Jahresentnahme</th>
-                  <th style={{ textAlign: 'right', padding: '6px 8px', fontWeight: 600, color: '#1C2521', fontFamily: "'Inter', sans-serif" }}>Min. (P10)</th>
-                  <th style={{ textAlign: 'right', padding: '6px 8px', fontWeight: 600, color: '#1C2521', fontFamily: "'Inter', sans-serif" }}>Max. (P90)</th>
-                  <th style={{ textAlign: 'right', padding: '6px 8px', fontWeight: 600, color: '#1C2521', fontFamily: "'Inter', sans-serif" }}>Gesamt Median</th>
-                  <th style={{ textAlign: 'right', padding: '6px 8px', fontWeight: 600, color: '#1C2521', fontFamily: "'Inter', sans-serif" }}>Gesamt P10</th>
-                  <th style={{ textAlign: 'right', padding: '6px 8px', fontWeight: 600, color: '#1C2521', fontFamily: "'Inter', sans-serif" }}>Endkapital</th>
-                </tr>
-              </thead>
-              <tbody>
-                {strategyComparison.map(s => (
-                  <tr key={s.key} style={{ borderBottom: '1px solid #E8ECE9', background: '#FFFFFF' }}>
-                    <td style={{ padding: '6px 8px', color: s.key === entnahmeStrategie ? '#2F5D62' : '#5B6B65', fontWeight: s.key === entnahmeStrategie ? 600 : 400, fontFamily: "'Inter', sans-serif", position: 'sticky', left: 0, background: s.key === entnahmeStrategie ? '#EEF1EF' : '#FFFFFF', zIndex: 2, boxShadow: '2px 0 4px rgba(0,0,0,0.05)' }}>{s.label}</td>
-                    <td style={{ padding: '6px 8px', fontSize: 10, color: '#5B6B65' }}>{s.note}</td>
-                  <td style={{ textAlign: 'right', padding: '6px 8px', color: s.result.successRate >= 97.5 ? '#2F5D62' : s.result.successRate >= 90 ? '#C08A2E' : '#A8432F', fontWeight: 600 }}>{s.result.successRate.toFixed(1)}%</td>
-                  <td style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'IBM Plex Mono', monospace" }}>{s.result.avgSpend > 0 ? ((s.result.p90Spend - s.result.p10Spend) / s.result.avgSpend * 100).toFixed(0) + '%' : '–'}</td>
-                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmtEURk(heutigeKaufkraft ? s.result.avgSpend : s.result.avgSpend * Math.pow(1 + inflationRate / 100, horizon))}</td>
-                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmtEURk(heutigeKaufkraft ? s.result.p10Spend : s.result.p10Spend * Math.pow(1 + inflationRate / 100, horizon))}</td>
-                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmtEURk(heutigeKaufkraft ? s.result.p90Spend : s.result.p90Spend * Math.pow(1 + inflationRate / 100, horizon))}</td>
-                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmtEURk(heutigeKaufkraft ? s.result.medianTotalWithdrawal : s.result.medianTotalWithdrawal * Math.pow(1 + inflationRate / 100, horizon))}</td>
-                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmtEURk(heutigeKaufkraft ? s.result.p10TotalWithdrawal : s.result.p10TotalWithdrawal * Math.pow(1 + inflationRate / 100, horizon))}</td>
-                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmtEURk(heutigeKaufkraft ? s.result.medianEnd : s.result.medianEnd * Math.pow(1 + inflationRate / 100, horizon))}</td>
+              <table style={{ width: '100%', minWidth: '760px', borderCollapse: 'collapse', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #D3DAD6' }}>
+                    <th style={{ textAlign: 'left', padding: '6px 8px', fontFamily: "'Inter', sans-serif", position: 'sticky', left: 0, background: '#FFFFFF', zIndex: 2 }}>Strategie</th>
+                    <th style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'Inter', sans-serif" }}>Erfolgsquote</th>
+                    <th style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'Inter', sans-serif" }}>Ø Jahresentnahme</th>
+                    <th style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'Inter', sans-serif" }}>Min. Jahresentnahme (P10)</th>
+                    <th style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'Inter', sans-serif" }}>Max. Jahresentnahme (P90)</th>
+                    <th style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'Inter', sans-serif" }}>Gesamtentnahme Median</th>
+                    <th style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'Inter', sans-serif" }}>Gesamtentnahme P10</th>
+                    <th style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'Inter', sans-serif" }}>Endkapital Median</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-              </div>
+                </thead>
+                <tbody>
+                  {strategyComparison.map((strategy) => {
+                    const result = strategy.result;
+                    const formatValue = (value) => fmtEURk(heutigeKaufkraft ? value : value * Math.pow(1 + inflationRate / 100, horizon));
+                    return (
+                      <tr key={strategy.key} style={{ borderBottom: '1px solid #E8ECE9' }}>
+                        <td style={{ padding: '6px 8px', fontFamily: "'Inter', sans-serif", position: 'sticky', left: 0, background: '#FFFFFF', zIndex: 2 }}>{strategy.label}</td>
+                        <td style={{ textAlign: 'right', padding: '6px 8px', color: result.successRate >= 97.5 ? '#2F5D62' : result.successRate >= 90 ? '#C08A2E' : '#A8432F', fontWeight: 600 }}>{result.successRate.toFixed(1)}%</td>
+                        <td style={{ textAlign: 'right', padding: '6px 8px' }}>{formatValue(result.avgSpend)}</td>
+                        <td style={{ textAlign: 'right', padding: '6px 8px' }}>{formatValue(result.p10Spend)}</td>
+                        <td style={{ textAlign: 'right', padding: '6px 8px' }}>{formatValue(result.p90Spend)}</td>
+                        <td style={{ textAlign: 'right', padding: '6px 8px' }}>{formatValue(result.medianTotalWithdrawal)}</td>
+                        <td style={{ textAlign: 'right', padding: '6px 8px' }}>{formatValue(result.p10TotalWithdrawal)}</td>
+                        <td style={{ textAlign: 'right', padding: '6px 8px' }}>{formatValue(result.medianEnd)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 
