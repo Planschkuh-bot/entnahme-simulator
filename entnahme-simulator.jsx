@@ -398,8 +398,7 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, bondR, btcR, wE
   const isKonstant = p.entnahmeStrategie === 'konstant';
   const isAnnualFreq = p.entnahmeFrequenz === 'jaehrlich';
   const useBucket = p.eimerStrategie !== false;
-  const etfTerMonthly = (p.etfTer || 0) / 100 / 12; // TER p.a. in % → monatlicher Kostenfaktor
-
+  const etfTerMonthly = (p.etfTer || 0) / 100 / 12;
   let eqBal = vermoegen * wEq;
   let goldBal = vermoegen * wGold;
   let cashBal = vermoegen * wCash;
@@ -407,72 +406,70 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, bondR, btcR, wE
   let btcBal = vermoegen * wBtc;
   let eqIndex = 100;
   let eqATH = 100;
-
   let prevAnnualSpending = p.entnahmeStrategie === 'bengen' ? staticAmount : (p.dynStartRate / 100) * vermoegen;
   let failed = false;
   const balances = [vermoegen];
   const spends = [];
   const failedByYear = [];
   let badMonthCount = 0;
-
   const horizon = p.horizon;
   let mi = 0;
+
+  const withdraw = (need, badMarket) => {
+    let remaining = need;
+    if (useBucket) {
+      const order = badMarket ? ['cash', 'bond', 'gold', 'btc', 'eq'] : ['eq', 'btc', 'bond', 'gold', 'cash'];
+      for (const bucket of order) {
+        if (remaining <= 0) break;
+        if (bucket === 'cash') { const take = Math.min(remaining, cashBal); cashBal -= take; remaining -= take; }
+        else if (bucket === 'bond') { const take = Math.min(remaining, bondBal); bondBal -= take; remaining -= take; }
+        else if (bucket === 'gold') { const take = Math.min(remaining, goldBal); goldBal -= take; remaining -= take; }
+        else if (bucket === 'btc') { const take = Math.min(remaining, btcBal); btcBal -= take; remaining -= take; }
+        else { const take = Math.min(remaining, eqBal); eqBal -= take; remaining -= take; }
+      }
+    } else {
+      const total = eqBal + goldBal + cashBal + bondBal + btcBal;
+      if (total > 0) {
+        const factor = Math.min(remaining / total, 1);
+        eqBal *= 1 - factor;
+        goldBal *= 1 - factor;
+        cashBal *= 1 - factor;
+        bondBal *= 1 - factor;
+        btcBal *= 1 - factor;
+        remaining -= total * factor;
+      }
+    }
+    if (remaining > 1e-6) failed = true;
+  };
+
   for (let y = 0; y < horizon; y++) {
     const totalAtYearStart = eqBal + goldBal + cashBal + bondBal + btcBal;
     let yearSpending;
-    if (y === 0 || isStatic) {
-      // Statisch: bleibt für die gesamte Laufzeit real konstant (Jahr 0 = Startbetrag).
-      yearSpending = prevAnnualSpending;
-    } else if (isKonstant) {
-      // Konstante Prozent-Entnahme: fester Prozentsatz des aktuellen Portfolio-Werts.
-      yearSpending = totalAtYearStart * (p.dynStartRate / 100);
-    } else {
-      // Echte Vanguard-Dynamic-Spending-Formel: "raw" = Portfoliowert zu Jahresbeginn × Entnahmerate,
-      // begrenzt durch Ceiling/Floor relativ zur TATSÄCHLICHEN Vorjahresentnahme.
+    if (y === 0 || isStatic) yearSpending = prevAnnualSpending;
+    else if (isKonstant) yearSpending = totalAtYearStart * (p.dynStartRate / 100);
+    else {
       const raw = totalAtYearStart * (p.dynStartRate / 100);
-      const capped = Math.min(
-        Math.max(raw, prevAnnualSpending * (1 + p.floor / 100)),
-        prevAnnualSpending * (1 + p.ceiling / 100)
-      );
+      const capped = Math.min(Math.max(raw, prevAnnualSpending * (1 + p.floor / 100)), prevAnnualSpending * (1 + p.ceiling / 100));
       yearSpending = Math.max(capped, hardFloorAnnual);
     }
-
     const age = p.startAge + y;
     const pensionThisYear = age >= p.pensionStartAge ? p.pensionAnnual : 0;
     const rentalThisYear = p.rentalIncomeByYear ? p.rentalIncomeByYear[y] : 0;
-
     if (isAnnualFreq) {
-      // Eine Entnahme am Jahresanfang, Reserve-Trigger einmal pro Jahr geprüft.
       const totalBefore = eqBal + goldBal + cashBal + bondBal + btcBal;
       const drawdown = eqATH > 0 ? (eqATH - eqIndex) / eqATH : 0;
       const badYear = drawdown >= 0.20;
       if (badYear) badMonthCount += 12;
-
       const needRaw = Math.max(yearSpending - pensionThisYear - rentalThisYear, 0);
       if (needRaw > totalBefore + 1e-6) failed = true;
-      let need = Math.min(needRaw, Math.max(totalBefore, 0));
-
-      let remaining = need;
-      if (useBucket) {
-        const order = badYear ? ['cash', 'bond', 'gold', 'btc', 'eq'] : ['eq', 'btc', 'bond', 'gold', 'cash'];
-        for (const bucket of order) {
-          if (remaining <= 0) break;
-          if (bucket === 'cash') { const take = Math.min(remaining, cashBal); cashBal -= take; remaining -= take; }
-          else if (bucket === 'bond') { const take = Math.min(remaining, bondBal); bondBal -= take; remaining -= take; }
-          else if (bucket === 'gold') { const take = Math.min(remaining, goldBal); goldBal -= take; remaining -= take; }
-          else if (bucket === 'btc') { const take = Math.min(remaining, btcBal); btcBal -= take; remaining -= take; }
-          else { const take = Math.min(remaining, eqBal); eqBal -= take; remaining -= take; }
-        }
-      }
-
+      withdraw(Math.min(needRaw, Math.max(totalBefore, 0)), badYear);
       for (let mm = 0; mm < 12; mm++) {
-        const rEq = eqR[mi], rGold = goldR[mi], rCash = cashR[mi], rBond = bondR[mi], rBtc = btcR[mi];
-        eqBal *= (1 + rEq - etfTerMonthly);
-        goldBal *= (1 + rGold);
-        cashBal *= (1 + rCash);
-        bondBal *= (1 + rBond);
-        btcBal *= (1 + rBtc);
-        eqIndex *= (1 + rEq);
+        eqBal *= 1 + eqR[mi] - etfTerMonthly;
+        goldBal *= 1 + goldR[mi];
+        cashBal *= 1 + cashR[mi];
+        bondBal *= 1 + bondR[mi];
+        btcBal *= 1 + btcR[mi];
+        eqIndex *= 1 + eqR[mi];
         if (eqIndex > eqATH) eqATH = eqIndex;
         mi++;
       }
@@ -480,55 +477,31 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, bondR, btcR, wE
       const monthlySpend = yearSpending / 12;
       const monthlyPension = pensionThisYear / 12;
       const monthlyRental = rentalThisYear / 12;
-
       for (let mm = 0; mm < 12; mm++) {
         const totalBefore = eqBal + goldBal + cashBal + bondBal + btcBal;
         const drawdown = eqATH > 0 ? (eqATH - eqIndex) / eqATH : 0;
         const badMonth = drawdown >= 0.20;
         if (badMonth) badMonthCount++;
-
         const needRaw = Math.max(monthlySpend - monthlyPension - monthlyRental, 0);
         if (needRaw > totalBefore + 1e-6) failed = true;
-        let need = Math.min(needRaw, Math.max(totalBefore, 0));
-
-        let remaining = need;
-        if (useBucket) {
-          const order = badMonth ? ['cash', 'bond', 'gold', 'btc', 'eq'] : ['eq', 'btc', 'bond', 'gold', 'cash'];
-          for (const bucket of order) {
-            if (remaining <= 0) break;
-            if (bucket === 'cash') { const take = Math.min(remaining, cashBal); cashBal -= take; remaining -= take; }
-            else if (bucket === 'bond') { const take = Math.min(remaining, bondBal); bondBal -= take; remaining -= take; }
-            else if (bucket === 'gold') { const take = Math.min(remaining, goldBal); goldBal -= take; remaining -= take; }
-            else if (bucket === 'btc') { const take = Math.min(remaining, btcBal); btcBal -= take; remaining -= take; }
-            else { const take = Math.min(remaining, eqBal); eqBal -= take; remaining -= take; }
-          }
-        }
-
-        const rEq = eqR[mi], rGold = goldR[mi], rCash = cashR[mi], rBond = bondR[mi], rBtc = btcR[mi];
-        eqBal *= (1 + rEq - etfTerMonthly);
-        goldBal *= (1 + rGold);
-        cashBal *= (1 + rCash);
-        bondBal *= (1 + rBond);
-        btcBal *= (1 + rBtc);
-        eqIndex *= (1 + rEq);
+        withdraw(Math.min(needRaw, Math.max(totalBefore, 0)), badMonth);
+        eqBal *= 1 + eqR[mi] - etfTerMonthly;
+        goldBal *= 1 + goldR[mi];
+        cashBal *= 1 + cashR[mi];
+        bondBal *= 1 + bondR[mi];
+        btcBal *= 1 + btcR[mi];
+        eqIndex *= 1 + eqR[mi];
         if (eqIndex > eqATH) eqATH = eqIndex;
         mi++;
       }
     }
-
     spends.push(yearSpending);
-    const totalAfter = eqBal + goldBal + cashBal + bondBal + btcBal;
-    balances.push(Math.max(totalAfter, 0));
+    balances.push(Math.max(eqBal + goldBal + cashBal + bondBal + btcBal, 0));
     failedByYear.push(failed);
     prevAnnualSpending = yearSpending;
   }
-
   const finalBalance = Math.max(eqBal + goldBal + cashBal + bondBal + btcBal, 0);
-  return {
-    failed, finalBalance, balances, spends, failedByYear, hardFloor: hardFloorAnnual, staticAmount,
-    dynStartAmount: spends[0],
-    badYearFraction: badMonthCount / (horizon * 12),
-  };
+  return { failed, finalBalance, balances, spends, failedByYear, hardFloor: hardFloorAnnual, staticAmount, dynStartAmount: spends[0], badYearFraction: badMonthCount / (horizon * 12) };
 }
 
 function aggregate(paths, horizon) {
@@ -1126,7 +1099,6 @@ export default function EntnahmeSimulator() {
       num('horizon', setHorizon); num('blockLen', setBlockLen); str('bootstrapSource', setBootstrapSource);
       num('startAge', setStartAge); num('rentenpunkte', setRentenpunkte); num('pensionStartAge', setPensionStartAge);
       str('entnahmeStrategie', setEntnahmeStrategie); str('entnahmeFrequenz', setEntnahmeFrequenz);
-      const es = sp.get('eimerStrategie'); if (es !== null) setEimerStrategie(es === 'true');
       const es = sp.get('eimerStrategie'); if (es !== null) setEimerStrategie(es === 'true');
       const hk = sp.get('heutigeKaufkraft'); if (hk !== null) setHeutigeKaufkraft(hk === 'true');
       num('inflationRate', setInflationRate); num('numSims', setNumSims); num('seed', setSeed);
