@@ -396,6 +396,7 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, bondR, btcR, wE
   const hardFloorAnnual = staticAmount;
   const isStatic = p.entnahmeStrategie === 'statisch' || p.entnahmeStrategie === 'bengen';
   const isKonstant = p.entnahmeStrategie === 'konstant';
+  const isGK = p.entnahmeStrategie === 'guyton-klinger';
   const isAnnualFreq = p.entnahmeFrequenz === 'jaehrlich';
   const useBucket = p.eimerStrategie !== false;
   const etfTerMonthly = (p.etfTer || 0) / 100 / 12;
@@ -407,6 +408,7 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, bondR, btcR, wE
   let eqIndex = 100;
   let eqATH = 100;
   let prevAnnualSpending = p.entnahmeStrategie === 'bengen' ? staticAmount : (p.dynStartRate / 100) * vermoegen;
+  const gkInflation = p.heutigeKaufkraft === false ? (p.inflationRate || 2) / 100 : 0;
   let failed = false;
   const balances = [vermoegen];
   const spends = [];
@@ -447,6 +449,19 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, bondR, btcR, wE
     let yearSpending;
     if (y === 0 || isStatic) yearSpending = prevAnnualSpending;
     else if (isKonstant) yearSpending = totalAtYearStart * (p.dynStartRate / 100);
+    else if (isGK) {
+      const inflationAdj = prevAnnualSpending * (1 + gkInflation);
+      const currentRate = totalAtYearStart > 0 ? inflationAdj / totalAtYearStart : 0;
+      const upperBound = (p.dynStartRate / 100) * (1 + p.gkGuardrailPct / 100);
+      const lowerBound = (p.dynStartRate / 100) * (1 - p.gkGuardrailPct / 100);
+      if (currentRate > upperBound) {
+        yearSpending = inflationAdj * (1 - p.gkAdjustStep / 100);
+      } else if (currentRate < lowerBound) {
+        yearSpending = inflationAdj * (1 + p.gkAdjustStep / 100);
+      } else {
+        yearSpending = inflationAdj;
+      }
+    }
     else {
       const raw = totalAtYearStart * (p.dynStartRate / 100);
       const capped = Math.min(Math.max(raw, prevAnnualSpending * (1 + p.floor / 100)), prevAnnualSpending * (1 + p.ceiling / 100));
@@ -964,6 +979,8 @@ export default function EntnahmeSimulator() {
   const [dynStartRate, setDynStartRate] = useState(12);
   const [ceiling, setCeiling] = useState(5.0);
   const [floor, setFloor] = useState(-2.5);
+  const [gkGuardrailPct, setGkGuardrailPct] = useState(20);
+  const [gkAdjustStep, setGkAdjustStep] = useState(10);
   const [horizon, setHorizon] = useState(25);
   const [entnahmeStrategie, setEntnahmeStrategie] = useState('dynamisch');
   const [eimerStrategie, setEimerStrategie] = useState(true);
@@ -989,7 +1006,7 @@ export default function EntnahmeSimulator() {
   // Alle Eingaben, die die (teure) Simulation beeinflussen, gebündelt und debounced —
   // Slider-Labels selbst reagieren weiterhin sofort, nur die Neuberechnung verzögert sich leicht.
   const liveParams = {
-    mode, vermoegen, aktien, gold, cash, bitcoin, staticRate, dynStartRate, ceiling, floor,
+    mode, vermoegen, aktien, gold, cash, bitcoin, staticRate, dynStartRate, ceiling, floor, gkGuardrailPct, gkAdjustStep,
     horizon, blockLen, bootstrapSource, startAge, pensionStartAge, pensionAnnual, rentalIncomeByYear, seed, anleihen,
     entnahmeStrategie, eimerStrategie, entnahmeFrequenz, numSims, etfTer,
   };
@@ -999,6 +1016,7 @@ export default function EntnahmeSimulator() {
     const d = debounced;
     const params = { vermoegen: d.vermoegen, aktien: d.aktien, gold: d.gold, cash: d.cash, bitcoin: d.bitcoin,
       staticRate: d.staticRate, dynStartRate: d.dynStartRate, ceiling: d.ceiling, floor: d.floor,
+      gkGuardrailPct: d.gkGuardrailPct, gkAdjustStep: d.gkAdjustStep,
       horizon: d.horizon, numSims: d.numSims, blockLen: d.blockLen, bootstrapSource: d.bootstrapSource, anleihen: d.anleihen,
       startAge: d.startAge, pensionStartAge: d.pensionStartAge, pensionAnnual: d.pensionAnnual,
       rentalIncomeByYear: d.rentalIncomeByYear, seed: d.seed,
@@ -1013,10 +1031,12 @@ export default function EntnahmeSimulator() {
       { key: 'statisch', label: 'Statisch (fest, real)' },
       { key: 'bengen', label: '4%-Regel (Bengen)' },
       { key: 'konstant', label: 'Konstante % (Portfoliobezogen)' },
+      { key: 'guyton-klinger', label: 'Guyton-Klinger' },
     ];
     return strategies.map(s => {
       const params = { vermoegen: d.vermoegen, aktien: d.aktien, gold: d.gold, cash: d.cash, bitcoin: d.bitcoin,
         staticRate: d.staticRate, dynStartRate: d.dynStartRate, ceiling: d.ceiling, floor: d.floor,
+        gkGuardrailPct: d.gkGuardrailPct, gkAdjustStep: d.gkAdjustStep,
         horizon: d.horizon, numSims: d.numSims, blockLen: d.blockLen, bootstrapSource: d.bootstrapSource, anleihen: d.anleihen,
         startAge: d.startAge, pensionStartAge: d.pensionStartAge, pensionAnnual: d.pensionAnnual,
         rentalIncomeByYear: d.rentalIncomeByYear, seed: d.seed,
@@ -1036,6 +1056,7 @@ export default function EntnahmeSimulator() {
       const sensNumSims = 500;
       const base = { vermoegen: d.vermoegen, aktien: d.aktien, gold: d.gold, cash: d.cash, bitcoin: d.bitcoin,
         staticRate: d.staticRate, dynStartRate: d.dynStartRate, ceiling: d.ceiling, floor: d.floor,
+        gkGuardrailPct: d.gkGuardrailPct, gkAdjustStep: d.gkAdjustStep,
         horizon: d.horizon, numSims: sensNumSims, blockLen: d.blockLen, anleihen: d.anleihen,
         bootstrapSource: d.bootstrapSource, startAge: d.startAge, pensionStartAge: d.pensionStartAge,
         pensionAnnual: d.pensionAnnual, rentalIncomeByYear: d.rentalIncomeByYear, seed: d.seed,
@@ -1096,6 +1117,7 @@ export default function EntnahmeSimulator() {
       num('bitcoin', setBitcoin); num('anleihen', setAnleihen); num('wohnung', setWohnung); num('etfTer', setEtfTer);
       num('staticRate', setStaticRate); num('dynStartRate', setDynStartRate);
       num('ceiling', setCeiling); num('floor', setFloor);
+      num('gkGuardrailPct', setGkGuardrailPct); num('gkAdjustStep', setGkAdjustStep);
       num('horizon', setHorizon); num('blockLen', setBlockLen); str('bootstrapSource', setBootstrapSource);
       num('startAge', setStartAge); num('rentenpunkte', setRentenpunkte); num('pensionStartAge', setPensionStartAge);
       str('entnahmeStrategie', setEntnahmeStrategie); str('entnahmeFrequenz', setEntnahmeFrequenz);
@@ -1112,7 +1134,7 @@ export default function EntnahmeSimulator() {
   const [showWithdrawalDetail, setShowWithdrawalDetail] = useState(false);
   const matchedPreset = useMemo(() => {
     const rentner = { vermoegen: 300000, aktien: 80, gold: 0, bitcoin: 0, anleihen: 15, wohnung: 0, etfTer: 0.2, staticRate: 8, dynStartRate: 12, ceiling: 5, floor: -2.5, horizon: 25, blockLen: 5, startAge: 67, rentenpunkte: 40, pensionStartAge: 67, numSims: 2500, seed: 5 };
-    const fireFan = { vermoegen: 1150000, aktien: 87, gold: 8, bitcoin: 0, anleihen: 0, wohnung: 0, etfTer: 0.2, staticRate: 2.4, dynStartRate: 3.2, ceiling: 5, floor: -2.5, horizon: 45, blockLen: 5, startAge: 50, rentenpunkte: 25, pensionStartAge: 67, numSims: 2500, seed: 6 };
+    const fireFan = { vermoegen: 1150000, aktien: 87, gold: 8, bitcoin: 0, anleihen: 0, wohnung: 0, etfTer: 0.2, staticRate: 2.4, dynStartRate: 3, ceiling: 5, floor: -2.5, horizon: 45, blockLen: 5, startAge: 50, rentenpunkte: 30, pensionStartAge: 67, numSims: 2500, seed: 6 };
     const match = (p) => vermoegen === p.vermoegen && aktien === p.aktien && gold === p.gold && bitcoin === p.bitcoin && anleihen === p.anleihen && wohnung === p.wohnung && etfTer === p.etfTer && staticRate === p.staticRate && dynStartRate === p.dynStartRate && ceiling === p.ceiling && floor === p.floor && horizon === p.horizon && blockLen === p.blockLen && startAge === p.startAge && rentenpunkte === p.rentenpunkte && pensionStartAge === p.pensionStartAge && numSims === p.numSims && seed === p.seed;
     if (match(rentner)) return 'rentner';
     if (match(fireFan)) return 'fire-fan';
@@ -1124,6 +1146,7 @@ export default function EntnahmeSimulator() {
     sp.set('mode', mode); sp.set('vermoegen', vermoegen); sp.set('aktien', aktien); sp.set('gold', gold);
     sp.set('bitcoin', bitcoin); sp.set('anleihen', anleihen); sp.set('wohnung', wohnung); sp.set('etfTer', etfTer); sp.set('staticRate', staticRate);
     sp.set('dynStartRate', dynStartRate); sp.set('ceiling', ceiling); sp.set('floor', floor);
+    sp.set('gkGuardrailPct', gkGuardrailPct); sp.set('gkAdjustStep', gkAdjustStep);
     sp.set('horizon', horizon); sp.set('blockLen', blockLen);
     sp.set('bootstrapSource', bootstrapSource); sp.set('startAge', startAge); sp.set('rentenpunkte', rentenpunkte);
     sp.set('pensionStartAge', pensionStartAge); sp.set('entnahmeStrategie', entnahmeStrategie);
@@ -1144,7 +1167,7 @@ export default function EntnahmeSimulator() {
     if (preset === 'rentner') {
       values = { vermoegen: 300000, aktien: 80, gold: 0, bitcoin: 0, anleihen: 15, wohnung: 0, etfTer: 0.2, staticRate: 8, dynStartRate: 12, ceiling: 5, floor: -2.5, horizon: 25, blockLen: 5, bootstrapSource: 'sp500', startAge: 67, rentenpunkte: 40, pensionStartAge: 67, entnahmeStrategie: 'dynamisch', entnahmeFrequenz: 'jaehrlich', heutigeKaufkraft: true, inflationRate: 2, numSims: 2500, seed: 5 };
     } else if (preset === 'fire-fan') {
-      values = { vermoegen: 1150000, aktien: 87, gold: 8, bitcoin: 0, anleihen: 0, wohnung: 0, etfTer: 0.2, staticRate: 2.4, dynStartRate: 3.2, ceiling: 5, floor: -2.5, horizon: 45, blockLen: 5, bootstrapSource: 'sp500', startAge: 50, rentenpunkte: 25, pensionStartAge: 67, entnahmeStrategie: 'dynamisch', entnahmeFrequenz: 'jaehrlich', heutigeKaufkraft: true, inflationRate: 2, numSims: 2500, seed: 6 };
+      values = { vermoegen: 1150000, aktien: 87, gold: 8, bitcoin: 0, anleihen: 0, wohnung: 0, etfTer: 0.2, staticRate: 2.4, dynStartRate: 3, ceiling: 5, floor: -2.5, horizon: 45, blockLen: 5, bootstrapSource: 'sp500', startAge: 50, rentenpunkte: 30, pensionStartAge: 67, entnahmeStrategie: 'dynamisch', entnahmeFrequenz: 'jaehrlich', heutigeKaufkraft: true, inflationRate: 2, numSims: 2500, seed: 6 };
     } else {
       values = { vermoegen: 1150000, aktien: 87, gold: 7, bitcoin: 0, anleihen: 0, wohnung: 0, etfTer: 0.2, staticRate: 2.5, dynStartRate: 3.2, ceiling: 5, floor: -2.5, horizon: 45, blockLen: 5, bootstrapSource: 'sp500', startAge: 50, rentenpunkte: 30, pensionStartAge: 67, entnahmeStrategie: 'dynamisch', entnahmeFrequenz: 'jaehrlich', heutigeKaufkraft: true, inflationRate: 2, numSims: 2500, seed: 0 };
     }
@@ -1391,7 +1414,7 @@ export default function EntnahmeSimulator() {
           <div>
             <SectionLabel color="#C08A2E">Entnahme-Regel</SectionLabel>
             <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 12, color: '#5B6B65', marginBottom: 6, display: 'flex', alignItems: 'center' }}>Strategie<InfoDot text="Legt fest, wie sich deine jährliche Entnahme entwickelt. 'Dynamisch (Vanguard)' passt sie an den Depotwert an (mit Ceiling/Floor/Boden); 'Statisch' hält den Realbetrag konstant." /></div>
+              <div style={{ fontSize: 12, color: '#5B6B65', marginBottom: 6, display: 'flex', alignItems: 'center' }}>Strategie<InfoDot text="Legt fest, wie sich deine jährliche Entnahme entwickelt. 'Dynamisch (Vanguard)' passt sie an den Depotwert an (mit Ceiling/Floor/Boden); 'Statisch' hält den Realbetrag konstant; 'Guyton-Klinger' passt jährlich mit Inflation an und nutzt Guardrails (Capital-Preservation-/Prosperity-Rule)." /></div>
               <select
                 value={entnahmeStrategie}
                 onChange={(e) => setEntnahmeStrategie(e.target.value)}
@@ -1404,6 +1427,7 @@ export default function EntnahmeSimulator() {
                 <option value="statisch">Statisch (fest, real)</option>
                 <option value="bengen">4%-Regel (Bengen)</option>
                 <option value="konstant">Konstante % (Portfoliobezogen)</option>
+                <option value="guyton-klinger">Guyton-Klinger</option>
               </select>
               {entnahmeStrategie === 'statisch' && (
                 <div style={{ fontSize: 10.5, color: '#5B6B65', marginTop: 6 }}>
@@ -1425,6 +1449,15 @@ export default function EntnahmeSimulator() {
                   Die Rate wird als dynamische Startrate eingestellt.
                 </div>
               )}
+              {entnahmeStrategie === 'guyton-klinger' && (
+                <div style={{ fontSize: 10.5, color: '#5B6B65', marginTop: 6 }}>
+                  Startbetrag = Startrate × Vermögen. Danach jährliche Inflationsanpassung, unterbrochen
+                  von zwei Guardrail-Regeln: Steigt die Entnahmequote (Betrag/Depot) über die Ausgangsquote + Guardrail,
+                  wird der Betrag um den Anpassungsschritt gekürzt (Capital-Preservation-Rule). Fällt sie unter
+                  Ausgangsquote − Guardrail, wird erhöht (Prosperity-Rule). Die Kürzung/Erhöhung ersetzt
+                  in diesem Jahr die Inflationsanpassung.
+                </div>
+              )}
               <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 12, color: '#5B6B65', cursor: 'pointer' }}>
                 <input type="checkbox" checked={eimerStrategie} onChange={(e) => setEimerStrategie(e.target.checked)} style={{ accentColor: '#2F5D62' }} />
                 Eimer-Strategie<InfoDot text="Aktiv: Entnahme aus dem 'besten' Bucket (Cash → Bond → Gold → BTC → ETF in schlechten Jahren). Inaktiv: Allokation bleibt proportional konstant — Verkäufe aus allen Asset-Klassen gleichmäßig." />
@@ -1436,9 +1469,9 @@ export default function EntnahmeSimulator() {
                 tip="Der feste Prozentsatz vom Startvermögen, der als harter Mindestboden auch in schlechten Jahren nie unterschritten wird." />
             )}
             {entnahmeStrategie !== 'bengen' && (
-              <Slider label={entnahmeStrategie === 'statisch' ? 'Startentnahmerate' : 'Dynamische Startrate'} value={dynStartRate} min={2} max={20} step={0.1}
+              <Slider label={entnahmeStrategie === 'statisch' ? 'Startentnahmerate' : entnahmeStrategie === 'guyton-klinger' ? 'Startrate' : 'Dynamische Startrate'} value={dynStartRate} min={2} max={20} step={0.1}
                 onChange={setDynStartRate} format={(v) => v.toFixed(1) + '%'}
-                tip="Entnahmerate im ersten Jahr in Prozent vom Startvermögen. Danach folgt die Entnahme der Ceiling/Floor-Regel bzw. bleibt real konstant." />
+                tip={entnahmeStrategie === 'guyton-klinger' ? 'Anfängliche Entnahmerate in Prozent vom Startvermögen. Bestimmt den Startbetrag und die Ausgangsquote für die Guardrail-Berechnung.' : 'Entnahmerate im ersten Jahr in Prozent vom Startvermögen. Danach folgt die Entnahme der Ceiling/Floor-Regel bzw. bleibt real konstant.'} />
             )}
             {entnahmeStrategie === 'dynamisch' && (
               <>
@@ -1448,6 +1481,16 @@ export default function EntnahmeSimulator() {
                 <Slider label="Floor (max. Rückgang/Jahr)" value={floor} min={-10} max={0} step={0.5}
                   onChange={setFloor} format={(v) => v.toFixed(1) + '%'}
                   tip="Maximaler Rückgang der Entnahme pro Jahr gegenüber dem Vorjahr (negativer Wert). Puffert schlechte Jahre ab — begrenzt von unten durch den harten Boden." />
+              </>
+            )}
+            {entnahmeStrategie === 'guyton-klinger' && (
+              <>
+                <Slider label="Guardrail (Auslöseschwelle)" value={gkGuardrailPct} min={5} max={50} step={1}
+                  onChange={setGkGuardrailPct} format={(v) => '±' + v.toFixed(0) + '%'}
+                  tip="Symmetrische Schwelle in Prozent um die Ausgangsquote. Überschreitet die Entnahmequote die Ausgangsquote + Guardrail (Capital-Preservation-Rule) oder fällt sie darunter (Prosperity-Rule), wird der Entnahmebetrag angepasst." />
+                <Slider label="Anpassungsschritt" value={gkAdjustStep} min={1} max={25} step={0.5}
+                  onChange={setGkAdjustStep} format={(v) => v.toFixed(1) + '%'}
+                  tip="Prozentualer Schritt, um den der Entnahmebetrag gekürzt oder erhöht wird, wenn ein Guardrail verletzt wird. Ersetzt in diesem Jahr die Inflationsanpassung." />
               </>
             )}
           </div>
