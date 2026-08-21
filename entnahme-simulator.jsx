@@ -510,7 +510,7 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, bondR, btcR, wE
         mi++;
       }
     }
-    spends.push(yearSpending);
+    spends.push(failed ? 0 : yearSpending);
     balances.push(Math.max(eqBal + goldBal + cashBal + bondBal + btcBal, 0));
     failedByYear.push(failed);
     prevAnnualSpending = yearSpending;
