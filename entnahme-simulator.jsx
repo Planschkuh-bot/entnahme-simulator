@@ -767,15 +767,29 @@ function InfoDot({ text }) {
 }
 
 function Slider({ label, value, min, max, step, onChange, format, hint, tip }) {
+  const nudge = (dir) => {
+    const next = Math.min(max, Math.max(min, parseFloat((value + dir * step).toPrecision(12))));
+    if (next !== value) onChange(next);
+  };
+  const btnStyle = {
+    width: 20, height: 20, padding: 0, flexShrink: 0,
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    borderRadius: 4, border: '1px solid #D3DAD6', background: '#FFFFFF',
+    color: '#5B6B65', fontSize: 13, lineHeight: 1, cursor: 'pointer',
+  };
   return (
     <div style={{ marginBottom: 14 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, gap: 8 }}>
         <span style={{ fontSize: 12, color: '#5B6B65', display: 'flex', alignItems: 'center' }}>
           {label}
           {tip && <InfoDot text={tip} />}
         </span>
-        <span style={{ fontSize: 12, fontFamily: "'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace", color: '#1C2521' }}>
-          {format ? format(value) : value}
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          <span style={{ fontSize: 12, fontFamily: "'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace", color: '#1C2521' }}>
+            {format ? format(value) : value}
+          </span>
+          <button type="button" onClick={() => nudge(-1)} title={`${label} verringern`} style={btnStyle}>−</button>
+          <button type="button" onClick={() => nudge(1)} title={`${label} erhöhen`} style={btnStyle}>+</button>
         </span>
       </div>
       <input type="range" min={min} max={max} step={step} value={value}
@@ -1067,7 +1081,7 @@ export default function EntnahmeSimulator() {
       const items = [];
 
       {
-        const lo = Math.max(50, d.aktien - 5), hi = Math.min(100 - d.gold - d.bitcoin - wohnung, d.aktien + 5);
+        const lo = Math.max(0, d.aktien - 5), hi = Math.min(100 - d.gold - d.bitcoin - wohnung, d.aktien + 5);
         const rLo = run({ aktien: lo, cash: Math.max(0, 100 - lo - d.gold - d.bitcoin - wohnung) });
         const rHi = run({ aktien: hi, cash: Math.max(0, 100 - hi - d.gold - d.bitcoin - wohnung) });
         items.push({ label: 'Aktienquote ±5%-Pkt.', delta: impact(rLo, rHi) });
@@ -1365,32 +1379,32 @@ export default function EntnahmeSimulator() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
           <div>
             <SectionLabel color="#2F5D62">Portfolio</SectionLabel>
-            <Slider label="Startvermögen" value={vermoegen} min={100000} max={3000000} step={10000}
+            <Slider label="Startvermögen" value={vermoegen} min={100000} max={3000000} step={5000}
               onChange={setVermoegen} format={fmtEUR}
               tip="Dein frei verfügbares Gesamtvermögen zu Beginn der Entnahmephase (Aktien + Anleihen + Gold + Bitcoin + Liquidität). Die Eigentumswohnung zählt hier nicht dazu." />
-            <Slider label="Aktien-ETF" value={aktien} min={50} max={100} step={1}
-              onChange={(v) => setAktien(Math.min(v, 100 - gold - anleihen - bitcoin - wohnung))} format={(v) => v + '%'}
+            <Slider label="Aktien-ETF" value={aktien} min={0} max={100} step={1}
+              onChange={(v) => setAktien(Math.min(v, 100 - gold - anleihen - bitcoin - wohnung))} format={(v) => `${v}% · ${fmtEUR(vermoegen * v / 100)}`}
               tip="Anteil des Portfolios in Aktien. Mehr Aktien bedeuten langfristig mehr Rendite, aber auch stärkere Wertschwankungen in einzelnen Jahren." />
-            <Slider label="Anleihen-ETF" value={anleihen} min={0} max={50} step={1}
-              onChange={(v) => setAnleihen(Math.min(v, 100 - aktien - gold - bitcoin - wohnung))} format={(v) => v + '%'}
+            <Slider label="Anleihen-ETF" value={anleihen} min={0} max={100} step={1}
+              onChange={(v) => setAnleihen(Math.min(v, 100 - aktien - gold - bitcoin - wohnung))} format={(v) => `${v}% · ${fmtEUR(vermoegen * v / 100)}`}
               hint="Europäische Staats- und Unternehmensanleihen mit bis zu 5 Jahren Laufzeit"
               tip="Defensiver Baustein mit angenommener realer Rendite von 2,0% p.a. und 4,0% Volatilität. Modellannahme für einen EUR-ETF mit Staats- und Investment-Grade-Unternehmensanleihen bis 5 Jahre Laufzeit." />
-            <Slider label="Gold" value={gold} min={0} max={30} step={1}
-              onChange={(v) => setGold(Math.min(v, 100 - aktien - anleihen - bitcoin - wohnung))} format={(v) => v + '%'}
+            <Slider label="Gold" value={gold} min={0} max={100} step={1}
+              onChange={(v) => setGold(Math.min(v, 100 - aktien - anleihen - bitcoin - wohnung))} format={(v) => `${v}% · ${fmtEUR(vermoegen * v / 100)}`}
               tip="Beimischung zur Absicherung gegen Börsencrashs. Gold wird nur entnommen, wenn die Aktien ≥20% unter ihrem Höchststand liegen (Reserve-Modus)." />
-            <Slider label="Vermietete Immobilie" value={wohnung} min={0} max={20} step={1}
-              onChange={(v) => setWohnung(Math.min(v, 100 - aktien - gold - anleihen - bitcoin))} format={(v) => v + '%'}
+            <Slider label="Vermietete Immobilie" value={wohnung} min={0} max={100} step={1}
+              onChange={(v) => setWohnung(Math.min(v, 100 - aktien - gold - anleihen - bitcoin))} format={(v) => `${v}% · ${fmtEUR(vermoegen * v / 100)}`}
               hint="Illiquide — fließt nicht in die Entnahme-Simulation ein, nur als Sachwert ausgewiesen"
               tip="Fließt NICHT in die Entnahme-Simulation ein, weil sie illiquide ist — nur als Sachwert ausgewiesen. Die Miete reduziert aber die nötige Entnahme." />
-            <Slider label="Crypto" value={bitcoin} min={0} max={20} step={1}
-              onChange={(v) => setBitcoin(Math.min(v, 100 - aktien - gold - anleihen - wohnung))} format={(v) => v + '%'}
+            <Slider label="Crypto" value={bitcoin} min={0} max={100} step={1}
+              onChange={(v) => setBitcoin(Math.min(v, 100 - aktien - gold - anleihen - wohnung))} format={(v) => `${v}% · ${fmtEUR(vermoegen * v / 100)}`}
               hint="Eigene, unabhängig vom Modus simulierte Rendite (siehe Hinweise unten)"
               tip="Risiko-Baustein, separat und unabhängig vom Modus parametrisch simuliert (real ~15% Rendite, 65% Volatilität p.a.). Grobe Schätzung." />
             <Slider label="ETF-TER (Kosten p.a.)" value={etfTer} min={0} max={1.0} step={0.01}
               onChange={setEtfTer} format={(v) => v.toFixed(2) + '%'}
               hint="Wird monatlich vom Aktien-Anteil abgezogen"
               tip="Gesamtkostenquote (TER) des Aktien-ETF in % pro Jahr. Typische Werte: 0,05–0,20% für Welt-ETFs, 0,15–0,50% für Themen-/Faktor-ETFs. Wird monatlich (TER/12) vom Aktien-Anteil abgezogen." />
-            <div style={{ marginTop: 8, padding: '8px 10px', borderRadius: 6, background: '#EEF1EF', border: '1px solid #D3DAD6', color: '#1C2521', fontSize: 12, fontWeight: 600 }}>Liquidität (Rest): {cash}%</div>
+            <div style={{ marginTop: 8, padding: '8px 10px', borderRadius: 6, background: '#EEF1EF', border: '1px solid #D3DAD6', color: '#1C2521', fontSize: 12, fontWeight: 600 }}>Liquidität (Rest): {cash}% · {fmtEUR(vermoegen * cash / 100)}</div>
           </div>
 
           <div>
