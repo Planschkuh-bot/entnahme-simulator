@@ -1056,11 +1056,12 @@ function EntnahmeSimulator() {
   const [startAge, setStartAge] = useState(67);
   const [rentenpunkte, setRentenpunkte] = useState(40);
   const [pensionStartAge, setPensionStartAge] = useState(67);
+  const [grvBerechnen, setGrvBerechnen] = useState(true);
   const [seed, setSeed] = useState(0);
   const [etfTer, setEtfTer] = useState(0.2);
 
   const [numSims, setNumSims] = useState(2500);
-  const pensionAnnual = computePensionAnnual(rentenpunkte, pensionStartAge);
+  const pensionAnnual = grvBerechnen ? computePensionAnnual(rentenpunkte, pensionStartAge) : 0;
   const pensionMonthly = pensionAnnual / 12;
   const wohnungWert0 = (wohnung / 100) * vermoegen;
   const wohnungWert = wohnungWert0 * Math.pow(1 + WOHNUNG_REAL_APPRECIATION, horizon);
@@ -1150,8 +1151,8 @@ function EntnahmeSimulator() {
       }
       {
         const ageLo = Math.max(63, d.pensionStartAge - 1), ageHi = Math.min(75, d.pensionStartAge + 1);
-        const rLo = run({ pensionStartAge: ageLo, pensionAnnual: computePensionAnnual(rentenpunkte, ageLo) });
-        const rHi = run({ pensionStartAge: ageHi, pensionAnnual: computePensionAnnual(rentenpunkte, ageHi) });
+        const rLo = run({ pensionStartAge: ageLo, pensionAnnual: grvBerechnen ? computePensionAnnual(rentenpunkte, ageLo) : 0 });
+        const rHi = run({ pensionStartAge: ageHi, pensionAnnual: grvBerechnen ? computePensionAnnual(rentenpunkte, ageHi) : 0 });
         items.push({ label: 'Rentenbeginn ±1 Jahr', delta: impact(rLo, rHi) });
       }
       {
@@ -1161,8 +1162,8 @@ function EntnahmeSimulator() {
         items.push({ label: 'Bitcoin ±3%-Pkt.', delta: impact(rLo, rHi) });
       }
       {
-        const rLo = run({ pensionAnnual: computePensionAnnual(Math.max(0, rentenpunkte - 5), d.pensionStartAge) });
-        const rHi = run({ pensionAnnual: computePensionAnnual(rentenpunkte + 5, d.pensionStartAge) });
+        const rLo = run({ pensionAnnual: grvBerechnen ? computePensionAnnual(Math.max(0, rentenpunkte - 5), d.pensionStartAge) : 0 });
+        const rHi = run({ pensionAnnual: grvBerechnen ? computePensionAnnual(rentenpunkte + 5, d.pensionStartAge) : 0 });
         items.push({ label: 'Rentenpunkte ±5', delta: impact(rLo, rHi) });
       }
 
@@ -1186,6 +1187,7 @@ function EntnahmeSimulator() {
       num('gkGuardrailPct', setGkGuardrailPct); num('gkAdjustStep', setGkAdjustStep);
       num('horizon', setHorizon); num('blockLen', setBlockLen); str('bootstrapSource', setBootstrapSource);
       num('startAge', setStartAge); num('rentenpunkte', setRentenpunkte); num('pensionStartAge', setPensionStartAge);
+      const gb = sp.get('grvBerechnen'); if (gb !== null) setGrvBerechnen(gb === 'true');
       str('entnahmeStrategie', setEntnahmeStrategie); str('entnahmeFrequenz', setEntnahmeFrequenz);
       const es = sp.get('eimerStrategie'); if (es !== null) setEimerStrategie(es === 'true');
       const hk = sp.get('heutigeKaufkraft'); if (hk !== null) setHeutigeKaufkraft(hk === 'true');
@@ -1214,7 +1216,7 @@ function EntnahmeSimulator() {
     sp.set('gkGuardrailPct', gkGuardrailPct); sp.set('gkAdjustStep', gkAdjustStep);
     sp.set('horizon', horizon); sp.set('blockLen', blockLen);
     sp.set('bootstrapSource', bootstrapSource); sp.set('startAge', startAge); sp.set('rentenpunkte', rentenpunkte);
-    sp.set('pensionStartAge', pensionStartAge); sp.set('entnahmeStrategie', entnahmeStrategie);
+    sp.set('pensionStartAge', pensionStartAge); sp.set('grvBerechnen', grvBerechnen); sp.set('entnahmeStrategie', entnahmeStrategie);
     sp.set('eimerStrategie', eimerStrategie); sp.set('entnahmeFrequenz', entnahmeFrequenz); sp.set('heutigeKaufkraft', heutigeKaufkraft);
     sp.set('inflationRate', inflationRate); sp.set('numSims', numSims); sp.set('seed', seed);
     const url = window.location.origin + window.location.pathname + '?' + sp.toString();
@@ -1239,6 +1241,7 @@ function EntnahmeSimulator() {
     setMode('bootstrap'); setVermoegen(values.vermoegen); setAktien(values.aktien); setGold(values.gold); setBitcoin(values.bitcoin); setAnleihen(values.anleihen); setWohnung(values.wohnung); setEtfTer(values.etfTer);
     setStaticRate(values.staticRate); setDynStartRate(values.dynStartRate); setCeiling(values.ceiling); setFloor(values.floor); setHorizon(values.horizon); setBlockLen(values.blockLen); setBootstrapSource(values.bootstrapSource);
     setStartAge(values.startAge); setRentenpunkte(values.rentenpunkte); setPensionStartAge(values.pensionStartAge);
+    setGrvBerechnen(true);
     setEntnahmeStrategie(values.entnahmeStrategie); setEntnahmeFrequenz(values.entnahmeFrequenz);
     setHeutigeKaufkraft(values.heutigeKaufkraft); setInflationRate(values.inflationRate);
     setNumSims(values.numSims); setSeed(values.seed);
@@ -1506,6 +1509,10 @@ function EntnahmeSimulator() {
 
           <div>
             <SectionLabel color="#3A6B8A">Person &amp; GRV-Rente</SectionLabel>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 12, color: '#5B6B65', cursor: 'pointer' }}>
+              <input type="checkbox" checked={grvBerechnen} onChange={(e) => setGrvBerechnen(e.target.checked)} style={{ accentColor: '#2F5D62' }} />
+              GRV berücksichtigen<InfoDot text="Aktiv: Die gesetzliche Rente reduziert ab Rentenbeginn den nötigen Betrag aus dem Portfolio. Inaktiv: Die GRV-Rente wird in der Simulation und den Kennzahlen komplett außer Acht gelassen." />
+            </label>
             <Slider label="Alter bei Entnahmebeginn" value={startAge} min={40} max={70} step={1}
               onChange={setStartAge} format={(v) => v + ' Jahre'}
               tip="Dein Alter beim Start der Entnahmephase — davon hängt ab, wie viele Jahre das Portfolio reichen muss." />
