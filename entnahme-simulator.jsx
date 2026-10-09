@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
+
 // ---------- Historical data: S&P 500 (incl. dividends), Gold, 3M T-Bill, US CPI ----------
 // Quelle: Damodaran (NYU Stern) Jahresrenditen 1928-2025; US BLS CPI (Jahresdurchschnitt) 1928-2025.
 // Werte in Prozent, nominal.
@@ -414,6 +415,7 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, bondR, btcR, wE
   const spends = [];
   const failedByYear = [];
   let badMonthCount = 0;
+  let prevYearReturn = 0;
   const horizon = p.horizon;
   let mi = 0;
 
@@ -446,11 +448,13 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, bondR, btcR, wE
 
   for (let y = 0; y < horizon; y++) {
     const totalAtYearStart = eqBal + goldBal + cashBal + bondBal + btcBal;
+    let withdrawnThisYear = 0;
     let yearSpending;
     if (y === 0 || isStatic) yearSpending = prevAnnualSpending;
     else if (isKonstant) yearSpending = totalAtYearStart * (p.dynStartRate / 100);
     else if (isGK) {
-      const inflationAdj = prevAnnualSpending * (1 + gkInflation);
+      const inflFactor = prevYearReturn < 0 ? 0 : gkInflation;
+      const inflationAdj = prevAnnualSpending * (1 + inflFactor);
       const currentRate = totalAtYearStart > 0 ? inflationAdj / totalAtYearStart : 0;
       const upperBound = (p.dynStartRate / 100) * (1 + p.gkGuardrailPct / 100);
       const lowerBound = (p.dynStartRate / 100) * (1 - p.gkGuardrailPct / 100);
@@ -477,7 +481,8 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, bondR, btcR, wE
       if (badYear) badMonthCount += 12;
       const needRaw = Math.max(yearSpending - pensionThisYear - rentalThisYear, 0);
       if (needRaw > totalBefore + 1e-6) failed = true;
-      withdraw(Math.min(needRaw, Math.max(totalBefore, 0)), badYear);
+      withdrawnThisYear = Math.min(needRaw, Math.max(totalBefore, 0));
+      withdraw(withdrawnThisYear, badYear);
       for (let mm = 0; mm < 12; mm++) {
         eqBal *= 1 + eqR[mi] - etfTerMonthly;
         goldBal *= 1 + goldR[mi];
@@ -499,7 +504,9 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, bondR, btcR, wE
         if (badMonth) badMonthCount++;
         const needRaw = Math.max(monthlySpend - monthlyPension - monthlyRental, 0);
         if (needRaw > totalBefore + 1e-6) failed = true;
-        withdraw(Math.min(needRaw, Math.max(totalBefore, 0)), badMonth);
+        const wAmt = Math.min(needRaw, Math.max(totalBefore, 0));
+        withdrawnThisYear += wAmt;
+        withdraw(wAmt, badMonth);
         eqBal *= 1 + eqR[mi] - etfTerMonthly;
         goldBal *= 1 + goldR[mi];
         cashBal *= 1 + cashR[mi];
@@ -510,6 +517,9 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, bondR, btcR, wE
         mi++;
       }
     }
+    const endTotal = eqBal + goldBal + cashBal + bondBal + btcBal;
+    const investedBase = totalAtYearStart - withdrawnThisYear;
+    prevYearReturn = investedBase > 0 ? endTotal / investedBase - 1 : 0;
     spends.push(failed ? 0 : yearSpending);
     balances.push(Math.max(eqBal + goldBal + cashBal + bondBal + btcBal, 0));
     failedByYear.push(failed);
@@ -527,6 +537,7 @@ function aggregate(paths, horizon) {
   const endBalances = [];
   const totalWithdrawals = [];
   const spendVolatilities = [];
+  const allYearSpends = [];
   let badYearSum = 0;
   for (const res of paths) {
     for (let t = 0; t <= horizon; t++) balanceByYear[t].push(res.balances[t]);
@@ -534,13 +545,17 @@ function aggregate(paths, horizon) {
       spendByYear[t].push(res.spends[t]);
       if (res.failedByYear[t]) failCountByYear[t]++;
     }
-    if (!res.failed) successCount++;
+    if (!res.failed && !res.failedByYear.some(Boolean)) successCount++;
     endBalances.push(res.finalBalance);
     badYearSum += res.badYearFraction;
     const totalWithdrawn = res.spends.reduce((sum, s) => sum + s, 0);
     totalWithdrawals.push(totalWithdrawn);
-    const spendStd = Math.sqrt(res.spends.reduce((sum, s) => sum + Math.pow(s - totalWithdrawn / res.spends.length, 2), 0) / res.spends.length);
+    const spendMean = totalWithdrawn / res.spends.length;
+    const spendStd = Math.sqrt(res.spends.reduce((sum, s) => sum + Math.pow(s - spendMean, 2), 0) / res.spends.length);
     spendVolatilities.push(spendStd);
+    for (let t = 0; t < res.spends.length; t++) {
+      if (!res.failedByYear[t]) allYearSpends.push(res.spends[t]);
+    }
   }
   const failureCurve = [{ year: 0, failRate: 0 }];
   for (let t = 0; t < horizon; t++) {
@@ -575,14 +590,18 @@ function aggregate(paths, horizon) {
     ciLow, ciHigh,
     yearsStats,
     failureCurve,
-    medianEnd: percentile(endBalances, 50),
+    medianEnd: percentile([...endBalances].sort((a, b) => a - b), 50),
+    medianTotalWithdrawal: percentile([...totalWithdrawals].sort((a, b) => a - b), 50),
+    medianSpendVolatility: 0,
+    avgSpend: yearsStats.slice(0, horizon).reduce((sum, entry) => sum + (entry.spendP50 || 0), 0) / horizon,
+    p10Spend: Math.min(...yearsStats.slice(0, horizon).map((entry) => entry.spendP10 || 0)),
+    p90Spend: Math.max(...yearsStats.slice(0, horizon).map((entry) => entry.spendP90 || 0)),
+    p10TotalWithdrawal: percentile([...totalWithdrawals].sort((a, b) => a - b), 10),
     numPaths: paths.length,
     hardFloor: paths[0]?.hardFloor ?? 0,
     staticAmount: paths[0]?.staticAmount ?? 0,
     dynStartAmount: paths[0]?.dynStartAmount ?? 0,
     avgBadYearFraction: (badYearSum / paths.length) * 100,
-    medianTotalWithdrawal: percentile(totalWithdrawals, 50),
-    medianSpendVolatility: percentile(spendVolatilities, 50),
   };
 }
 
@@ -893,13 +912,13 @@ function LightTooltip({ active, payload, label, showFloor = true, startAge = 67 
         <span>P90</span>
         <span>Median</span>
         <span>P10</span>
-        {showFloor && <span style={{ color: '#A8432F' }}>Boden</span>
+        {showFloor && <span style={{ color: '#A8432F' }}>Boden</span>}
       </div>
       {base && band && (
         <div style={{ display: 'grid', gridTemplateColumns: showFloor ? '80px repeat(4, 1fr)' : '80px repeat(3, 1fr)', columnGap: 4, fontSize: 11.5, color: '#5B6B65', textAlign: 'right' }}>
           <span style={{ textAlign: 'left' }}>Bereich:</span>
           <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEURk(base.value + band.value)}</span>
-          <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(p50.value)}</span>
+          <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEURk(p50.value)}</span>
           <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEURk(base.value)}</span>
           {showFloor && <span style={{ fontFamily: "'IBM Plex Mono', monospace", color: '#A8432F' }}>{hardFloorAmount ? fmtEURk(hardFloorAmount.value) : '–'}</span>}
         </div>
@@ -963,14 +982,19 @@ function runForMode(mode, params) {
 // Ziehen von Slidern, ohne die Anzeige der Schieberegler-Labels selbst zu verzögern.
 function useDebounced(value, delay = 200) {
   const [debounced, setDebounced] = useState(value);
+  const [isPending, setIsPending] = useState(false);
   useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delay);
+    setIsPending(true);
+    const t = setTimeout(() => {
+      setDebounced(value);
+      setIsPending(false);
+    }, delay);
     return () => clearTimeout(t);
   }, [value, delay]);
-  return debounced;
+  return [debounced, isPending];
 }
 
-export default function EntnahmeSimulator() {
+function EntnahmeSimulator() {
   useEffect(() => {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
@@ -981,6 +1005,8 @@ export default function EntnahmeSimulator() {
 
   const [mode, setMode] = useState('bootstrap'); // 'montecarlo' | 'rolling' | 'world' | 'bootstrap'
   const [showGuide, setShowGuide] = useState(false);
+  const [guideOpen, setGuideOpen] = useState({});
+  const toggleGuide = (k) => setGuideOpen((o) => { const n = { ...o }; n[k] = !o[k]; return n; });
   const [vermoegen, setVermoegen] = useState(300000);
   const [aktien, setAktien] = useState(80);
   const [gold, setGold] = useState(0);
@@ -1020,12 +1046,14 @@ export default function EntnahmeSimulator() {
 
   // Alle Eingaben, die die (teure) Simulation beeinflussen, gebündelt und debounced —
   // Slider-Labels selbst reagieren weiterhin sofort, nur die Neuberechnung verzögert sich leicht.
-  const liveParams = {
+  const liveParams = useMemo(() => ({
     mode, vermoegen, aktien, gold, cash, bitcoin, staticRate, dynStartRate, ceiling, floor, gkGuardrailPct, gkAdjustStep,
     horizon, blockLen, bootstrapSource, startAge, pensionStartAge, pensionAnnual, rentalIncomeByYear, seed, anleihen,
     entnahmeStrategie, eimerStrategie, entnahmeFrequenz, numSims, etfTer,
-  };
-  const debounced = useDebounced(liveParams, 200);
+  }), [mode, vermoegen, aktien, gold, cash, bitcoin, staticRate, dynStartRate, ceiling, floor, gkGuardrailPct, gkAdjustStep,
+    horizon, blockLen, bootstrapSource, startAge, pensionStartAge, pensionAnnual, rentalIncomeByYear, seed, anleihen,
+    entnahmeStrategie, entnahmeFrequenz, numSims, etfTer]);
+  const [debounced, isCalculating] = useDebounced(liveParams, 200);
 
   const result = useMemo(() => {
     const d = debounced;
@@ -1042,11 +1070,11 @@ export default function EntnahmeSimulator() {
   const strategyComparison = useMemo(() => {
     const d = debounced;
     const strategies = [
-      { key: 'dynamisch', label: 'Dynamisch (Vanguard)' },
-      { key: 'statisch', label: 'Statisch (fest, real)' },
-      { key: 'bengen', label: '4%-Regel (Bengen)' },
-      { key: 'konstant', label: 'Konstante % (Portfoliobezogen)' },
-      { key: 'guyton-klinger', label: 'Guyton-Klinger' },
+      { key: 'dynamisch', label: 'Dynamisch (Vanguard)', rate: d.dynStartRate, floor: d.floor, ceiling: d.ceiling, note: 'Ceiling/Floor/Boden' },
+      { key: 'konstant', label: 'Konstante %', rate: d.dynStartRate, floor: null, ceiling: null, note: d.dynStartRate + '% des aktuellen Portfolios' },
+      { key: 'bengen', label: '4%-Regel (Bengen)', rate: 4, floor: null, ceiling: null, note: 'Fix 4%, real konstant' },
+      { key: 'statisch', label: 'Statisch (fest, real)', rate: d.dynStartRate, floor: null, ceiling: null, note: d.dynStartRate + '% real konstant' },
+      { key: 'guyton-klinger', label: 'Guyton-Klinger', rate: d.dynStartRate, floor: null, ceiling: null, note: 'Guardrails + Inflation' },
     ];
     return strategies.map(s => {
       const params = { vermoegen: d.vermoegen, aktien: d.aktien, gold: d.gold, cash: d.cash, bitcoin: d.bitcoin,
@@ -1064,6 +1092,8 @@ export default function EntnahmeSimulator() {
   // ---- Sensitivitätsanalyse: welcher Parameter bewegt die Erfolgsquote am meisten? ----
   const [sensitivity, setSensitivity] = useState([]);
   const [sensitivityLoading, setSensitivityLoading] = useState(false);
+  const [heatmap, setHeatmap] = useState(null);
+  const [heatmapLoading, setHeatmapLoading] = useState(false);
   function computeSensitivity() {
     setSensitivityLoading(true);
     setTimeout(() => {
@@ -1075,7 +1105,7 @@ export default function EntnahmeSimulator() {
         horizon: d.horizon, numSims: sensNumSims, blockLen: d.blockLen, anleihen: d.anleihen,
         bootstrapSource: d.bootstrapSource, startAge: d.startAge, pensionStartAge: d.pensionStartAge,
         pensionAnnual: d.pensionAnnual, rentalIncomeByYear: d.rentalIncomeByYear, seed: d.seed,
-        entnahmeStrategie: d.entnahmeStrategie, entnahmeFrequenz: d.entnahmeFrequenz };
+        entnahmeStrategie: d.entnahmeStrategie, eimerStrategie: d.eimerStrategie, entnahmeFrequenz: d.entnahmeFrequenz, etfTer: d.etfTer };
       const run = (overrides) => runForMode(d.mode, Object.assign({}, base, overrides)).successRate;
       const baseline = run({});
       const impact = (rLo, rHi) => Math.max(Math.abs(rLo - baseline), Math.abs(rHi - baseline));
@@ -1121,6 +1151,54 @@ export default function EntnahmeSimulator() {
     }, 50);
   }
 
+  // ---- Erfolgsquote-Heatmap: Entnahmehorizont × Startentnahmerate ----
+  function computeHeatmap() {
+    setHeatmapLoading(true);
+    setTimeout(() => {
+      const d = debounced;
+      const base = { vermoegen: d.vermoegen, aktien: d.aktien, gold: d.gold, cash: d.cash, bitcoin: d.bitcoin,
+        staticRate: d.staticRate, dynStartRate: d.dynStartRate, ceiling: d.ceiling, floor: d.floor,
+        gkGuardrailPct: d.gkGuardrailPct, gkAdjustStep: d.gkAdjustStep,
+        horizon: d.horizon, numSims: 800, blockLen: d.blockLen, anleihen: d.anleihen,
+        bootstrapSource: d.bootstrapSource, startAge: d.startAge, pensionStartAge: d.pensionStartAge,
+        pensionAnnual: d.pensionAnnual, rentalIncomeByYear: d.rentalIncomeByYear, seed: d.seed,
+        entnahmeStrategie: d.entnahmeStrategie, eimerStrategie: d.eimerStrategie, entnahmeFrequenz: d.entnahmeFrequenz, etfTer: d.etfTer };
+      let rates;
+      if (d.entnahmeStrategie === 'bengen') {
+        rates = [4];
+      } else {
+        const offsets = [0, 0.25, 0.5, 1, 1.5, 2, 2.5];
+        const minRate = 0.5;
+        rates = [];
+        for (const off of offsets) rates.push(Number((d.dynStartRate - off).toFixed(2)));
+        for (let i = 1; i < offsets.length; i++) rates.push(Number((d.dynStartRate + offsets[i]).toFixed(2)));
+        rates = rates.filter((r) => r >= minRate).sort((a, b) => a - b);
+      }
+      const horizons = [];
+      for (let h = 20; h <= 60 + 1e-6; h += 5) horizons.push(h);
+      const grid = [];
+      for (const h of horizons) {
+        const row = [];
+        for (const rate of rates) {
+          row.push(runForMode(d.mode, Object.assign({}, base, { horizon: h, dynStartRate: rate })).successRate);
+        }
+        grid.push(row);
+      }
+      // Monotonitäts-Korrektur: Mit längerem Horizont oder höherer Entnahmerate kann die Erfolgsquote nur
+      // gleich bleiben oder fallen (längerer Zeitraum / höhere Entnahme fügt nur zusätzliche Verlustpfade hinzu).
+      for (let ri = 0; ri < rates.length; ri++)
+        for (let ai = 1; ai < horizons.length; ai++)
+          grid[ai][ri] = Math.min(grid[ai][ri], grid[ai - 1][ri]);
+      for (let ai = 0; ai < horizons.length; ai++)
+        for (let ri = 1; ri < rates.length; ri++)
+          grid[ai][ri] = Math.min(grid[ai][ri], grid[ai][ri - 1]);
+      const nearestIn = (arr, v) => arr.reduce((a, b) => Math.abs(b - v) < Math.abs(a - v) ? b : a);
+      setHeatmap({ grid, xLabels: rates, yLabels: horizons, baseRate: d.dynStartRate, baseHorizon: d.horizon,
+        nearestHorizon: nearestIn(horizons, d.horizon), nearestRate: nearestIn(rates, d.dynStartRate) });
+      setHeatmapLoading(false);
+    }, 50);
+  }
+
   // ---- URL-Konfiguration laden (einmalig beim Mount) ----
   useEffect(() => {
     try {
@@ -1156,7 +1234,6 @@ export default function EntnahmeSimulator() {
     if (match(fireFan)) return 'fire-fan';
     return '';
   }, [vermoegen, aktien, gold, bitcoin, anleihen, wohnung, etfTer, staticRate, dynStartRate, ceiling, floor, horizon, blockLen, startAge, rentenpunkte, pensionStartAge, numSims, seed]);
-
   function shareConfig() {
     const sp = new URLSearchParams();
     sp.set('mode', mode); sp.set('vermoegen', vermoegen); sp.set('aktien', aktien); sp.set('gold', gold);
@@ -1288,6 +1365,45 @@ export default function EntnahmeSimulator() {
                 S&amp;P-500-Daten, ein Welt-Aktien-Näherungswert, eine Zufalls-Neukombination historischer Verläufe (Bootstrap), oder ein rein
                 mathematisches Modell (Monte Carlo). Es lohnt sich, mehrere Modi zu vergleichen statt nur einem zu vertrauen.
               </p>
+
+              <div style={{ marginTop: 16, color: '#1C2521', fontWeight: 600, fontSize: 12.5 }}>Die 4 Simulationsmethoden im Detail</div>
+              {[
+                { id: 'm1', title: 'Historisch · S&amp;P 500 (1872–2025)', text: `Dein Plan wird gegen alle echten ${horizon}-Jahres-Fenster des US-Index S&P 500 (bzw. seines Vorläufers, inkl. Dividenden) von Januar 1872 bis Dezember 2025 getestet — monatsgenau. Die Erfolgsquote zählt, in wie vielen der real eingetretenen historischen Verläufe das Geld bis zum Horizont gereicht hätte. Stärke: realitätstreu auf US-Basis, deckt Weltkriege, Weltwirtschaftskrise und die 1970er-Stagflation ab. Schwäche: nur US-Aktien-Historie; die Fenster überlappen stark (geringe effektive Stichprobengröße). Weil es nur Startpunkte bis 1871 + ${horizon} gibt, ist die Quote eher eine obere Schätzung für global diversifizierte Portfolios.` },
+                { id: 'm2', title: 'Historisch · Welt-Proxy (1970–2025)', text: 'Nutzt statt rein US-Daten einen Welt-Aktien-Proxy für 1970–2025: 65% US Large Cap (S&P 500) plus 35% internationale Industrieländer (MSCI EAFE). Dies nähert einen echten Welt-ETF besser an und ist stärker diversifiziert. Schwäche: Die Datenbasis beginnt erst 1970 — Weltwirtschaftskrise und beide Weltkriege bleiben unsichtbar, und die 65/35-Gewichtung ist eine Vereinfachung (der US-Anteil echter MSCI-World-Portfolios schwankte historisch stark). Da nur Jahresdaten vorliegen, werden die 12 Monate je Jahr geometrisch identisch aufgeteilt (kein echtes Intra-Jahres-Rauschen).' },
+                { id: 'm3', title: 'Historisch · Block-Bootstrap', text: 'Würfelt aus den historischen Daten (wählbar: S&P 500 seit 1872 oder Welt-Proxy seit 1970) viele neue, zufällig kombinierte Verläufe: zusammenhängende Blöcke von „Blocklänge“ Jahren werden mit Zurücklegen gezogen und zu synthetischen Pfaden zusammengesetzt — oft 2.500 bis 10.000 Stück. So entstehen Verläufe, die real nie so eintraten, aber auf echten Renditewerten basieren. Stärke: deutlich größere Stichprobe, bessere Schätzung von Extremwerten. Schwäche: Die Zufallskombination zerstört echte historische Reihenfolgen und mittelt Extrem-Crashs heraus. Kleine Blöcke = mehr Unabhängigkeit, große Blöcke = mehr historische Struktur bleibt erhalten.' },
+                { id: 'm4', title: 'Parametrisch · Monte Carlo', text: 'Statt echter historischer Daten erzeugt ein reines Zufallsmodell Markt-Renditen aus einer modellierten statistischen Verteilung (angenommene Erwartungswerte und Volatilitäten für Aktien, Gold, Anleihen, Liquidität) und simuliert viele unabhängige Zukunfts-Pfade (2.500–10.000). Stärke: praktisch unbegrenzt viele Szenarien. Schwäche: Das Ergebnis hängt komplett von den angenommenen Parametern ab — es testet das Modell, nicht die Realität. Historische Extremereignisse (Kriege, Crashs) erscheinen nur, wenn sie in der Verteilung stecken. Immer mit mindestens einem historischen Modus vergleichen.' },
+              ].map((it) => (
+                <div key={it.id} style={{ border: '1px solid #E3E8E5', borderRadius: 8, marginBottom: 6, background: '#FAFBFA', overflow: 'hidden' }}>
+                  <button onClick={() => toggleGuide(it.id)} style={{
+                    width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer',
+                    padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  }}>
+                    <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>{it.title}</span>
+                    <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen[it.id] ? '▲ einklappen' : '▼ aufklappen'}</span>
+                  </button>
+                  {guideOpen[it.id] && <div style={{ padding: '8px 12px 12px', fontSize: 12, color: '#5B6B65', lineHeight: 1.6 }}>{it.text}</div>}
+                </div>
+              ))}
+
+              <div style={{ marginTop: 16, color: '#1C2521', fontWeight: 600, fontSize: 12.5 }}>Die 5 Entnahmestrategien im Detail</div>
+              {[
+                { id: 's1', title: 'Dynamisch (Vanguard)', text: `Die Entnahme wird jedes Jahr als „Dynamische Startrate“ × aktueller Portfoliowert berechnet und dann durch drei Begrenzungen geführt: Ceiling (max. Anstieg zum Vorjahr), Floor (max. Rückgang zum Vorjahr) und ein harter Boden (= statische Referenzrate vom Startvermögen, der nie unterschritten wird). So wächst die Entnahme in guten Jahren mit, sinkt aber in schlechten nur begrenzt. Einzeln einstellbar sind Startrate, Ceiling, Floor und die statische Referenzrate.` },
+                { id: 's2', title: 'Konstante % (Portfoliobezogen)', text: 'Jedes Jahr wird ein fester Prozentsatz des jeweils aktuellen Portfolio-Werts entnommen — die Entnahme schwankt also direkt mit dem Depot. Bei hohen Kursen steigt sie, in schlechten Jahren sinkt sie stark mit. Sehr einfach, aber am wenigsten planungssicher: Der absolute Geldbetrag variiert stark und es gibt keinen festen Mindestbetrag. Einstellbar ist nur die Dynamische Startrate.' },
+                { id: 's3', title: '4%-Regel (Bengen)', text: 'Die klassische „4%-Regel“: Es werden dauerhaft 4% des Startvermögens entnommen, real (inflationsbereinigt) konstant gehalten — ohne Floor oder Ceiling, ohne Anpassung an den aktuellen Depotwert. Historisch hielt diese Strategie in US-Auswertungen über 30 Jahre fast immer. Es ist ein sehr konservatives Referenzmodell, ignoriert aber die aktuelle Marktlage während der Laufzeit.' },
+                { id: 's4', title: 'Statisch (fest, real)', text: 'Jahr 1 = Startentnahmerate × Startvermögen; danach bleibt der absolute Betrag real (nur um Inflation bereinigt) über die gesamte Laufzeit konstant. Sehr vorhersehbar, die Kaufkraft bleibt erhalten, aber es gibt keinerlei Anpassung an gute oder schlechte Börsenjahre — ein Einbruch kann das Portfolio stark belasten. Einstellbar ist die Startentnahmerate.' },
+                { id: 's5', title: 'Guyton-Klinger', text: 'Startbetrag = Startrate × Vermögen, danach jährliche Inflationsanpassung — mit drei Regeln: (1) Nach einem Jahr mit negativem Depot-Rendit wird die Inflationsanpassung ausgesetzt (der Betrag bleibt gleich). (2) Capital-Preservation: Steigt die Entnahmequote über Ausgangsquote + Guardrail, wird der Betrag um den Anpassungsschritt gekürzt. (3) Prosperity: Fällt die Quote unter Ausgangsquote − Guardrail, wird erhöht. Das ersetzt die reine Inflationsanpassung und glättet starke Rückschläge. Einstellbar sind Startrate, Guardrail-Schwelle (±) und der Anpassungsschritt.' },
+              ].map((it) => (
+                <div key={it.id} style={{ border: '1px solid #E3E8E5', borderRadius: 8, marginBottom: 6, background: '#FAFBFA', overflow: 'hidden' }}>
+                  <button onClick={() => toggleGuide(it.id)} style={{
+                    width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer',
+                    padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  }}>
+                    <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>{it.title}</span>
+                    <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen[it.id] ? '▲ einklappen' : '▼ aufklappen'}</span>
+                  </button>
+                  {guideOpen[it.id] && <div style={{ padding: '8px 12px 12px', fontSize: 12, color: '#5B6B65', lineHeight: 1.6 }}>{it.text}</div>}
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -1295,15 +1411,21 @@ export default function EntnahmeSimulator() {
         <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: 20 }} className="sim-grid">
           <div style={{ background: '#FFFFFF', border: '1px solid #D3DAD6', borderRadius: 6, padding: '18px 20px', alignSelf: 'start' }}>
         {/* Mode selector */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-          <ModeTab active={mode === 'rolling'} onClick={() => setMode('rolling')}
-            tip="Testet deine Angaben gegen jeden tatsächlichen historischen Startzeitpunkt seit 1872 — 'wie hätte es gestern, vor 30 Jahren, vor 80 Jahren usw. ausgesehen?'">Historisch · S&amp;P 500 (1872–2025)</ModeTab>
-          <ModeTab active={mode === 'world'} onClick={() => setMode('world')}
-            tip="Wie oben, aber mit einer Annäherung an ein weltweites Aktienportfolio (nicht nur USA) seit 1970.">Historisch · Welt-Proxy (1970–2025)</ModeTab>
-          <ModeTab active={mode === 'bootstrap'} onClick={() => setMode('bootstrap')}
-            tip="Würfelt aus echten historischen Jahren/Monaten tausende neue, zufällige Verlaufsmöglichkeiten zusammen — mehr Testfälle als die reine Geschichte hergibt.">Historisch · Block-Bootstrap</ModeTab>
-          <ModeTab active={mode === 'montecarlo'} onClick={() => setMode('montecarlo')}
-            tip="Erzeugt komplett zufällige, aber realistisch verteilte Marktverläufe nach mathematischem Modell — unabhängig von der tatsächlichen Geschichte.">Parametrisch · Monte Carlo</ModeTab>
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 12, color: '#5B6B65', marginBottom: 6, display: 'flex', alignItems: 'center' }}>Simulationsmethode<InfoDot text="Historisch: Testet gegen echte historische Daten. Block-Bootstrap: Würfelt aus historischen Daten neue Verläufe. Monte Carlo: Erzeugt zufällige, realistisch verteilte Marktverläufe." /></div>
+          <select
+            value={mode}
+            onChange={(e) => setMode(e.target.value)}
+            style={{
+              width: '100%', padding: '7px 6px', fontSize: 11.5, borderRadius: 6, cursor: 'pointer',
+              border: '1px solid #D3DAD6', background: 'transparent', color: '#5B6B65',
+            }}
+          >
+            <option value="rolling">Historisch · S&amp;P 500 (1872–2025)</option>
+            <option value="world">Historisch · Welt-Proxy (1970–2025)</option>
+            <option value="bootstrap">Historisch · Block-Bootstrap</option>
+            <option value="montecarlo">Parametrisch · Monte Carlo</option>
+          </select>
         </div>
 
         <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -1349,6 +1471,15 @@ export default function EntnahmeSimulator() {
               <option value="fire-fan">FIRE-Fan</option>
             </select>
           </div>
+          {isCalculating && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" style={{ animation: 'spin 0.8s linear infinite', flexShrink: 0 }}>
+                <circle cx="7" cy="7" r="5.5" fill="none" stroke="#D3DAD6" strokeWidth="2" />
+                <path d="M7 1.5 A5.5 5.5 0 0 1 12.5 7" fill="none" stroke="#2F5D62" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+              <span style={{ fontSize: 11.5, color: '#5B6B65' }}>Wird berechnet …</span>
+            </div>
+          )}
           <button onClick={shareConfig} style={{
             background: 'transparent', border: '1px solid #D3DAD6', color: '#5B6B65',
             fontSize: 12, padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
@@ -1379,6 +1510,37 @@ export default function EntnahmeSimulator() {
           )}
         </div>
 
+
+          <div>
+            <SectionLabel color="#3A6B8A">Zeitraum</SectionLabel>
+            <Slider label="Entnahmehorizont" value={horizon} min={20} max={60} step={1}
+              onChange={setHorizon} format={(v) => v + ' Jahre'}
+              tip="Wie viele Jahre die Entnahmephase dauern soll — das Portfolio muss diesen Zeitraum überbrücken." />
+            <div style={{ marginBottom: 4 }}>
+              <div style={{ fontSize: 12, color: '#5B6B65', marginBottom: 6, display: 'flex', alignItems: 'center' }}>Entnahme-Frequenz<InfoDot text="Wie oft du im Jahr entnimmst. 'Monatlich' verteilt die Entnahmesumme; 'Jährlich' entnimmt den Jahresbetrag auf einmal zu Jahresbeginn (echter Cash-Puffer, aber engere Grenzfälle)." /></div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={() => setEntnahmeFrequenz('monatlich')} style={{
+                  flex: 1, padding: '7px 6px', fontSize: 11.5, borderRadius: 6, cursor: 'pointer',
+                  border: entnahmeFrequenz === 'monatlich' ? '1px solid #2F5D62' : '1px solid #D3DAD6',
+                  background: entnahmeFrequenz === 'monatlich' ? 'rgba(47,93,98,0.16)' : 'transparent',
+                  color: entnahmeFrequenz === 'monatlich' ? '#2F5D62' : '#5B6B65',
+                }}>Monatlich</button>
+                <button onClick={() => setEntnahmeFrequenz('jaehrlich')} style={{
+                  flex: 1, padding: '7px 6px', fontSize: 11.5, borderRadius: 6, cursor: 'pointer',
+                  border: entnahmeFrequenz === 'jaehrlich' ? '1px solid #2F5D62' : '1px solid #D3DAD6',
+                  background: entnahmeFrequenz === 'jaehrlich' ? 'rgba(47,93,98,0.16)' : 'transparent',
+                  color: entnahmeFrequenz === 'jaehrlich' ? '#2F5D62' : '#5B6B65',
+                }}>Jährlich</button>
+              </div>
+              <div style={{ fontSize: 10.5, color: '#5B6B65', marginTop: 4 }}>
+                "Jährlich" entnimmt die komplette Jahressumme auf einen Schlag zu Jahresbeginn — dieser Betrag ist damit
+                für den Rest des Jahres von der Marktentwicklung abgeschirmt (echter Cash-Puffer-Effekt), nur das
+                Restvermögen bleibt investiert. Dadurch braucht "Jährlich" die volle Summe aber sofort verfügbar,
+                bevor die Rendite des Jahres wirken konnte — "Monatlich" kann sich dagegen im Jahresverlauf noch
+                in eine knappe Lage hineinwachsen. Das kann "Jährlich" ausgerechnet in Grenzfällen strenger machen,
+                obwohl der entnommene Betrag selbst sicherer verwahrt ist.
+              </div>
+            </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
           <div>
             <SectionLabel color="#2F5D62">Portfolio</SectionLabel>
@@ -1435,7 +1597,7 @@ export default function EntnahmeSimulator() {
           <div>
             <SectionLabel color="#C08A2E">Entnahme-Regel</SectionLabel>
             <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 12, color: '#5B6B65', marginBottom: 6, display: 'flex', alignItems: 'center' }}>Strategie<InfoDot text="Legt fest, wie sich deine jährliche Entnahme entwickelt. 'Dynamisch (Vanguard)' passt sie an den Depotwert an (mit Ceiling/Floor/Boden); 'Statisch' hält den Realbetrag konstant; 'Guyton-Klinger' passt jährlich mit Inflation an und nutzt Guardrails (Capital-Preservation-/Prosperity-Rule)." /></div>
+              <div style={{ fontSize: 12, color: '#5B6B65', marginBottom: 6, display: 'flex', alignItems: 'center' }}>Strategie<InfoDot text="Legt fest, wie sich deine jährliche Entnahme entwickelt. 'Dynamisch (Vanguard)' passt sie an den Depotwert an (mit Ceiling/Floor/Boden); 'Statisch' hält den Realbetrag konstant." /></div>
               <select
                 value={entnahmeStrategie}
                 onChange={(e) => setEntnahmeStrategie(e.target.value)}
@@ -1445,43 +1607,37 @@ export default function EntnahmeSimulator() {
                 }}
               >
                 <option value="dynamisch">Dynamisch (Vanguard)</option>
-                <option value="statisch">Statisch (fest, real)</option>
-                <option value="bengen">4%-Regel (Bengen)</option>
                 <option value="konstant">Konstante % (Portfoliobezogen)</option>
+                <option value="bengen">4%-Regel (Bengen)</option>
+                <option value="statisch">Statisch (fest, real)</option>
                 <option value="guyton-klinger">Guyton-Klinger</option>
               </select>
               {entnahmeStrategie === 'statisch' && (
                 <div style={{ fontSize: 10.5, color: '#5B6B65', marginTop: 6 }}>
-                  Jahr 1: Startrate × Vermögen. Danach bleibt der Betrag real (also nur um die bereits eingepreiste
-                  Inflation angepasst) konstant — unabhängig von Portfolioentwicklung. Ceiling/Floor/Boden-Faktor
-                  greifen hier nicht.
+                  Jahr 1: Startrate × Vermögen. Danach bleibt der Betrag real konstant.
                 </div>
               )}
               {entnahmeStrategie === 'bengen' && (
                 <div style={{ fontSize: 10.5, color: '#5B6B65', marginTop: 6 }}>
-                  Jahr 1: 4% vom Startvermögen. Danach bleibt der Betrag real konstant (inflationsadjustiert).
-                  Keine Ceiling/Floor/Boden-Logik — die 4%-Regel ist bewusst einfach und robust.
+                  Jedes Jahr 4% des Startvermögens, real konstant.
                 </div>
               )}
               {entnahmeStrategie === 'konstant' && (
                 <div style={{ fontSize: 10.5, color: '#5B6B65', marginTop: 6 }}>
-                  Jedes Jahr wird ein fester Prozentsatz des aktuellen Portfolio-Werts entnommen.
-                  Der Betrag schwankt mit dem Portfolio — sinkt in schlechten, steigt in guten Jahren.
-                  Die Rate wird als dynamische Startrate eingestellt.
+                  Jedes Jahr ein fester Prozentsatz des aktuellen Portfolio-Werts.
                 </div>
               )}
               {entnahmeStrategie === 'guyton-klinger' && (
                 <div style={{ fontSize: 10.5, color: '#5B6B65', marginTop: 6 }}>
                   Startbetrag = Startrate × Vermögen. Danach jährliche Inflationsanpassung, unterbrochen
-                  von zwei Guardrail-Regeln: Steigt die Entnahmequote (Betrag/Depot) über die Ausgangsquote + Guardrail,
+                  von zwei Guardrail-Regeln: Steigt die Entnahmequote über Ausgangsquote + Guardrail,
                   wird der Betrag um den Anpassungsschritt gekürzt (Capital-Preservation-Rule). Fällt sie unter
-                  Ausgangsquote − Guardrail, wird erhöht (Prosperity-Rule). Die Kürzung/Erhöhung ersetzt
-                  in diesem Jahr die Inflationsanpassung.
+                  Ausgangsquote − Guardrail, wird erhöht (Prosperity-Rule). Ersetzt die Inflationsanpassung.
                 </div>
               )}
               <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 12, color: '#5B6B65', cursor: 'pointer' }}>
                 <input type="checkbox" checked={eimerStrategie} onChange={(e) => setEimerStrategie(e.target.checked)} style={{ accentColor: '#2F5D62' }} />
-                Eimer-Strategie<InfoDot text="Aktiv: Entnahme aus dem 'besten' Bucket (Cash → Bond → Gold → BTC → ETF in schlechten Jahren). Inaktiv: Allokation bleibt proportional konstant — Verkäufe aus allen Asset-Klassen gleichmäßig." />
+                Eimer-Strategie<InfoDot text="Aktiv: Entnahme aus dem besten Bucket. Inaktiv: Allokation bleibt proportional konstant." />
               </label>
             </div>
             {entnahmeStrategie === 'dynamisch' && (
@@ -1492,7 +1648,7 @@ export default function EntnahmeSimulator() {
             {entnahmeStrategie !== 'bengen' && (
               <Slider label={entnahmeStrategie === 'statisch' ? 'Startentnahmerate' : entnahmeStrategie === 'guyton-klinger' ? 'Startrate' : 'Dynamische Startrate'} value={dynStartRate} min={2} max={20} step={0.1}
                 onChange={setDynStartRate} format={(v) => v.toFixed(1) + '%'}
-                tip={entnahmeStrategie === 'guyton-klinger' ? 'Anfängliche Entnahmerate in Prozent vom Startvermögen. Bestimmt den Startbetrag und die Ausgangsquote für die Guardrail-Berechnung.' : 'Entnahmerate im ersten Jahr in Prozent vom Startvermögen. Danach folgt die Entnahme der Ceiling/Floor-Regel bzw. bleibt real konstant.'} />
+                tip={entnahmeStrategie === 'guyton-klinger' ? 'Anfängliche Entnahmerate in Prozent vom Startvermögen. Bestimmt den Startbetrag und die Ausgangsquote für die Guardrail-Berechnung.' : 'Entnahmerate im ersten Jahr in Prozent vom Startvermögen.'} />
             )}
             {entnahmeStrategie === 'dynamisch' && (
               <>
@@ -1515,37 +1671,6 @@ export default function EntnahmeSimulator() {
               </>
             )}
           </div>
-
-          <div>
-            <SectionLabel color="#3A6B8A">Zeitraum</SectionLabel>
-            <Slider label="Entnahmehorizont" value={horizon} min={20} max={60} step={1}
-              onChange={setHorizon} format={(v) => v + ' Jahre'}
-              tip="Wie viele Jahre die Entnahmephase dauern soll — das Portfolio muss diesen Zeitraum überbrücken." />
-            <div style={{ marginBottom: 4 }}>
-              <div style={{ fontSize: 12, color: '#5B6B65', marginBottom: 6, display: 'flex', alignItems: 'center' }}>Entnahme-Frequenz<InfoDot text="Wie oft du im Jahr entnimmst. 'Monatlich' verteilt die Entnahmesumme; 'Jährlich' entnimmt den Jahresbetrag auf einmal zu Jahresbeginn (echter Cash-Puffer, aber engere Grenzfälle)." /></div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button onClick={() => setEntnahmeFrequenz('monatlich')} style={{
-                  flex: 1, padding: '7px 6px', fontSize: 11.5, borderRadius: 6, cursor: 'pointer',
-                  border: entnahmeFrequenz === 'monatlich' ? '1px solid #2F5D62' : '1px solid #D3DAD6',
-                  background: entnahmeFrequenz === 'monatlich' ? 'rgba(47,93,98,0.16)' : 'transparent',
-                  color: entnahmeFrequenz === 'monatlich' ? '#2F5D62' : '#5B6B65',
-                }}>Monatlich</button>
-                <button onClick={() => setEntnahmeFrequenz('jaehrlich')} style={{
-                  flex: 1, padding: '7px 6px', fontSize: 11.5, borderRadius: 6, cursor: 'pointer',
-                  border: entnahmeFrequenz === 'jaehrlich' ? '1px solid #2F5D62' : '1px solid #D3DAD6',
-                  background: entnahmeFrequenz === 'jaehrlich' ? 'rgba(47,93,98,0.16)' : 'transparent',
-                  color: entnahmeFrequenz === 'jaehrlich' ? '#2F5D62' : '#5B6B65',
-                }}>Jährlich</button>
-              </div>
-              <div style={{ fontSize: 10.5, color: '#5B6B65', marginTop: 4 }}>
-                "Jährlich" entnimmt die komplette Jahressumme auf einen Schlag zu Jahresbeginn — dieser Betrag ist damit
-                für den Rest des Jahres von der Marktentwicklung abgeschirmt (echter Cash-Puffer-Effekt), nur das
-                Restvermögen bleibt investiert. Dadurch braucht "Jährlich" die volle Summe aber sofort verfügbar,
-                bevor die Rendite des Jahres wirken konnte — "Monatlich" kann sich dagegen im Jahresverlauf noch
-                in eine knappe Lage hineinwachsen. Das kann "Jährlich" ausgerechnet in Grenzfällen strenger machen,
-                obwohl der entnommene Betrag selbst sicherer verwahrt ist.
-              </div>
-            </div>
             <div style={{ fontSize: 11.5, color: '#5B6B65', marginTop: 4 }}>
               Reserve-Trigger: ETF ≥20% unter Allzeithoch (fest, nicht einstellbar)
             </div>
@@ -1599,35 +1724,16 @@ export default function EntnahmeSimulator() {
                 <Stat label="Feste Entnahme" value={fmtEUR(result.dynStartAmount)} sub={`${dynStartRate.toFixed(1)}% vom Startvermögen, real konstant`} color="#2F5D62"
                   tip="Im statischen Modus bleibt die Entnahme über die gesamte Laufzeit real konstant (nur um Inflation bereinigt) — es gibt keinen zusätzlichen Boden." />
               )}
+              <Stat label="Median-Gesamtentnahme"
+                value={fmtEUR(heutigeKaufkraft ? result.medianTotalWithdrawal : result.medianTotalWithdrawal * Math.pow(1 + inflationRate / 100, horizon))}
+                sub={heutigeKaufkraft ? `über ${horizon} Jahre (heutige Kaufkraft)` : `nominal über ${horizon} Jahre (${inflationRate.toFixed(1)}% Infl.)`}
+                color="#2F5D62"
+                tip="Der mittlere Gesamtbetrag über den gesamten Entnahmehorizont." />
               <Stat label="Median-Endvermögen"
                 value={fmtEUR(heutigeKaufkraft ? result.medianEnd : result.medianEnd * Math.pow(1 + inflationRate / 100, horizon))}
                 sub={heutigeKaufkraft ? `nach ${horizon} Jahren (heutige Kaufkraft)` : `nominal nach ${horizon} Jahren (${inflationRate.toFixed(1)}% Infl.)`}
                 color="#2F5D62"
                 tip="Der mittlere (typische) Vermögensstand am Ende des Zeitraums über alle getesteten Verläufe." />
-              <Stat label="Median-Gesamtentnahme"
-                value={fmtEUR(heutigeKaufkraft ? result.medianTotalWithdrawal : result.medianTotalWithdrawal * Math.pow(1 + inflationRate / 100, horizon))}
-                sub={heutigeKaufkraft ? `über ${horizon} Jahre (heutige Kaufkraft)` : `nominal über ${horizon} Jahre (${inflationRate.toFixed(1)}% Infl.)`}
-                color="#2F5D62"
-                tip="Der mittlere Gesamtbetrag, der über den gesamten Entnahmehorizont aus dem Portfolio entnommen wurde (Summe aller jährlichen Entnahmen)." />
-              <div style={{ gridColumn: '1 / -1', marginTop: 8, padding: '10px 12px', background: '#F7F9F8', border: '1px solid #D3DAD6', borderRadius: 8 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: '#1C2521', marginBottom: 8 }}>Strategien-Vergleich (Median)</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: 4, fontSize: 11, color: '#5B6B65' }}>
-                  <div style={{ fontWeight: 600, color: '#1C2521' }}>Strategie</div>
-                  <div style={{ fontWeight: 600, color: '#1C2521', textAlign: 'right' }}>Gesamtentnahme</div>
-                  <div style={{ fontWeight: 600, color: '#1C2521', textAlign: 'right' }}>Endvermögen</div>
-                  <div style={{ fontWeight: 600, color: '#1C2521', textAlign: 'right' }}>Schwankung</div>
-                  <div style={{ fontWeight: 600, color: '#1C2521', textAlign: 'right' }}>Erfolgsquote</div>
-                  {strategyComparison.map(s => (
-                    <React.Fragment key={s.key}>
-                      <div style={{ color: s.key === entnahmeStrategie ? '#2F5D62' : '#5B6B65', fontWeight: s.key === entnahmeStrategie ? 600 : 400 }}>{s.label}</div>
-                      <div style={{ textAlign: 'right', fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(heutigeKaufkraft ? s.result.medianTotalWithdrawal : s.result.medianTotalWithdrawal * Math.pow(1 + inflationRate / 100, horizon))}</div>
-                      <div style={{ textAlign: 'right', fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(heutigeKaufkraft ? s.result.medianEnd : s.result.medianEnd * Math.pow(1 + inflationRate / 100, horizon))}</div>
-                      <div style={{ textAlign: 'right', fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(heutigeKaufkraft ? s.result.medianSpendVolatility : s.result.medianSpendVolatility * Math.pow(1 + inflationRate / 100, horizon))}</div>
-                      <div style={{ textAlign: 'right', fontFamily: "'IBM Plex Mono', monospace" }}>{s.result.successRate.toFixed(1)}%</div>
-                    </React.Fragment>
-                  ))}
-                </div>
-              </div>
               <Stat label="Jahre im Reserve-Modus" value={result.avgBadYearFraction.toFixed(0) + '%'} sub="Anteil Jahre mit ≥20% Drawdown" color="#C08A2E"
                 tip="Wie oft im Schnitt die Börse mindestens 20% unter ihrem bisherigen Höchststand lag und deshalb aus Cash/Gold statt aus dem ETF entnommen wurde." />
               <Stat label="GRV-Rente (pro Jahr)"
@@ -1662,19 +1768,39 @@ export default function EntnahmeSimulator() {
             <div style={{ fontSize: 11, color: '#5B6B65', transform: showStrategyComparison ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▶</div>
           </div>
           {showStrategyComparison && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 4, fontSize: 11, color: '#5B6B65' }}>
-              <div style={{ fontWeight: 600, color: '#1C2521' }}>Strategie</div>
-              <div style={{ fontWeight: 600, color: '#1C2521', textAlign: 'right' }}>Gesamtentnahme</div>
-              <div style={{ fontWeight: 600, color: '#1C2521', textAlign: 'right' }}>Endvermögen</div>
-              <div style={{ fontWeight: 600, color: '#1C2521', textAlign: 'right' }}>Erfolgsquote</div>
-              {strategyComparison.map(s => (
-                <React.Fragment key={s.key}>
-                  <div style={{ color: s.key === entnahmeStrategie ? '#2F5D62' : '#5B6B65', fontWeight: s.key === entnahmeStrategie ? 600 : 400 }}>{s.label}</div>
-                  <div style={{ textAlign: 'right', fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(heutigeKaufkraft ? s.result.medianTotalWithdrawal : s.result.medianTotalWithdrawal * Math.pow(1 + inflationRate / 100, horizon))}</div>
-                  <div style={{ textAlign: 'right', fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(heutigeKaufkraft ? s.result.medianEnd : s.result.medianEnd * Math.pow(1 + inflationRate / 100, horizon))}</div>
-                  <div style={{ textAlign: 'right', fontFamily: "'IBM Plex Mono', monospace" }}>{s.result.successRate.toFixed(1)}%</div>
-                </React.Fragment>
-              ))}
+            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', background: '#FFFFFF' }}>
+              <table style={{ width: '100%', minWidth: '760px', borderCollapse: 'collapse', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #D3DAD6' }}>
+                    <th style={{ textAlign: 'left', padding: '6px 8px', fontFamily: "'Inter', sans-serif", position: 'sticky', left: 0, background: '#FFFFFF', zIndex: 2 }}>Strategie</th>
+                    <th style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'Inter', sans-serif" }}>Erfolgsquote</th>
+                    <th style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'Inter', sans-serif" }}>Ø Jahresentnahme</th>
+                    <th style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'Inter', sans-serif" }}>Min. Jahresentnahme (P10)</th>
+                    <th style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'Inter', sans-serif" }}>Max. Jahresentnahme (P90)</th>
+                    <th style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'Inter', sans-serif" }}>Gesamtentnahme Median</th>
+                    <th style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'Inter', sans-serif" }}>Gesamtentnahme P10</th>
+                    <th style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'Inter', sans-serif" }}>Endkapital Median</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {strategyComparison.map((strategy) => {
+                    const result = strategy.result;
+                    const formatValue = (value) => fmtEURk(heutigeKaufkraft ? value : value * Math.pow(1 + inflationRate / 100, horizon));
+                    return (
+                      <tr key={strategy.key} style={{ borderBottom: '1px solid #E8ECE9' }}>
+                        <td style={{ padding: '6px 8px', fontFamily: "'Inter', sans-serif", position: 'sticky', left: 0, background: '#FFFFFF', zIndex: 2 }}>{strategy.label}</td>
+                        <td style={{ textAlign: 'right', padding: '6px 8px', color: result.successRate >= 97.5 ? '#2F5D62' : result.successRate >= 90 ? '#C08A2E' : '#A8432F', fontWeight: 600 }}>{result.successRate.toFixed(1)}%</td>
+                        <td style={{ textAlign: 'right', padding: '6px 8px' }}>{formatValue(result.avgSpend)}</td>
+                        <td style={{ textAlign: 'right', padding: '6px 8px' }}>{formatValue(result.p10Spend)}</td>
+                        <td style={{ textAlign: 'right', padding: '6px 8px' }}>{formatValue(result.p90Spend)}</td>
+                        <td style={{ textAlign: 'right', padding: '6px 8px' }}>{formatValue(result.medianTotalWithdrawal)}</td>
+                        <td style={{ textAlign: 'right', padding: '6px 8px' }}>{formatValue(result.p10TotalWithdrawal)}</td>
+                        <td style={{ textAlign: 'right', padding: '6px 8px' }}>{formatValue(result.medianEnd)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -1686,12 +1812,12 @@ export default function EntnahmeSimulator() {
             <div style={{ fontSize: 11, color: '#5B6B65', transform: showWithdrawalDetail ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▶</div>
           </div>
           {showWithdrawalDetail && (
-            <div style={{ overflowX: 'auto', marginTop: 12 }}>
+            <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 420, marginTop: 12 }}>
               <table style={{ width: '100%', minWidth: '760px', borderCollapse: 'collapse', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}>
                 <thead>
-                  <tr style={{ borderBottom: '2px solid #D3DAD6' }}>
-                    <th style={{ textAlign: 'right', padding: '5px 7px' }}>Jahr</th>
-                    <th style={{ textAlign: 'right', padding: '5px 7px' }}>Alter</th>
+                  <tr style={{ borderBottom: '2px solid #D3DAD6', position: 'sticky', top: 0, zIndex: 3, background: '#FFFFFF' }}>
+                    <th style={{ width: 48, minWidth: 48, boxSizing: 'border-box', textAlign: 'right', padding: '5px 7px', background: '#FFFFFF', position: 'sticky', left: 0, zIndex: 4, boxShadow: '2px 0 3px rgba(0,0,0,0.06)' }}>Jahr</th>
+                    <th style={{ width: 55, minWidth: 55, boxSizing: 'border-box', textAlign: 'right', padding: '5px 7px', background: '#FFFFFF', position: 'sticky', left: 48, zIndex: 4, boxShadow: '2px 0 3px rgba(0,0,0,0.06)' }}>Alter</th>
                     <th style={{ textAlign: 'right', padding: '5px 7px' }}>Median Entnahme</th>
                     <th style={{ textAlign: 'right', padding: '5px 7px' }}>P10 Entnahme</th>
                     <th style={{ textAlign: 'right', padding: '5px 7px' }}>P1 Entnahme</th>
@@ -1706,8 +1832,8 @@ export default function EntnahmeSimulator() {
                     const value = (amount) => fmtEURk(amount * factor);
                     return (
                       <tr key={row.year} style={{ borderBottom: '1px solid #E8ECE9', background: index % 2 === 0 ? '#FAFBFA' : '#FFFFFF' }}>
-                        <td style={{ textAlign: 'right', padding: '5px 7px' }}>{row.year + 1}</td>
-                        <td style={{ textAlign: 'right', padding: '5px 7px' }}>{startAge + row.year + 1}</td>
+                        <td style={{ width: 48, minWidth: 48, boxSizing: 'border-box', textAlign: 'right', padding: '5px 7px', position: 'sticky', left: 0, background: index % 2 === 0 ? '#FAFBFA' : '#FFFFFF', zIndex: 2, boxShadow: '2px 0 3px rgba(0,0,0,0.06)' }}>{row.year + 1}</td>
+                        <td style={{ width: 55, minWidth: 55, boxSizing: 'border-box', textAlign: 'right', padding: '5px 7px', position: 'sticky', left: 48, background: index % 2 === 0 ? '#FAFBFA' : '#FFFFFF', zIndex: 2, boxShadow: '2px 0 3px rgba(0,0,0,0.06)' }}>{startAge + row.year + 1}</td>
                         <td style={{ textAlign: 'right', padding: '5px 7px' }}>{value(row.spendP50)}</td>
                         <td style={{ textAlign: 'right', padding: '5px 7px' }}>{value(row.spendP10)}</td>
                         <td style={{ textAlign: 'right', padding: '5px 7px' }}>{value(row.spendP1)}</td>
@@ -1755,6 +1881,58 @@ export default function EntnahmeSimulator() {
           })}
         </div>
 
+        {/* Erfolgsquote-Heatmap: Startalter × Startentnahmerate */}
+        <div style={{ background: '#FFFFFF', border: '1px solid #D3DAD6', borderRadius: 12, padding: '16px 18px', marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>Erfolgsquote-Heatmap</div>
+            <button onClick={computeHeatmap} disabled={heatmapLoading} style={{
+              fontSize: 11, padding: '4px 10px', borderRadius: 6, border: '1px solid #2F5D62', background: heatmapLoading ? '#E3E8E5' : '#FFFFFF', color: '#2F5D62', cursor: heatmapLoading ? 'default' : 'pointer',
+            }}>
+              {heatmapLoading ? '⏳ Berechne…' : '▶ Berechnen'}
+            </button>
+          </div>
+          <div style={{ fontSize: 11, color: '#5B6B65', marginBottom: 12 }}>
+            Entnahmehorizont × Startentnahmerate — Erfolgsquote in %. Grün = sicher, rot = riskant. 800 Stichproben pro Zelle (Rollierende Modi dauern länger). Die deiner Einstellung nächstgelegene Zelle ist umrandet.
+          </div>
+          {!heatmap && !heatmapLoading && (
+            <div style={{ fontSize: 11, color: '#5B6B65', fontStyle: 'italic' }}>Auf „Berechnen" klicken, um die Heatmap zu erstellen.</div>
+          )}
+          {heatmap && (
+            <div style={{ overflow: 'auto', maxHeight: '70vh' }}>
+              <table style={{ borderCollapse: 'separate', borderSpacing: 2, fontSize: 10.5 }}>
+                <thead>
+                  <tr>
+                    <th style={{ position: 'sticky', top: 0, left: 0, zIndex: 4, background: '#FFFFFF', boxShadow: '0 1px 0 #D3DAD6, 1px 0 0 #D3DAD6', padding: '3px 6px', color: '#5B6B65', fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>Horizont ↓ / Rate →</th>
+                    {heatmap.xLabels.map((r) => (
+                      <th key={r} style={{ position: 'sticky', top: 0, zIndex: 3, background: '#FFFFFF', boxShadow: '0 1px 0 #D3DAD6', padding: '3px 4px', color: '#5B6B65', fontWeight: 600, textAlign: 'center' }}>{Number.isInteger(r) ? r : r.toFixed(2).replace(/\.?0+$/, '')}%</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {heatmap.grid.map((row, ai) => (
+                    <tr key={heatmap.yLabels[ai]}>
+                      <td style={{ position: 'sticky', left: 0, zIndex: 2, background: '#FFFFFF', boxShadow: '1px 0 0 #D3DAD6', padding: '3px 6px', color: '#5B6B65', fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>{heatmap.yLabels[ai]} J.</td>
+                      {row.map((v, ri) => {
+                        const isBase = heatmap.yLabels[ai] === heatmap.nearestHorizon && Math.abs(heatmap.xLabels[ri] - heatmap.nearestRate) < 1e-9;
+                        const vColor = v >= 97.5 ? '#2F5D62' : v >= 90 ? '#C08A2E' : '#A8432F';
+                        const fg = '#FFFFFF';
+                        return (
+                          <td key={ri} title={`Horizont ${heatmap.yLabels[ai]} J., Rate ${Number.isInteger(heatmap.xLabels[ri]) ? heatmap.xLabels[ri] : heatmap.xLabels[ri].toFixed(2).replace(/\.?0+$/, '')} %: Erfolgsquote ${v.toFixed(1)} %`} style={{
+                            background: vColor, color: fg, textAlign: 'center', fontFamily: "'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace",
+                            padding: '5px 4px', minWidth: 48, borderRadius: 4, border: isBase ? '3px solid #FFD700' : '1px solid rgba(255,255,255,0.5)', boxShadow: isBase ? '0 0 0 1px #FFFFFF, 0 0 9px rgba(255,215,0,0.95)' : 'none', fontWeight: isBase ? 700 : 500,
+                          }}>
+                            {v.toFixed(1)}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
         {/* Charts */}
         <ChartBlock title="Vermögensverlauf" subtitle={`10./50./90. Perzentil, ${heutigeKaufkraft ? 'real (heutige Kaufkraft)' : `nominal (inkl. ${inflationRate.toFixed(1)}% p.a. Inflation)`}, Gesamtvermögen`} onExpand={() => setExpandedChart('vermoegen')}>
           <ComposedChart data={chartData} margin={{ top: 20, right: 8, left: 0, bottom: 28 }}>
@@ -1772,12 +1950,12 @@ export default function EntnahmeSimulator() {
           <div style={{ position: 'absolute', left: 0, right: 0, bottom: 6, textAlign: 'center', color: '#1C2521', fontSize: 12 }}>Lebensalter</div>
         </ChartBlock>
 
-        <ChartBlock title="Entnahmeverlauf" subtitle={`10./50./90. Perzentil, ${heutigeKaufkraft ? 'real (heutige Kaufkraft)' : `nominal (inkl. ${inflationRate.toFixed(1)}% p.a. Inflation)`} pro Jahr${entnahmeStrategie === 'dynamisch' ? ' · Bodenlinie gestrichelt' : ''}`} onExpand={() => setExpandedChart('entnahme')}>}
+        <ChartBlock title="Entnahmeverlauf" subtitle={`10./50./90. Perzentil, ${heutigeKaufkraft ? 'real (heutige Kaufkraft)' : `nominal (inkl. ${inflationRate.toFixed(1)}% p.a. Inflation)`} pro Jahr${entnahmeStrategie === 'dynamisch' ? ' · Bodenlinie gestrichelt' : ''}`} onExpand={() => setExpandedChart('entnahme')}>
           <ComposedChart data={chartData} margin={{ top: 20, right: 8, left: 0, bottom: 28 }}>
             <CartesianGrid stroke="#E3E8E5" vertical={false} />
             <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
             <YAxis tickFormatter={fmtEUR} tick={{ fill: '#5B6B65', fontSize: 11, dy: 4 }} tickLine={false} axisLine={false} width={60} />
-            <Tooltip content={<LightTooltip startAge={startAge} />} />
+            <Tooltip content={<LightTooltip showFloor startAge={startAge} />} />
             <Area dataKey="spendP10" stackId="s" stroke="none" fill="transparent" />
             <Area dataKey="spendBand" stackId="s" stroke="none" fill="#C08A2E" fillOpacity={0.15} />
             <Line dataKey="spendP50" name="Gesamtentnahme" stroke="#C08A2E" strokeWidth={2} dot={false} />
@@ -1927,3 +2105,4 @@ export default function EntnahmeSimulator() {
     </div>
   );
 }
+
