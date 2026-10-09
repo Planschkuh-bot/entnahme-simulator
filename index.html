@@ -1945,7 +1945,7 @@ function EntnahmeSimulator() {
                       {row.map((v, ri) => {
                         const isBase = heatmap.yLabels[ai] === heatmap.nearestHorizon && Math.abs(heatmap.xLabels[ri] - heatmap.nearestRate) < 1e-9;
                         const vColor = v >= 97.5 ? '#2F5D62' : v >= 90 ? '#C08A2E' : '#A8432F';
-                        const fg = v >= 90 && v < 97.5 ? '#1C2521' : '#FFFFFF';
+                        const fg = '#FFFFFF';
                         return (
                           <td key={ri} title={`Horizont ${heatmap.yLabels[ai]} J., Rate ${Number.isInteger(heatmap.xLabels[ri]) ? heatmap.xLabels[ri] : heatmap.xLabels[ri].toFixed(2).replace(/\.?0+$/, '')} %: Erfolgsquote ${v.toFixed(1)} %`} style={{
                             background: vColor, color: fg, textAlign: 'center', fontFamily: "'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace",
