@@ -1127,6 +1127,8 @@ function EntnahmeSimulator() {
   // ---- Sensitivitätsanalyse: welcher Parameter bewegt die Erfolgsquote am meisten? ----
   const [sensitivity, setSensitivity] = useState([]);
   const [sensitivityLoading, setSensitivityLoading] = useState(false);
+  const [heatmap, setHeatmap] = useState(null);
+  const [heatmapLoading, setHeatmapLoading] = useState(false);
   function computeSensitivity() {
     setSensitivityLoading(true);
     setTimeout(() => {
@@ -1181,6 +1183,37 @@ function EntnahmeSimulator() {
       items.sort((a, b) => b.delta - a.delta);
       setSensitivity(items);
       setSensitivityLoading(false);
+    }, 50);
+  }
+
+  // ---- Erfolgsquote-Heatmap: Startalter × Startentnahmerate ----
+  function computeHeatmap() {
+    setHeatmapLoading(true);
+    setTimeout(() => {
+      const d = debounced;
+      const base = { vermoegen: d.vermoegen, aktien: d.aktien, gold: d.gold, cash: d.cash, bitcoin: d.bitcoin,
+        staticRate: d.staticRate, dynStartRate: d.dynStartRate, ceiling: d.ceiling, floor: d.floor,
+        gkGuardrailPct: d.gkGuardrailPct, gkAdjustStep: d.gkAdjustStep,
+        horizon: d.horizon, numSims: 300, blockLen: d.blockLen, anleihen: d.anleihen,
+        bootstrapSource: d.bootstrapSource, startAge: d.startAge, pensionStartAge: d.pensionStartAge,
+        pensionAnnual: d.pensionAnnual, rentalIncomeByYear: d.rentalIncomeByYear, seed: d.seed,
+        entnahmeStrategie: d.entnahmeStrategie, eimerStrategie: d.eimerStrategie, entnahmeFrequenz: d.entnahmeFrequenz, etfTer: d.etfTer };
+      const rates = [];
+      for (let r = 2; r <= 8 + 1e-6; r += 0.5) rates.push(Number(r.toFixed(1)));
+      const ages = [];
+      for (let a = 40; a <= 80; a += 5) ages.push(a);
+      const grid = [];
+      for (const age of ages) {
+        const row = [];
+        for (const rate of rates) {
+          row.push(runForMode(d.mode, Object.assign({}, base, { startAge: age, dynStartRate: rate })).successRate);
+        }
+        grid.push(row);
+      }
+      const nearestIn = (arr, v) => arr.reduce((a, b) => Math.abs(b - v) < Math.abs(a - v) ? b : a);
+      setHeatmap({ grid, xLabels: rates, yLabels: ages, baseRate: d.dynStartRate, baseAge: d.startAge,
+        nearestAge: nearestIn(ages, d.startAge), nearestRate: nearestIn(rates, d.dynStartRate) });
+      setHeatmapLoading(false);
     }, 50);
   }
 
@@ -1864,6 +1897,59 @@ function EntnahmeSimulator() {
               </div>
             );
           })}
+        </div>
+
+        {/* Erfolgsquote-Heatmap: Startalter × Startentnahmerate */}
+        <div style={{ background: '#FFFFFF', border: '1px solid #D3DAD6', borderRadius: 12, padding: '16px 18px', marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>Erfolgsquote-Heatmap</div>
+            <button onClick={computeHeatmap} disabled={heatmapLoading} style={{
+              fontSize: 11, padding: '4px 10px', borderRadius: 6, border: '1px solid #2F5D62', background: heatmapLoading ? '#E3E8E5' : '#FFFFFF', color: '#2F5D62', cursor: heatmapLoading ? 'default' : 'pointer',
+            }}>
+              {heatmapLoading ? '⏳ Berechne…' : '▶ Berechnen'}
+            </button>
+          </div>
+          <div style={{ fontSize: 11, color: '#5B6B65', marginBottom: 12 }}>
+            Startalter × Startentnahmerate — Erfolgsquote in %. Grün = sicher, rot = riskant. 300 Stichproben pro Zelle (Rollierende Modi dauern länger). Die deiner Einstellung nächstgelegene Zelle ist umrandet.
+          </div>
+          {!heatmap && !heatmapLoading && (
+            <div style={{ fontSize: 11, color: '#5B6B65', fontStyle: 'italic' }}>Auf „Berechnen" klicken, um die Heatmap zu erstellen.</div>
+          )}
+          {heatmap && (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ borderCollapse: 'separate', borderSpacing: 2, fontSize: 10.5 }}>
+                <thead>
+                  <tr>
+                    <th style={{ padding: '3px 6px', color: '#5B6B65', fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>Alter ↓ / Rate →</th>
+                    {heatmap.xLabels.map((r) => (
+                      <th key={r} style={{ padding: '3px 4px', color: '#5B6B65', fontWeight: 600, textAlign: 'center' }}>{Number.isInteger(r) ? r : r.toFixed(1)}%</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {heatmap.grid.map((row, ai) => (
+                    <tr key={heatmap.yLabels[ai]}>
+                      <td style={{ padding: '3px 6px', color: '#5B6B65', fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>{heatmap.yLabels[ai]} J.</td>
+                      {row.map((v, ri) => {
+                        const isBase = heatmap.yLabels[ai] === heatmap.nearestAge && Math.abs(heatmap.xLabels[ri] - heatmap.nearestRate) < 1e-9;
+                        const hue = Math.max(0, Math.min(1, v / 100)) * 120;
+                        const fill = `hsl(${hue}, 62%, ${30 + (v / 100) * 28}%)`;
+                        const fg = v < 45 ? '#FFFFFF' : '#0F1C16';
+                        return (
+                          <td key={ri} title={`Alter ${heatmap.yLabels[ai]}, Rate ${heatmap.xLabels[ri]} %: Erfolgsquote ${v.toFixed(1)} %`} style={{
+                            background: fill, color: fg, textAlign: 'center', fontFamily: "'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace",
+                            padding: '5px 4px', minWidth: 42, borderRadius: 4, border: isBase ? '2px solid #1C2521' : '1px solid rgba(255,255,255,0.6)', fontWeight: isBase ? 700 : 500,
+                          }}>
+                            {Math.round(v)}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* Charts */}
