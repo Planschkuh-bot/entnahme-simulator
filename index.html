@@ -450,6 +450,7 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, bondR, btcR, wE
   const spends = [];
   const failedByYear = [];
   let badMonthCount = 0;
+  let prevYearReturn = 0;
   const horizon = p.horizon;
   let mi = 0;
 
@@ -482,11 +483,13 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, bondR, btcR, wE
 
   for (let y = 0; y < horizon; y++) {
     const totalAtYearStart = eqBal + goldBal + cashBal + bondBal + btcBal;
+    let withdrawnThisYear = 0;
     let yearSpending;
     if (y === 0 || isStatic) yearSpending = prevAnnualSpending;
     else if (isKonstant) yearSpending = totalAtYearStart * (p.dynStartRate / 100);
     else if (isGK) {
-      const inflationAdj = prevAnnualSpending * (1 + gkInflation);
+      const inflFactor = prevYearReturn < 0 ? 0 : gkInflation;
+      const inflationAdj = prevAnnualSpending * (1 + inflFactor);
       const currentRate = totalAtYearStart > 0 ? inflationAdj / totalAtYearStart : 0;
       const upperBound = (p.dynStartRate / 100) * (1 + p.gkGuardrailPct / 100);
       const lowerBound = (p.dynStartRate / 100) * (1 - p.gkGuardrailPct / 100);
@@ -513,7 +516,8 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, bondR, btcR, wE
       if (badYear) badMonthCount += 12;
       const needRaw = Math.max(yearSpending - pensionThisYear - rentalThisYear, 0);
       if (needRaw > totalBefore + 1e-6) failed = true;
-      withdraw(Math.min(needRaw, Math.max(totalBefore, 0)), badYear);
+      withdrawnThisYear = Math.min(needRaw, Math.max(totalBefore, 0));
+      withdraw(withdrawnThisYear, badYear);
       for (let mm = 0; mm < 12; mm++) {
         eqBal *= 1 + eqR[mi] - etfTerMonthly;
         goldBal *= 1 + goldR[mi];
@@ -535,7 +539,9 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, bondR, btcR, wE
         if (badMonth) badMonthCount++;
         const needRaw = Math.max(monthlySpend - monthlyPension - monthlyRental, 0);
         if (needRaw > totalBefore + 1e-6) failed = true;
-        withdraw(Math.min(needRaw, Math.max(totalBefore, 0)), badMonth);
+        const wAmt = Math.min(needRaw, Math.max(totalBefore, 0));
+        withdrawnThisYear += wAmt;
+        withdraw(wAmt, badMonth);
         eqBal *= 1 + eqR[mi] - etfTerMonthly;
         goldBal *= 1 + goldR[mi];
         cashBal *= 1 + cashR[mi];
@@ -546,6 +552,9 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, bondR, btcR, wE
         mi++;
       }
     }
+    const endTotal = eqBal + goldBal + cashBal + bondBal + btcBal;
+    const investedBase = totalAtYearStart - withdrawnThisYear;
+    prevYearReturn = investedBase > 0 ? endTotal / investedBase - 1 : 0;
     spends.push(failed ? 0 : yearSpending);
     balances.push(Math.max(eqBal + goldBal + cashBal + bondBal + btcBal, 0));
     failedByYear.push(failed);
@@ -1367,7 +1376,7 @@ function EntnahmeSimulator() {
                 { id: 's2', title: 'Konstante % (Portfoliobezogen)', text: 'Jedes Jahr wird ein fester Prozentsatz des jeweils aktuellen Portfolio-Werts entnommen — die Entnahme schwankt also direkt mit dem Depot. Bei hohen Kursen steigt sie, in schlechten Jahren sinkt sie stark mit. Sehr einfach, aber am wenigsten planungssicher: Der absolute Geldbetrag variiert stark und es gibt keinen festen Mindestbetrag. Einstellbar ist nur die Dynamische Startrate.' },
                 { id: 's3', title: '4%-Regel (Bengen)', text: 'Die klassische „4%-Regel“: Es werden dauerhaft 4% des Startvermögens entnommen, real (inflationsbereinigt) konstant gehalten — ohne Floor oder Ceiling, ohne Anpassung an den aktuellen Depotwert. Historisch hielt diese Strategie in US-Auswertungen über 30 Jahre fast immer. Es ist ein sehr konservatives Referenzmodell, ignoriert aber die aktuelle Marktlage während der Laufzeit.' },
                 { id: 's4', title: 'Statisch (fest, real)', text: 'Jahr 1 = Startentnahmerate × Startvermögen; danach bleibt der absolute Betrag real (nur um Inflation bereinigt) über die gesamte Laufzeit konstant. Sehr vorhersehbar, die Kaufkraft bleibt erhalten, aber es gibt keinerlei Anpassung an gute oder schlechte Börsenjahre — ein Einbruch kann das Portfolio stark belasten. Einstellbar ist die Startentnahmerate.' },
-                { id: 's5', title: 'Guyton-Klinger', text: 'Startbetrag = Startrate × Vermögen, danach jährliche Inflationsanpassung — unterbrochen von zwei Guardrail-Regeln: Steigt die Entnahmequote über Ausgangsquote + Guardrail, wird der Betrag um den Anpassungsschritt gekürzt (Capital-Preservation-Rule). Fällt sie unter Ausgangsquote − Guardrail, wird erhöht (Prosperity-Rule). Das ersetzt die reine Inflationsanpassung und glättet starke Rückschläge. Einstellbar sind Startrate, Guardrail-Schwelle (±) und der Anpassungsschritt.' },
+                { id: 's5', title: 'Guyton-Klinger', text: 'Startbetrag = Startrate × Vermögen, danach jährliche Inflationsanpassung — mit drei Regeln: (1) Nach einem Jahr mit negativem Depot-Rendit wird die Inflationsanpassung ausgesetzt (der Betrag bleibt gleich). (2) Capital-Preservation: Steigt die Entnahmequote über Ausgangsquote + Guardrail, wird der Betrag um den Anpassungsschritt gekürzt. (3) Prosperity: Fällt die Quote unter Ausgangsquote − Guardrail, wird erhöht. Das ersetzt die reine Inflationsanpassung und glättet starke Rückschläge. Einstellbar sind Startrate, Guardrail-Schwelle (±) und der Anpassungsschritt.' },
               ].map((it) => (
                 <div key={it.id} style={{ border: '1px solid #E3E8E5', borderRadius: 8, marginBottom: 6, background: '#FAFBFA', overflow: 'hidden' }}>
                   <button onClick={() => toggleGuide(it.id)} style={{
