@@ -1198,12 +1198,17 @@ function EntnahmeSimulator() {
         bootstrapSource: d.bootstrapSource, startAge: d.startAge, pensionStartAge: d.pensionStartAge,
         pensionAnnual: d.pensionAnnual, rentalIncomeByYear: d.rentalIncomeByYear, seed: d.seed,
         entnahmeStrategie: d.entnahmeStrategie, eimerStrategie: d.eimerStrategie, entnahmeFrequenz: d.entnahmeFrequenz, etfTer: d.etfTer };
-      const offsets = [0, 0.25, 0.5, 1, 1.5, 2, 2.5];
-      const minRate = 0.5;
-      let rates = [];
-      for (const off of offsets) rates.push(Number((d.dynStartRate - off).toFixed(2)));
-      for (let i = 1; i < offsets.length; i++) rates.push(Number((d.dynStartRate + offsets[i]).toFixed(2)));
-      rates = rates.filter((r) => r >= minRate).sort((a, b) => a - b);
+      let rates;
+      if (d.entnahmeStrategie === 'bengen') {
+        rates = [4];
+      } else {
+        const offsets = [0, 0.25, 0.5, 1, 1.5, 2, 2.5];
+        const minRate = 0.5;
+        rates = [];
+        for (const off of offsets) rates.push(Number((d.dynStartRate - off).toFixed(2)));
+        for (let i = 1; i < offsets.length; i++) rates.push(Number((d.dynStartRate + offsets[i]).toFixed(2)));
+        rates = rates.filter((r) => r >= minRate).sort((a, b) => a - b);
+      }
       const horizons = [];
       for (let h = 20; h <= 60 + 1e-6; h += 5) horizons.push(h);
       const grid = [];
