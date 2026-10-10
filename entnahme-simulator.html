@@ -814,7 +814,7 @@ function InfoDot({ text }) {
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         width: 15, height: 15, borderRadius: '50%', border: '1px solid #5B6B65',
         color: '#5B6B65', fontSize: 10, marginLeft: 6, cursor: 'help', flexShrink: 0,
-        fontFamily: "'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace", userSelect: 'none',
+        fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif", userSelect: 'none',
       }}
     >?</span>
   );
@@ -839,7 +839,7 @@ function Slider({ label, value, min, max, step, onChange, format, hint, tip }) {
           {tip && <InfoDot text={tip} />}
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-          <span style={{ fontSize: 12, fontFamily: "'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace", color: '#1C2521' }}>
+          <span style={{ fontSize: 12, fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif", color: '#1C2521' }}>
             {format ? format(value) : value}
           </span>
           <button type="button" onClick={() => nudge(-1)} title={`${label} verringern`} style={btnStyle}>−</button>
@@ -874,7 +874,7 @@ function Stat({ label, value, sub, color = '#1C2521', tip }) {
         {label.toUpperCase()}
         {tip && <InfoDot text={tip} />}
       </div>
-      <div style={{ fontSize: 18, fontFamily: "'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace", color, fontWeight: 600 }}>{value}</div>
+      <div style={{ fontSize: 18, fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif", color, fontWeight: 600 }}>{value}</div>
       <div style={{ fontSize: 10.5, color: '#5B6B65' }}>{sub}</div>
     </div>
   );
@@ -884,7 +884,7 @@ function SectionLabel({ children, color }) {
   const text = Array.isArray(children) ? children.join('') : children;
   return (
     <div style={{
-      fontSize: 11, letterSpacing: 1, color, fontFamily: "'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace",
+      fontSize: 11, letterSpacing: 1, color, fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif",
       marginBottom: 12, borderBottom: '1px solid #D3DAD6', paddingBottom: 6,
     }}>
       {text.toUpperCase()}
@@ -1349,16 +1349,12 @@ function EntnahmeSimulator() {
       <div style={{ maxWidth: 1220, margin: '0 auto' }}>
 
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 11, letterSpacing: 1.5, color: '#3A6B8A', fontFamily: "'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace" }}>
-            ENTNAHME-SIMULATION &middot; EIMER-STRATEGIE
-          </div>
-          <h1 style={{ fontSize: 26, fontWeight: 700, margin: '4px 0 6px', letterSpacing: -0.3 }}>
-            Vanguard Dynamic mit Bodenlinie + Drawdown-Reserven
+          <h1 style={{ fontSize: 26, fontWeight: 700, margin: '4px 0 6px', letterSpacing: -0.3, fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif", color: '#1C2521' }}>
+            Multi-Asset Entnahme-Simulation mit wählbarer Strategie & Simulationsmethode
           </h1>
-          <p style={{ fontSize: 13.5, color: '#5B6B65', lineHeight: 1.5, margin: 0 }}>
-            In Jahren mit &ge;20% ETF-Drawdown wird zuerst Cash, dann Gold entnommen, erst danach der ETF.
-            In guten Jahren direkt aus dem ETF. Einmal geleerte Reserven werden nicht wieder aufgefüllt.
-          </p>
+          <div style={{ fontSize: 11, letterSpacing: 1.5, color: '#3A6B8A', fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif", marginTop: 6 }}>
+            Dynamisch (Vanguard) · Konstante % (Portfoliobezogen) · 4%-Regel (Bengen) · Statisch (fest, real) · Guyton-Klinger
+          </div>
         </div>
 
         <div style={{ background: '#FFFFFF', border: '1px solid #D3DAD6', borderRadius: 12, marginBottom: 20, overflow: 'hidden' }}>
@@ -1381,11 +1377,8 @@ function EntnahmeSimulator() {
               <ul style={{ margin: '0 0 10px', paddingLeft: 20 }}>
                 <li style={{ marginBottom: 4 }}><strong style={{ color: '#1C2521' }}>Portfolio</strong> — deine Vermögensaufteilung: Aktien-ETF (Wachstum, schwankt stark),
                   Gold und Liquidität (Reserve für Krisen), optional Bitcoin und eine Eigentumswohnung.</li>
-                <li style={{ marginBottom: 4 }}><strong style={{ color: '#1C2521' }}>Eimer-Strategie</strong> — in einem Börsen-Crash (ETF ≥20% unter Höchststand) wird zuerst die
-                  Reserve (Cash/Gold) angezapft, damit du keine Aktien zu schlechten Kursen verkaufen musst. Läuft die Börse normal, kommt die
-                  Entnahme direkt aus dem ETF.</li>
-                <li style={{ marginBottom: 4 }}><strong style={{ color: '#1C2521' }}>Entnahme-Regel</strong> — legt fest, wie viel du pro Jahr entnimmst und wie stark das schwanken darf.
-                  "Dynamisch" (Vanguard) passt sich dem Depotwert an; "Statisch" hält den Betrag fest (nur Inflationsanpassung).</li>
+                <li style={{ marginBottom: 4 }}><strong style={{ color: '#1C2521' }}>Entnahme-Frequenz</strong> — "Monatlich" verteilt die Summe glatt über das Jahr; "Jährlich" nimmt den
+                  gesamten Betrag zu Jahresbeginn (Cash-Puffer-Effekt, aber in Stressjahren oft strenger).</li>
                 <li style={{ marginBottom: 4 }}><strong style={{ color: '#1C2521' }}>GRV-Rente</strong> — deine gesetzliche Rente reduziert ab Rentenbeginn den nötigen Betrag aus dem Portfolio.</li>
                 <li><strong style={{ color: '#1C2521' }}>Erfolgsquote</strong> — die runde Anzeige oben: in wie viel Prozent aller getesteten Verläufe das Geld gereicht hat. Ziel meist: möglichst nah an 97,5–100%.</li>
               </ul>
@@ -1440,9 +1433,127 @@ function EntnahmeSimulator() {
                 </div>
               ))}
 
-              <div style={{ marginTop: 16, color: '#1C2521', fontWeight: 600, fontSize: 12.5 }}>Diagramme</div>
+              <div key="ef" style={{ border: '1px solid #E3E8E5', borderRadius: 8, marginBottom: 6, background: '#FAFBFA', overflow: 'hidden' }}>
+                <button onClick={() => toggleGuide('ef')} style={{
+                  width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer',
+                  padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                }}>
+                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>Entnahme-Frequenz</span>
+                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.ef ? '▲ einklappen' : '▼ aufklappen'}</span>
+                </button>
+                {guideOpen.ef && (
+                  <div style={{ padding: '8px 12px 12px', fontSize: 12, color: '#5B6B65', lineHeight: 1.6 }}>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Monatlich vs. Jährlich</div>
+                    <div style={{ marginBottom: 8 }}>"Monatlich" verteilt die Jahressumme auf 12 Raten — die Entnahme erfolgt glatt über das Jahr. "Jährlich" entnimmt die komplette Jahressumme auf einen Schlag zu Jahresbeginn — dieser Betrag ist damit für den Rest des Jahres von der Marktentwicklung abgeschirmt (echter Cash-Puffer-Effekt), nur das Restvermögen bleibt investiert.</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Auswirkung auf die Simulation</div>
+                    <div style={{ marginBottom: 8 }}>"Jährlich" braucht die volle Summe sofort verfügbar, bevor die Rendite des Jahres wirken konnte — "Monatlich" kann sich dagegen im Jahresverlauf noch in eine knappe Lage hineinwachsen. Das kann "Jährlich" ausgerechnet in Grenzfällen strenger machen, obwohl der entnommene Betrag selbst sicherer verwahrt ist.</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Empfehlung</div>
+                    <div style={{ whiteSpace: 'pre-line' }}>• Für realistische Planung: "Monatlich" (Standard) — entspricht realer Ausgabeverhalten.<br/>• Zum Testen der Robustheit: beide Varianten vergleichen.<br/>• "Jährlich" kann in Stressjahren geringfügig schlechtere Erfolgsquoten liefern, da der Puffer-Effekt erst ab dem nächsten Jahr greift.</div>
+                  </div>
+                )}
+              </div>
 
-              <div key="hm" style={{ border: '1px solid #E3E8E5', borderRadius: 8, marginBottom: 6, background: '#FAFBFA', overflow: 'hidden' }}>
+              <div key="es" style={{ border: '1px solid #E3E8E5', borderRadius: 8, marginBottom: 6, background: '#FAFBFA', overflow: 'hidden' }}>
+                <button onClick={() => toggleGuide('es')} style={{
+                  width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer',
+                  padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                }}>
+                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>Eimer-Strategie</span>
+                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.es ? '▲ einklappen' : '▼ aufklappen'}</span>
+                </button>
+                {guideOpen.es && (
+                  <div style={{ padding: '8px 12px 12px', fontSize: 12, color: '#5B6B65', lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: `
+                    <div style="margin-bottom: 10; font-weight: 600">Was ist die Eimer-Strategie?</div>
+                    <div style="margin-bottom: 8">In Jahren mit ≥20% ETF-Drawdown wird zuerst Cash, dann <strong>Anleihen-ETF</strong>, dann Gold entnommen, erst danach der Aktien-ETF. In guten Jahren direkt aus dem Aktien-ETF. Einmal geleerte Reserven (Cash/Gold/Anleihen) werden nicht wieder aufgefüllt.</div>
+                    <div style="margin-bottom: 10; font-weight: 600">Entnahme-Reihenfolge</div>
+                    <div style="margin-bottom: 8; white-space: pre-line"><strong>Crash-Modus (Drawdown ≥20%):</strong>
+1. Cash (Liquidität)
+2. <strong>Anleihen-ETF</strong>
+3. Gold
+4. Bitcoin
+5. Aktien-ETF
+
+<strong>Normal-Modus:</strong>
+1. Aktien-ETF
+2. Bitcoin
+3. <strong>Anleihen-ETF</strong>
+4. Gold
+5. Cash</div>
+                    <div style="margin-bottom: 10; font-weight: 600">Checkbox „Eimer-Strategie“</div>
+                    <div style="margin-bottom: 8">Aktiv (Standard): Die Entnahme folgt der Bucket-Logik — in Crash-Phasen wird das Depot geschont, indem aus den Reserven (Cash, Anleihen, Gold) entnommen wird.<br/>Inaktiv: Die Entnahme erfolgt immer proportional zur Asset-Allokation (keine Bucket-Logik). Das erhöht die Volatilität der Entnahme, kann aber in langen Aufwärtsphasen vorteilhaft sein.</div>
+                    <div style="margin-bottom: 10; font-weight: 600">Einfluss auf die Simulation</div>
+                    <div style="white-space: pre-line">• Aktiv: Geringere Entnahme aus Aktien in Crash-Jahren → Depot erholt sich schneller.<br/>• Inaktiv: Höhere Aktien-Entnahme in Crash-Jahren → Depot schmilzt schneller, aber Reserves bleiben für spätere Jahre.<br/>• Tipp: Zum Testen der Robustheit beide Varianten vergleichen.</div>
+                  ` }} />
+                )}
+              </div>
+
+              <div style={{ marginTop: 16, color: '#1C2521', fontWeight: 600, fontSize: 12.5 }}>Diagramme & Tabellen</div>
+
+              <div key="sv" style={{ border: '1px solid #E3E8E5', borderRadius: 8, marginBottom: 6, background: '#FAFBFA', overflow: 'hidden' }}>
+                <button onClick={() => toggleGuide('sv')} style={{
+                  width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer',
+                  padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                }}>
+                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>Strategievergleich</span>
+                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.sv ? '▲ einklappen' : '▼ aufklappen'}</span>
+                </button>
+                {guideOpen.sv && (
+                  <div style={{ padding: '8px 12px 12px', fontSize: 12, color: '#5B6B65', lineHeight: 1.6 }}>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Was zeigt die Tabelle?</div>
+                    <div style={{ marginBottom: 8 }}>Der Strategievergleich listet alle 5 Entnahmestrategien nebeneinander auf und zeigt für jede die Erfolgsquote, die mittlere/untere/obere Jahresentnahme, die gesamte Entnahme über den Horizont (Median und P10) sowie das Endkapital (Median). So lässt sich auf einen Blick erkennen, welche Strategie bei den aktuellen Parametern am besten abschneidet.</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Real vs. nominal</div>
+                    <div style={{ marginBottom: 8 }}>Die Werte können in heutiger Kaufkraft (inflationsbereinigt) oder nominal angezeigt werden — umschaltbar oben über „Heutige Kaufkraft“.</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Interpretation</div>
+                    <div style={{ whiteSpace: 'pre-line' }}>• Grüne Erfolgsquote = robust, rot = riskant.<br/>• Hohe Gesamtentnahme bei guter Quote = effiziente Strategie.<br/>• P10-Werte zeigen das Worst-Case-Szenario (nur 10 % der Pfade schlechter).<br/>• Endkapital Median: wie viel Vermögen typischerweise übrig bleibt.</div>
+                  </div>
+                )}
+              </div>
+
+              <div key="ec" style={{ border: '1px solid #E3E8E5', borderRadius: 8, marginBottom: 6, background: '#FAFBFA', overflow: 'hidden' }}>
+                <button onClick={() => toggleGuide('ec')} style={{
+                  width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer',
+                  padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                }}>
+                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>Entnahmeverlauf</span>
+                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.ec ? '▲ einklappen' : '▼ aufklappen'}</span>
+                </button>
+                {guideOpen.ec && (
+                  <div style={{ padding: '8px 12px 12px', fontSize: 12, color: '#5B6B65', lineHeight: 1.6 }}>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Was zeigt das Diagramm?</div>
+                    <div style={{ marginBottom: 8 }}>Der Entnahmeverlauf zeigt, wie hoch die jährliche Entnahme (in Euro) über die Laufzeit ausfällt. Wieder als 10./50./90. Perzentil. Bei der dynamischen Strategie wird zusätzlich die Bodenlinie (gestrichelt) angezeigt — der absolute Mindestbetrag, der nie unterschritten wird (statische Referenzrate × Startvermögen, inflationsbereinigt).</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Nach Abzug der GRV-Rente</div>
+                    <div style={{ marginBottom: 8 }}>Die orangene Linie „Nach Abzug GRV“ zeigt die Netto-Entnahme aus dem Portfolio (Entnahme − Rente − Miete). Das ist der Betrag, den das Depot tatsächlich liefern muss. Wenn diese Linie bei 0 oder darunter liegt, deckt die Rente den Bedarf vollständig.</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Real vs. nominal</div>
+                    <div style={{ marginBottom: 8 }}>Gleiche Umschaltung wie beim Vermögensverlauf. Im Real-Modus ist die Kaufkraft der Entnahme über die Jahre direkt vergleichbar.</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Interpretation</div>
+                    <div style={{ whiteSpace: 'pre-line' }}>• Steigende Entnahme (dynamisch): Portfolio wächst, Entnahme partizipiert (Ceiling begrenzt).
+• Fallende Entnahme: Portfolio schrumpft, Floor begrenzt den Absturz.
+• Konstante Entnahme (Bengen/Statisch): Linie verläuft flach (real), nur bei Ausfall bricht sie ein.
+• Große Spreizung (Bandbreite 10.–90.) = hohes Unsicherheitsrisiko für die Planung.</div>
+                  </div>
+                )}
+              </div>
+
+              <div key="sa" style={{ border: '1px solid #E3E8E5', borderRadius: 8, marginBottom: 6, background: '#FAFBFA', overflow: 'hidden' }}>
+                <button onClick={() => toggleGuide('sa')} style={{
+                  width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer',
+                  padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                }}>
+                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>Sensitivität</span>
+                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.sa ? '▲ einklappen' : '▼ aufklappen'}</span>
+                </button>
+                {guideOpen.sa && (
+                  <div style={{ padding: '8px 12px 12px', fontSize: 12, color: '#5B6B65', lineHeight: 1.6 }}>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Was zeigt die Analyse?</div>
+                    <div style={{ marginBottom: 8 }}>Die Sensitivitätsanalyse misst, wie stark sich die Erfolgsquote ändert, wenn man einen einzelnen Parameter leicht variiert (z. B. Aktienquote ±5 %, Startrate ±0,3 %, Horizont ±5 Jahre). Je länger der Balken, desto größer der Einfluss dieses Parameters auf das Ergebnis.</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Berechnung</div>
+                    <div style={{ marginBottom: 8 }}>Für jeden Parameter werden zwei Simulationen mit leicht geänderten Werten durchgeführt (Rest gleich). Die Differenz zur Basis-Erfolgsquote gibt den Hebel an. Standard: 500 Stichproben pro Lauf für Geschwindigkeit.</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Interpretation</div>
+                    <div style={{ whiteSpace: 'pre-line' }}>• Lange Balken = Parameter ist kritisch (genaue Schätzung wichtig).<br/>• Kurze Balken = Parameter hat wenig Einfluss (kann grob geschätzt werden).<br/>• Typisch: Aktienquote, Startrate und Horizont haben die größten Hebel.<br/>• Nutzen: Fokus auf die wichtigsten Annahmen bei der Planung.</div>
+                  </div>
+                )}
+              </div>
+<div key="hm" style={{ border: '1px solid #E3E8E5', borderRadius: 8, marginBottom: 6, background: '#FAFBFA', overflow: 'hidden' }}>
                 <button onClick={() => toggleGuide('hm')} style={{
                   width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer',
                   padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -1495,27 +1606,24 @@ function EntnahmeSimulator() {
                 )}
               </div>
 
-              <div key="ec" style={{ border: '1px solid #E3E8E5', borderRadius: 8, marginBottom: 6, background: '#FAFBFA', overflow: 'hidden' }}>
-                <button onClick={() => toggleGuide('ec')} style={{
+              <div key="ew" style={{ border: '1px solid #E3E8E5', borderRadius: 8, marginBottom: 6, background: '#FAFBFA', overflow: 'hidden' }}>
+                <button onClick={() => toggleGuide('ew')} style={{
                   width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer',
                   padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 }}>
-                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>Entnahmeverlauf</span>
-                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.ec ? '▲ einklappen' : '▼ aufklappen'}</span>
+                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>Entnahmeverlauf (Detail)</span>
+                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.ew ? '▲ einklappen' : '▼ aufklappen'}</span>
                 </button>
-                {guideOpen.ec && (
+                {guideOpen.ew && (
                   <div style={{ padding: '8px 12px 12px', fontSize: 12, color: '#5B6B65', lineHeight: 1.6 }}>
                     <div style={{ marginBottom: 10, fontWeight: 600 }}>Was zeigt das Diagramm?</div>
-                    <div style={{ marginBottom: 8 }}>Der Entnahmeverlauf zeigt, wie hoch die jährliche Entnahme (in Euro) über die Laufzeit ausfällt. Wieder als 10./50./90. Perzentil. Bei der dynamischen Strategie wird zusätzlich die Bodenlinie (gestrichelt) angezeigt — der absolute Mindestbetrag, der nie unterschritten wird (statische Referenzrate × Startvermögen, inflationsbereinigt).</div>
+                    <div style={{ marginBottom: 8 }}>Der Entnahmeverlauf zeigt die jährliche Entnahme (in Euro) über die Laufzeit für die aktuell gewählte Strategie. Wieder als 10./50./90. Perzentil. Bei der dynamischen Strategie wird zusätzlich die Bodenlinie (gestrichelt) angezeigt — der absolute Mindestbetrag, der nie unterschritten wird.</div>
                     <div style={{ marginBottom: 10, fontWeight: 600 }}>Nach Abzug der GRV-Rente</div>
-                    <div style={{ marginBottom: 8 }}>Die orangene Linie „Nach Abzug GRV“ zeigt die Netto-Entnahme aus dem Portfolio (Entnahme − Rente − Miete). Das ist der Betrag, den das Depot tatsächlich liefern muss. Wenn diese Linie bei 0 oder darunter liegt, deckt die Rente den Bedarf vollständig.</div>
+                    <div style={{ marginBottom: 8 }}>Die orangene Linie „Nach Abzug GRV“ zeigt die Netto-Entnahme aus dem Portfolio (Entnahme − Rente − Miete). Das ist der Betrag, den das Depot tatsächlich liefern muss.</div>
                     <div style={{ marginBottom: 10, fontWeight: 600 }}>Real vs. nominal</div>
                     <div style={{ marginBottom: 8 }}>Gleiche Umschaltung wie beim Vermögensverlauf. Im Real-Modus ist die Kaufkraft der Entnahme über die Jahre direkt vergleichbar.</div>
                     <div style={{ marginBottom: 10, fontWeight: 600 }}>Interpretation</div>
-                    <div style={{ whiteSpace: 'pre-line' }}>• Steigende Entnahme (dynamisch): Portfolio wächst, Entnahme partizipiert (Ceiling begrenzt).
-• Fallende Entnahme: Portfolio schrumpft, Floor begrenzt den Absturz.
-• Konstante Entnahme (Bengen/Statisch): Linie verläuft flach (real), nur bei Ausfall bricht sie ein.
-• Große Spreizung (Bandbreite 10.–90.) = hohes Unsicherheitsrisiko für die Planung.</div>
+                    <div style={{ whiteSpace: 'pre-line' }}>• Steigende Entnahme (dynamisch): Portfolio wächst, Entnahme partizipiert (Ceiling begrenzt).<br/>• Fallende Entnahme: Portfolio schrumpft, Floor begrenzt den Absturz.<br/>• Konstante Entnahme (Bengen/Statisch): Linie verläuft flach (real), nur bei Ausfall bricht sie ein.<br/>• Große Spreizung (Bandbreite 10.–90.) = hohes Unsicherheitsrisiko für die Planung.</div>
                   </div>
                 )}
               </div>
@@ -1542,7 +1650,8 @@ function EntnahmeSimulator() {
                   </div>
                 )}
               </div>
-            </div>
+
+                          </div>
           )}
         </div>
 
@@ -1669,14 +1778,6 @@ function EntnahmeSimulator() {
                   background: entnahmeFrequenz === 'jaehrlich' ? 'rgba(47,93,98,0.16)' : 'transparent',
                   color: entnahmeFrequenz === 'jaehrlich' ? '#2F5D62' : '#5B6B65',
                 }}>Jährlich</button>
-              </div>
-              <div style={{ fontSize: 10.5, color: '#5B6B65', marginTop: 4 }}>
-                "Jährlich" entnimmt die komplette Jahressumme auf einen Schlag zu Jahresbeginn — dieser Betrag ist damit
-                für den Rest des Jahres von der Marktentwicklung abgeschirmt (echter Cash-Puffer-Effekt), nur das
-                Restvermögen bleibt investiert. Dadurch braucht "Jährlich" die volle Summe aber sofort verfügbar,
-                bevor die Rendite des Jahres wirken konnte — "Monatlich" kann sich dagegen im Jahresverlauf noch
-                in eine knappe Lage hineinwachsen. Das kann "Jährlich" ausgerechnet in Grenzfällen strenger machen,
-                obwohl der entnommene Betrag selbst sicherer verwahrt ist.
               </div>
             </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
@@ -1844,7 +1945,7 @@ function EntnahmeSimulator() {
           <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
               <Gauge value={result.successRate} />
-              <div style={{ fontSize: 10.5, color: '#5B6B65', fontFamily: "'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace", display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div style={{ fontSize: 10.5, color: '#5B6B65', fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif", display: 'flex', alignItems: 'center', gap: 4 }}>
                 95%-KI: [{result.ciLow.toFixed(1)}%, {result.ciHigh.toFixed(1)}%]
                 <InfoDot text="Erfolgsquote: In wie viel Prozent aller getesteten Verläufe hat dein Vermögen bis zum Ende gereicht? Das 95%-Konfidenzintervall zeigt die Unsicherheitsspanne dieser Schätzung." />
               </div>
@@ -2009,7 +2110,7 @@ function EntnahmeSimulator() {
               <div key={item.label} style={{ marginBottom: 8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, marginBottom: 3 }}>
                   <span style={{ color: '#5B6B65' }}>{item.label}</span>
-                  <span style={{ fontFamily: "'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace", color: '#1C2521' }}>{item.delta.toFixed(1)} Pkt.</span>
+                  <span style={{ fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif", color: '#1C2521' }}>{item.delta.toFixed(1)} Pkt.</span>
                 </div>
                 <div style={{ background: '#E3E8E5', borderRadius: 4, height: 6, overflow: 'hidden' }}>
                   <div style={{ width: `${(item.delta / maxDelta) * 100}%`, background: '#3A6B8A', height: '100%' }} />
@@ -2056,7 +2157,7 @@ function EntnahmeSimulator() {
                         const fg = '#FFFFFF';
                         return (
                           <td key={ri} title={`Horizont ${heatmap.yLabels[ai]} J., Rate ${Number.isInteger(heatmap.xLabels[ri]) ? heatmap.xLabels[ri] : heatmap.xLabels[ri].toFixed(2).replace(/\.?0+$/, '')} %: Erfolgsquote ${v.toFixed(1)} %`} style={{
-                            background: vColor, color: fg, textAlign: 'center', fontFamily: "'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace",
+                            background: vColor, color: fg, textAlign: 'center', fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif",
                             padding: '5px 4px', minWidth: 48, borderRadius: 4, border: isBase ? '3px solid #FFD700' : '1px solid rgba(255,255,255,0.5)', boxShadow: isBase ? '0 0 0 1px #FFFFFF, 0 0 9px rgba(255,215,0,0.95)' : 'none', fontWeight: isBase ? 700 : 500,
                           }}>
                             {v.toFixed(1)}
