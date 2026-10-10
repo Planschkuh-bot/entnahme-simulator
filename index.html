@@ -640,7 +640,7 @@ function aggregate(paths, horizon) {
   };
 }
 
-function runMonteCarloPaths(p) {
+function runMonteCarlo(p) {
   seedRng(p.seed);
   const { eq, gold, cash, bond, rhoEqGold, rhoEqBond } = ASSUMPTIONS;
   // Monatliche Parameter aus den jährlichen Annahmen abgeleitet (geometrisches Mittel / sqrt(12)-Vol).
@@ -665,7 +665,7 @@ function runMonteCarloPaths(p) {
     }
     paths.push(simulateWithdrawalBuckets(p.vermoegen, eqR, goldR, cashR, bondR, btcR, wEq, wGold, wCash, wBond, wBtc, p));
   }
-  return paths;
+  return aggregate(paths, p.horizon);
 }
 
 // Welt-Aktien-Proxy 1970-2025: 65% US Large Cap (S&P 500) + 35% internationale Industrieländer (MSCI EAFE),
@@ -712,7 +712,7 @@ const MONTHLY_BOND_WORLD = MONTHLY_CASH_WORLD.map((_, i) => {
   return Math.pow(1.025 / (1 + row.cpi / 100), 1 / 12) - 1;
 });
 
-function runHistoricalRollingPaths(p) {
+function runHistoricalRolling(p) {
   seedRng(p.seed);
   const wEq = p.aktien / 100, wGold = p.gold / 100, wCash = p.cash / 100, wBond = p.anleihen / 100, wBtc = p.bitcoin / 100;
   const horizonM = p.horizon * 12;
@@ -726,10 +726,10 @@ function runHistoricalRollingPaths(p) {
     const btcR = generateBtcReturnsMonthly(horizonM);
     paths.push(simulateWithdrawalBuckets(p.vermoegen, eqR, goldR, cashR, bondR, btcR, wEq, wGold, wCash, wBond, wBtc, p));
   }
-  return paths;
+  return aggregate(paths, p.horizon);
 }
 
-function runWorldRollingPaths(p) {
+function runWorldRolling(p) {
   seedRng(p.seed);
   const wEq = p.aktien / 100, wGold = p.gold / 100, wCash = p.cash / 100, wBond = p.anleihen / 100, wBtc = p.bitcoin / 100;
   const horizonM = p.horizon * 12;
@@ -743,10 +743,10 @@ function runWorldRollingPaths(p) {
     const btcR = generateBtcReturnsMonthly(horizonM);
     paths.push(simulateWithdrawalBuckets(p.vermoegen, eqR, goldR, cashR, bondR, btcR, wEq, wGold, wCash, wBond, wBtc, p));
   }
-  return paths;
+  return aggregate(paths, p.horizon);
 }
 
-function runHistoricalBootstrapPaths(p) {
+function runHistoricalBootstrap(p) {
   seedRng(p.seed);
   const wEq = p.aktien / 100, wGold = p.gold / 100, wCash = p.cash / 100, wBond = p.anleihen / 100, wBtc = p.bitcoin / 100;
   const srcEq = p.bootstrapSource === 'world' ? MONTHLY_EQ_WORLD : MONTHLY_EQ_SP;
@@ -768,7 +768,7 @@ function runHistoricalBootstrapPaths(p) {
     const btcR = generateBtcReturnsMonthly(horizonM);
     paths.push(simulateWithdrawalBuckets(p.vermoegen, eqR, goldR, cashR, bondR, btcR, wEq, wGold, wCash, wBond, wBtc, p));
   }
-  return paths;
+  return aggregate(paths, p.horizon);
 }
 
 // ---------- UI helpers ----------
@@ -1006,45 +1006,11 @@ function FailTooltip({ active, payload, label, startAge = 67 }) {
 
 // ---------- Main Component ----------
 
-// Liefert die rohen Pfade eines Modus ohne Aggregation — Basis für die Heatmap, die alle
-// Horizonte aus demselben Pfad-Batch als Präfix auswertet.
-function runPathsForMode(mode, params) {
-  if (mode === 'montecarlo') return runMonteCarloPaths(params);
-  if (mode === 'bootstrap') return runHistoricalBootstrapPaths(params);
-  if (mode === 'world') return runWorldRollingPaths(params);
-  return runHistoricalRollingPaths(params);
-}
-
 function runForMode(mode, params) {
-  return aggregate(runPathsForMode(mode, params), params.horizon);
-}
-
-// Erfolgsquote der ersten `years` Jahre aus einem gemeinsamen Pfad-Batch (Präfix-Auswertung).
-// Ein längerer Horizont hängt nur zusätzliche Jahre an — bereits ausgefallene Pfade bleiben
-// ausgefallen — dadurch sind die Heatmap-Zeilen automatisch monoton fallend.
-function prefixSuccessStats(paths, years) {
-  const n = paths.length;
-  if (n === 0) return null;
-  let ok = 0;
-  for (const res of paths) {
-    let failed = false;
-    for (let t = 0; t < years && t < res.failedByYear.length; t++) {
-      if (res.failedByYear[t]) { failed = true; break; }
-    }
-    if (!failed) ok++;
-  }
-  const successRate = (ok / n) * 100;
-  const [ciLow, ciHigh] = wilsonCI(successRate, n);
-  return { successRate, n, ciLow, ciHigh };
-}
-
-// Größtmögliche Laufzeit der rollierenden Modi: nur so lange Fenster passen vollständig in die
-// Datenreihe (S&P ab 1872 bzw. Welt-Proxy ab 1970). Bootstrap und Monte Carlo sind datenbasiert
-// unbegrenzt (Blöcke/Pfade werden mit Zurücklegen erzeugt).
-function maxRollingHorizon(mode) {
-  if (mode === 'world') return Math.floor(MONTHLY_EQ_WORLD.length / 12);
-  if (mode === 'bootstrap' || mode === 'montecarlo') return 60;
-  return Math.floor(MONTHLY_EQ_SP.length / 12);
+  if (mode === 'montecarlo') return runMonteCarlo(params);
+  if (mode === 'bootstrap') return runHistoricalBootstrap(params);
+  if (mode === 'world') return runWorldRolling(params);
+  return runHistoricalRolling(params);
 }
 
 // Verzögert eine Werteübernahme um `delay` ms — glättet das Neuberechnen der Simulation beim
@@ -1221,10 +1187,6 @@ function EntnahmeSimulator() {
   }
 
   // ---- Erfolgsquote-Heatmap: Entnahmehorizont × Startentnahmerate ----
-  // Alle Horizonte werden aus einem gemeinsamen Pfad-Batch als Präfix ausgewertet: pro Rate wird
-  // einmal der längste Horizont simuliert, kürzere Laufzeiten sehen nur die ersten Jahre desselben
-  // Pfads. Damit unterscheiden Zellen unterschiedlicher Zeilen nur den Horizonteffekt, nicht eine
-  // wechselnde Startpopulation oder neue Zufallsziehungen.
   function computeHeatmap() {
     setHeatmapLoading(true);
     setTimeout(() => {
@@ -1232,7 +1194,7 @@ function EntnahmeSimulator() {
       const base = { vermoegen: d.vermoegen, aktien: d.aktien, gold: d.gold, cash: d.cash, bitcoin: d.bitcoin,
         staticRate: d.staticRate, dynStartRate: d.dynStartRate, ceiling: d.ceiling, floor: d.floor,
         gkGuardrailPct: d.gkGuardrailPct, gkAdjustStep: d.gkAdjustStep,
-        horizon: d.horizon, numSims: 2500, blockLen: d.blockLen, anleihen: d.anleihen,
+        horizon: d.horizon, numSims: 800, blockLen: d.blockLen, anleihen: d.anleihen,
         bootstrapSource: d.bootstrapSource, startAge: d.startAge, pensionStartAge: d.pensionStartAge,
         pensionAnnual: d.pensionAnnual, rentalIncomeByYear: d.rentalIncomeByYear, seed: d.seed,
         entnahmeStrategie: d.entnahmeStrategie, eimerStrategie: d.eimerStrategie, entnahmeFrequenz: d.entnahmeFrequenz, etfTer: d.etfTer };
@@ -1247,36 +1209,26 @@ function EntnahmeSimulator() {
         for (let i = 1; i < offsets.length; i++) rates.push(Number((d.dynStartRate + offsets[i]).toFixed(2)));
         rates = rates.filter((r) => r >= minRate).sort((a, b) => a - b);
       }
-      // Gemeinsamer Horizont: längster verfügbarer Horizont (auf die Datenlänge begrenzt), sodass
-      // genügend Startfenster in die Kohorte passen (Sonst: zu kleine Stichprobe, graue Zellen).
-      const isRolling = d.mode !== 'bootstrap' && d.mode !== 'montecarlo';
-      const totalMonths = d.mode === 'world' ? MONTHLY_EQ_WORLD.length : MONTHLY_EQ_SP.length;
-      const windowsAt = (h) => totalMonths - h * 12 + 1;
-      const MIN_SAMPLE = 50;
-      let maxH = Math.floor(Math.min(60, maxRollingHorizon(d.mode)) / 5) * 5;
-      while (maxH > 20 && isRolling && windowsAt(maxH) < MIN_SAMPLE) maxH -= 5;
       const horizons = [];
-      for (let h = 20; h <= maxH + 1e-6; h += 5) horizons.push(h);
-      if (horizons.length === 0) {
-        setHeatmap(null);
-        setHeatmapLoading(false);
-        return;
+      for (let h = 20; h <= 60 + 1e-6; h += 5) horizons.push(h);
+      const grid = [];
+      for (const h of horizons) {
+        const row = [];
+        for (const rate of rates) {
+          row.push(runForMode(d.mode, Object.assign({}, base, { horizon: h, dynStartRate: rate })).successRate);
+        }
+        grid.push(row);
       }
-      const cols = [];
-      for (const rate of rates) {
-        const paths = runPathsForMode(d.mode, Object.assign({}, base, { horizon: maxH, dynStartRate: rate }));
-        cols.push(horizons.map((h) => prefixSuccessStats(paths, h)));
-      }
-      const grid = horizons.map((h, ai) => rates.map((r, ri) => (cols[ri][ai] ? cols[ri][ai].successRate : null)));
-      const stats = horizons.map((h, ai) => rates.map((r, ri) => cols[ri][ai]));
-      // Monotonie über die Rate: eine höhere Entnahmerate darf die Erfolgsquote nicht erhöhen
-      // (identische Renditedaten je Spalte durch denselben Seed). Die Monotonie über den Horizont
-      // ergibt sich bereits aus der Präfix-Auswertung und muss nicht erzwungen werden.
+      // Monotonitäts-Korrektur: Mit längerem Horizont oder höherer Entnahmerate kann die Erfolgsquote nur
+      // gleich bleiben oder fallen (längerer Zeitraum / höhere Entnahme fügt nur zusätzliche Verlustpfade hinzu).
+      for (let ri = 0; ri < rates.length; ri++)
+        for (let ai = 1; ai < horizons.length; ai++)
+          grid[ai][ri] = Math.min(grid[ai][ri], grid[ai - 1][ri]);
       for (let ai = 0; ai < horizons.length; ai++)
         for (let ri = 1; ri < rates.length; ri++)
-          if (grid[ai][ri] != null && grid[ai][ri - 1] != null) grid[ai][ri] = Math.min(grid[ai][ri], grid[ai][ri - 1]);
+          grid[ai][ri] = Math.min(grid[ai][ri], grid[ai][ri - 1]);
       const nearestIn = (arr, v) => arr.reduce((a, b) => Math.abs(b - v) < Math.abs(a - v) ? b : a);
-      setHeatmap({ grid, stats, xLabels: rates, yLabels: horizons, baseRate: d.dynStartRate, baseHorizon: d.horizon,
+      setHeatmap({ grid, xLabels: rates, yLabels: horizons, baseRate: d.dynStartRate, baseHorizon: d.horizon,
         nearestHorizon: nearestIn(horizons, d.horizon), nearestRate: nearestIn(rates, d.dynStartRate) });
       setHeatmapLoading(false);
     }, 50);
@@ -1487,6 +1439,109 @@ function EntnahmeSimulator() {
                   {guideOpen[it.id] && <div style={{ padding: '8px 12px 12px', fontSize: 12, color: '#5B6B65', lineHeight: 1.6 }}>{it.text}</div>}
                 </div>
               ))}
+
+              <div style={{ marginTop: 16, color: '#1C2521', fontWeight: 600, fontSize: 12.5 }}>Diagramme</div>
+
+              <div key="hm" style={{ border: '1px solid #E3E8E5', borderRadius: 8, marginBottom: 6, background: '#FAFBFA', overflow: 'hidden' }}>
+                <button onClick={() => toggleGuide('hm')} style={{
+                  width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer',
+                  padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                }}>
+                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>Erfolgsquote-Heatmap</span>
+                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.hm ? '▲ einklappen' : '▼ aufklappen'}</span>
+                </button>
+                {guideOpen.hm && (
+                  <div style={{ padding: '8px 12px 12px', fontSize: 12, color: '#5B6B65', lineHeight: 1.6 }}>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Was zeigt die Heatmap?</div>
+                    <div style={{ marginBottom: 8 }}>Die Heatmap vergleicht Erfolgsquoten über verschiedene Entnahmehorizonte (Zeilen: 20 bis 60 Jahre) und Startentnahmeraten (Spalten). Grün = hohe Erfolgsquote, Rot = niedrig. Die gelb umrandete Zelle markiert die deiner aktuellen Einstellung nächstgelegene Kombination.</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Wie wird sie berechnet?</div>
+                    <div style={{ marginBottom: 8 }}>Für jede Zelle (Horizont × Rate) wird eine separate Simulation mit 800 Stichproben durchgeführt (im historischen Modus: alle rollierenden Fenster). Die Erfolgsquote zählt, in wie vielen Verläufen die volle Entnahme über den gesamten Horizont geleistet werden konnte — ohne dass das Portfolio vorzeitig leerläuft. Die Zellen sind unabhängig voneinander berechnet.</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Monotonie-Korrektur</div>
+                    <div style={{ marginBottom: 8 }}>Nach der Berechnung wird die Matrix monotone gemacht: Ein längerer Horizont darf nie eine höhere Quote haben als ein kürzerer (gleiche Rate), und eine höhere Entnahmerate darf nie eine höhere Quote haben als eine niedrigere (gleicher Horizont). Die Korrektur setzt Werte nur herab, nie herauf — sie glättet statistisches Rauschen.</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Einschränkungen</div>
+                    <div style={{ marginBottom: 8, whiteSpace: 'pre-line' }}>• Historische Modi: Bei langen Horizonten schrumpft die Zahl der Startfenster (z. B. nur noch bis 1965 für 60 J.). Die Quoten basieren auf weniger, aber überlappenden Fenstern — nicht auf unabhängigen Pfaden.
+• Welt-Proxy: Datenbasis 1970–2025 (56 J.). Ab ~50 Jahren sind es nur 1–2 Fenster → Quote kaum aussagekräftig.
+• Bootstrap/Monte Carlo: 800 Pfade geben ein Konfidenzintervall von ca. ±3 % bei 95 % Quote. Mehr Stichproben (oben wählbar) erhöhen die Präzision.</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Typische Fehlinterpretationen</div>
+                    <div style={{ whiteSpace: 'pre-line' }}>• „Bei 4% und 30 J. 95% → bei 60 J. auch 95%“ — Sequenzrisiko wirkt oft verzögert; Quote fällt meist mit dem Horizont.
+• Hohe Quote ≠ hohes Endvermögen. Erfolgsdefinition: keine Ausfalljahre; Restkapital kann knapp sein.
+• Rente/Miete sind eingerechnet: needRaw = Entnahme − Rente − Miete. Hohe Pensionsansprüche lassen Quote gegen 100 % laufen.</div>
+                  </div>
+                )}
+              </div>
+
+              <div key="vc" style={{ border: '1px solid #E3E8E5', borderRadius: 8, marginBottom: 6, background: '#FAFBFA', overflow: 'hidden' }}>
+                <button onClick={() => toggleGuide('vc')} style={{
+                  width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer',
+                  padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                }}>
+                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>Vermögensverlauf</span>
+                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.vc ? '▲ einklappen' : '▼ aufklappen'}</span>
+                </button>
+                {guideOpen.vc && (
+                  <div style={{ padding: '8px 12px 12px', fontSize: 12, color: '#5B6B65', lineHeight: 1.6 }}>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Was zeigt das Diagramm?</div>
+                    <div style={{ marginBottom: 8 }}>Der Vermögensverlauf zeigt die Entwicklung des Gesamtportfolios über die Laufzeit. Die drei Linien/Flächen entsprechen dem 10., 50. (Median) und 90. Perzentil aller simulierten Pfade. Der grüne Bereich dazwischen visualisiert den typischen Korridor (80 % der Pfade liegen darin).</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Real vs. nominal</div>
+                    <div style={{ marginBottom: 8 }}>Mit „Heutige Kaufkraft“ (Standard) sind die Werte inflationsbereinigt — 100.000 € bedeuten heute 100.000 € Kaufkraft. Ohne Häkchen werden nominale Beträge gezeigt, die die Inflation miteinbeziehen (die Kurve steigt dann oft künstlich an).</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Rentenbeginn</div>
+                    <div style={{ marginBottom: 8 }}>Die gestrichelte vertikale Linie (falls sichtbar) markiert den Rentenbeginn. Ab diesem Zeitpunkt fließen GRV-Rente und ggf. Mieteinnahmen in die Entnahme ein, was den Vermögensabbau verlangsamt.</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Interpretation</div>
+                    <div style={{ whiteSpace: 'pre-line' }}>• Median (Mitte): „Typischer“ Verlauf — aber 50 % der Pfade verlaufen schlechter.
+• 10. Perzentil (unterer Rand): Stresstest — nur 10 % der Pfade liegen darunter.
+• 90. Perzentil (oberer Rand): Günstiges Szenario — 90 % der Pfade liegen darunter.
+• Wenn der untere Rand gegen 0 geht: hohes Ausfallrisiko.</div>
+                  </div>
+                )}
+              </div>
+
+              <div key="ec" style={{ border: '1px solid #E3E8E5', borderRadius: 8, marginBottom: 6, background: '#FAFBFA', overflow: 'hidden' }}>
+                <button onClick={() => toggleGuide('ec')} style={{
+                  width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer',
+                  padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                }}>
+                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>Entnahmeverlauf</span>
+                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.ec ? '▲ einklappen' : '▼ aufklappen'}</span>
+                </button>
+                {guideOpen.ec && (
+                  <div style={{ padding: '8px 12px 12px', fontSize: 12, color: '#5B6B65', lineHeight: 1.6 }}>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Was zeigt das Diagramm?</div>
+                    <div style={{ marginBottom: 8 }}>Der Entnahmeverlauf zeigt, wie hoch die jährliche Entnahme (in Euro) über die Laufzeit ausfällt. Wieder als 10./50./90. Perzentil. Bei der dynamischen Strategie wird zusätzlich die Bodenlinie (gestrichelt) angezeigt — der absolute Mindestbetrag, der nie unterschritten wird (statische Referenzrate × Startvermögen, inflationsbereinigt).</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Nach Abzug der GRV-Rente</div>
+                    <div style={{ marginBottom: 8 }}>Die orangene Linie „Nach Abzug GRV“ zeigt die Netto-Entnahme aus dem Portfolio (Entnahme − Rente − Miete). Das ist der Betrag, den das Depot tatsächlich liefern muss. Wenn diese Linie bei 0 oder darunter liegt, deckt die Rente den Bedarf vollständig.</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Real vs. nominal</div>
+                    <div style={{ marginBottom: 8 }}>Gleiche Umschaltung wie beim Vermögensverlauf. Im Real-Modus ist die Kaufkraft der Entnahme über die Jahre direkt vergleichbar.</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Interpretation</div>
+                    <div style={{ whiteSpace: 'pre-line' }}>• Steigende Entnahme (dynamisch): Portfolio wächst, Entnahme partizipiert (Ceiling begrenzt).
+• Fallende Entnahme: Portfolio schrumpft, Floor begrenzt den Absturz.
+• Konstante Entnahme (Bengen/Statisch): Linie verläuft flach (real), nur bei Ausfall bricht sie ein.
+• Große Spreizung (Bandbreite 10.–90.) = hohes Unsicherheitsrisiko für die Planung.</div>
+                  </div>
+                )}
+              </div>
+
+              <div key="fc" style={{ border: '1px solid #E3E8E5', borderRadius: 8, marginBottom: 6, background: '#FAFBFA', overflow: 'hidden' }}>
+                <button onClick={() => toggleGuide('fc')} style={{
+                  width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer',
+                  padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                }}>
+                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>Ausfallwahrscheinlichkeit</span>
+                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.fc ? '▲ einklappen' : '▼ aufklappen'}</span>
+                </button>
+                {guideOpen.fc && (
+                  <div style={{ padding: '8px 12px 12px', fontSize: 12, color: '#5B6B65', lineHeight: 1.6 }}>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Was zeigt das Diagramm?</div>
+                    <div style={{ marginBottom: 8 }}>Die Ausfallwahrscheinlichkeit (kumulativ) zeigt für jedes Lebensjahr, wie viel Prozent der simulierten Pfade bis zu diesem Zeitpunkt bereits gescheitert sind (Portfolio konnte die volle Entnahme nicht mehr leisten). Die rote horizontale Linie bei 2,5 % markiert ein gängiges Sicherheitsziel: Das Ausfallrisiko sollte idealerweise über den gesamten Horizont darunter bleiben.</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Kumulativ vs. jährlich</div>
+                    <div style={{ marginBottom: 8 }}>„Kumulativ“ bedeutet: Ein Pfad, der in Jahr 17 scheitert, wird in allen Folgejahren weiter als „gescheitert“ gezählt. Die Kurve kann also nur steigen oder flach bleiben, nie fallen.</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Interpretation</div>
+                    <div style={{ whiteSpace: 'pre-line' }}>• Kurve steigt früh stark an: Sequenzrisiko in den ersten 10–15 Jahren (schlechte Renditen zu Beginn).
+• Kurve flach bei 0–2 % über 30+ Jahre: Sehr robuste Strategie.
+• Sprung nach Rentenbeginn: Wenn Rente einsetzt, sinkt der Bedarf aus dem Portfolio → Ausfallwahrscheinlichkeit wächst langsamer.
+• Ende der Kurve = 100 % − Erfolgsquote der Heatmap (für den gewählten Horizont).</div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -1975,7 +2030,7 @@ function EntnahmeSimulator() {
             </button>
           </div>
           <div style={{ fontSize: 11, color: '#5B6B65', marginBottom: 12 }}>
-            Entnahmehorizont × Startentnahmerate — Erfolgsquote in %. Grün = sicher, rot = riskant. Alle Zeilen basieren auf demselben Pfad-Batch (Startfenster, die in den längsten Horizont passen), sind dadurch also direkt über die Laufzeiten vergleichbar. Im Tooltip stehen 95%-Konfidenzintervall und Stichprobengröße; Zellen mit weniger als 50 Pfaden erscheinen grau (n/v). Die deiner Einstellung nächstgelegene Zelle ist umrandet.
+            Entnahmehorizont × Startentnahmerate — Erfolgsquote in %. Grün = sicher, rot = riskant. 800 Stichproben pro Zelle (Rollierende Modi dauern länger). Die deiner Einstellung nächstgelegene Zelle ist umrandet.
           </div>
           {!heatmap && !heatmapLoading && (
             <div style={{ fontSize: 11, color: '#5B6B65', fontStyle: 'italic' }}>Auf „Berechnen" klicken, um die Heatmap zu erstellen.</div>
@@ -1996,21 +2051,15 @@ function EntnahmeSimulator() {
                     <tr key={heatmap.yLabels[ai]}>
                       <td style={{ position: 'sticky', left: 0, zIndex: 2, background: '#FFFFFF', boxShadow: '1px 0 0 #D3DAD6', padding: '3px 6px', color: '#5B6B65', fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>{heatmap.yLabels[ai]} J.</td>
                       {row.map((v, ri) => {
-                        const st = heatmap.stats[ai][ri];
-                        const insufficient = v == null || !st || st.n < 50;
                         const isBase = heatmap.yLabels[ai] === heatmap.nearestHorizon && Math.abs(heatmap.xLabels[ri] - heatmap.nearestRate) < 1e-9;
-                        const vColor = insufficient ? '#E3E8E5' : v >= 97.5 ? '#2F5D62' : v >= 90 ? '#C08A2E' : '#A8432F';
-                        const fg = insufficient ? '#5B6B65' : '#FFFFFF';
-                        const rateLabel = Number.isInteger(heatmap.xLabels[ri]) ? heatmap.xLabels[ri] : heatmap.xLabels[ri].toFixed(2).replace(/\.?0+$/, '');
-                        const title = insufficient
-                          ? `Horizont ${heatmap.yLabels[ai]} J., Rate ${rateLabel} %: zu kleine Stichprobe (n = ${st ? st.n : 0}) — keine Aussagekraft`
-                          : `Horizont ${heatmap.yLabels[ai]} J., Rate ${rateLabel} %: Erfolgsquote ${v.toFixed(1)} % (95 %-KI ${st.ciLow.toFixed(1)}–${st.ciHigh.toFixed(1)} %, n = ${st.n} Pfade)`;
+                        const vColor = v >= 97.5 ? '#2F5D62' : v >= 90 ? '#C08A2E' : '#A8432F';
+                        const fg = '#FFFFFF';
                         return (
-                          <td key={ri} title={title} style={{
+                          <td key={ri} title={`Horizont ${heatmap.yLabels[ai]} J., Rate ${Number.isInteger(heatmap.xLabels[ri]) ? heatmap.xLabels[ri] : heatmap.xLabels[ri].toFixed(2).replace(/\.?0+$/, '')} %: Erfolgsquote ${v.toFixed(1)} %`} style={{
                             background: vColor, color: fg, textAlign: 'center', fontFamily: "'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace",
                             padding: '5px 4px', minWidth: 48, borderRadius: 4, border: isBase ? '3px solid #FFD700' : '1px solid rgba(255,255,255,0.5)', boxShadow: isBase ? '0 0 0 1px #FFFFFF, 0 0 9px rgba(255,215,0,0.95)' : 'none', fontWeight: isBase ? 700 : 500,
                           }}>
-                            {insufficient ? 'n/v' : v.toFixed(1)}
+                            {v.toFixed(1)}
                           </td>
                         );
                       })}
