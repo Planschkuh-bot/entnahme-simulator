@@ -1383,6 +1383,7 @@ function EntnahmeSimulator() {
     const wachstum = { vermoegen: 400000, aktien: 85, gold: 3, bitcoin: 2, anleihen: 5, wohnung: 0, etfTer: 0.17, staticRate: 6, dynStartRate: 8.5, ceiling: 5, floor: -2.5, horizon: 35, blockLen: 5, startAge: 63, rentenpunkte: 40, pensionStartAge: 63, numSims: 2500, seed: 0 };
     const flexibel = { vermoegen: 700000, aktien: 70, gold: 10, bitcoin: 0, anleihen: 10, wohnung: 0, etfTer: 0.14, staticRate: 4.5, dynStartRate: 5, ceiling: 5, floor: -2.5, horizon: 40, blockLen: 5, startAge: 55, rentenpunkte: 35, pensionStartAge: 65, numSims: 2500, seed: 0 };
     const minimalist = { vermoegen: 400000, aktien: 90, gold: 2, bitcoin: 3, anleihen: 0, wohnung: 0, etfTer: 0.1, staticRate: 4.5, dynStartRate: 6, ceiling: 5, floor: -2.5, horizon: 50, blockLen: 5, startAge: 45, rentenpunkte: 30, pensionStartAge: 65, numSims: 2500, seed: 0 };
+    const fatfire = { vermoegen: 3000000, aktien: 98, gold: 0, bitcoin: 0, anleihen: 0, wohnung: 0, etfTer: 0.2, staticRate: 2, dynStartRate: 2.5, ceiling: 5, floor: -2.5, horizon: 60, blockLen: 5, startAge: 40, rentenpunkte: 25, pensionStartAge: 67, numSims: 2500, seed: 6 };
     const match = (p) => vermoegen === p.vermoegen && aktien === p.aktien && gold === p.gold && bitcoin === p.bitcoin && anleihen === p.anleihen && wohnung === p.wohnung && etfTer === p.etfTer && staticRate === p.staticRate && dynStartRate === p.dynStartRate && ceiling === p.ceiling && floor === p.floor && horizon === p.horizon && blockLen === p.blockLen && startAge === p.startAge && rentenpunkte === p.rentenpunkte && pensionStartAge === p.pensionStartAge && numSims === p.numSims && seed === p.seed;
     if (match(rentner)) return 'rentner';
     if (match(fireFan)) return 'fire-fan';
@@ -1392,6 +1393,7 @@ function EntnahmeSimulator() {
     if (match(wachstum)) return 'wachstum';
     if (match(flexibel)) return 'flexibel';
     if (match(minimalist)) return 'minimalist';
+    if (match(fatfire)) return 'fatfire';
     return '';
   }, [vermoegen, aktien, gold, bitcoin, anleihen, wohnung, etfTer, staticRate, dynStartRate, ceiling, floor, horizon, blockLen, startAge, rentenpunkte, pensionStartAge, numSims, seed]);
   function shareConfig() {
@@ -1433,6 +1435,8 @@ function EntnahmeSimulator() {
       values = { vermoegen: 700000, aktien: 70, gold: 10, bitcoin: 0, anleihen: 10, wohnung: 0, etfTer: 0.14, staticRate: 4.5, dynStartRate: 5, ceiling: 5, floor: -2.5, gkGuardrailPct: 20, gkAdjustStep: 10, horizon: 40, blockLen: 5, bootstrapSource: 'sp500', startAge: 55, rentenpunkte: 35, pensionStartAge: 65, grvBerechnen: true, entnahmeStrategie: 'dynamisch', eimerStrategie: true, entnahmeFrequenz: 'monatlich', heutigeKaufkraft: true, inflationRate: 2, numSims: 2500, seed: 0 };
     } else if (preset === 'minimalist') {
       values = { mode: 'rolling', vermoegen: 400000, aktien: 90, gold: 2, bitcoin: 3, anleihen: 0, wohnung: 0, etfTer: 0.1, staticRate: 4.5, dynStartRate: 6, ceiling: 5, floor: -2.5, gkGuardrailPct: 20, gkAdjustStep: 10, horizon: 50, blockLen: 5, bootstrapSource: 'sp500', startAge: 45, rentenpunkte: 30, pensionStartAge: 65, grvBerechnen: true, entnahmeStrategie: 'dynamisch', eimerStrategie: true, entnahmeFrequenz: 'monatlich', heutigeKaufkraft: true, inflationRate: 2, numSims: 2500, seed: 0 };
+    } else if (preset === 'fatfire') {
+      values = { vermoegen: 3000000, aktien: 98, gold: 0, bitcoin: 0, anleihen: 0, wohnung: 0, etfTer: 0.2, staticRate: 2, dynStartRate: 2.5, ceiling: 5, floor: -2.5, gkGuardrailPct: 20, gkAdjustStep: 10, horizon: 60, blockLen: 5, bootstrapSource: 'sp500', startAge: 40, rentenpunkte: 25, pensionStartAge: 67, grvBerechnen: true, entnahmeStrategie: 'dynamisch', eimerStrategie: true, entnahmeFrequenz: 'jaehrlich', heutigeKaufkraft: true, inflationRate: 2, numSims: 2500, seed: 6 };
     } else {
       values = { vermoegen: 1150000, aktien: 87, gold: 7, bitcoin: 0, anleihen: 0, wohnung: 0, etfTer: 0.2, staticRate: 2.5, dynStartRate: 3.2, ceiling: 5, floor: -2.5, horizon: 45, blockLen: 5, bootstrapSource: 'sp500', startAge: 50, rentenpunkte: 30, pensionStartAge: 67, entnahmeStrategie: 'dynamisch', entnahmeFrequenz: 'jaehrlich', heutigeKaufkraft: true, inflationRate: 2, numSims: 2500, seed: 0 };
     }
@@ -1877,6 +1881,8 @@ function EntnahmeSimulator() {
             <option value="wachstum">📈 Wachstum (Mutig)</option>
             <option value="flexibel">🔄 Flexibel (Mit Gold-Puffer)</option>
             <option value="minimalist">🏔️ Minimalist (FIRE)</option>
+            <optgroup label="— Fat FIRE —" />
+            <option value="fatfire">💎 Fat FIRE (3M, 60J, 2,5%)</option>
           </select>
         </div>
 
