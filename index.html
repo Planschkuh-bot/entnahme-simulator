@@ -1803,7 +1803,7 @@ function EntnahmeSimulator() {
             <Slider label="Entnahmehorizont" value={horizon} min={20} max={60} step={1}
               onChange={setHorizon} format={(v) => v + ' Jahre'}
               tip="Wie viele Jahre die Entnahmephase dauern soll — das Portfolio muss diesen Zeitraum überbrücken." />
-            <div style={{ marginBottom: 4 }}>
+            <div style={{ marginBottom: 20 }}>
               <div style={{ fontSize: 12, color: '#5B6B65', marginBottom: 6, display: 'flex', alignItems: 'center' }}>Entnahme-Frequenz<InfoDot text="Wie oft du im Jahr entnimmst. 'Monatlich' verteilt die Entnahmesumme; 'Jährlich' entnimmt den Jahresbetrag auf einmal zu Jahresbeginn (echter Cash-Puffer, aber engere Grenzfälle)." /></div>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button onClick={() => setEntnahmeFrequenz('monatlich')} style={{
