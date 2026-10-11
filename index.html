@@ -34,7 +34,7 @@
         async src="//gc.zgo.at/count.js"></script>
   <script type="text/babel">
     const { useState, useMemo, useEffect } = React;
-    const { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } = Recharts;
+    const { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip: RechartsTooltip, ResponsiveContainer, ReferenceLine } = Recharts;
 
 
 // ---------- Historical data: S&P 500 (incl. dividends), Gold, 3M T-Bill, US CPI ----------
@@ -820,7 +820,7 @@ function InfoDot({ text }) {
   );
 }
 
-function Slider({ label, value, min, max, step, onChange, format, hint, tip }) {
+function Slider({ label, value, min, max, step, onChange, format, hint, tip, dynamicColor = false }) {
   const nudge = (dir) => {
     const next = Math.min(max, Math.max(min, parseFloat((value + dir * step).toPrecision(12))));
     if (next !== value) onChange(next);
@@ -830,26 +830,31 @@ function Slider({ label, value, min, max, step, onChange, format, hint, tip }) {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
     borderRadius: 4, border: '1px solid #D3DAD6', background: '#FFFFFF',
     color: '#5B6B65', fontSize: 13, lineHeight: 1, cursor: 'pointer',
+    transition: 'all 0.15s ease',
   };
+  const isActive = dynamicColor && value > min;
+  const accentColor = isActive ? '#2F5D62' : '#9BA8A4';
   return (
-    <div style={{ marginBottom: 14 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, gap: 8 }}>
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 8 }}>
         <span style={{ fontSize: 12, color: '#5B6B65', display: 'flex', alignItems: 'center' }}>
           {label}
           {tip && <InfoDot text={tip} />}
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
           <span style={{ fontSize: 12, fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif", color: '#1C2521' }}>
-            {format ? format(value) : value}
+            {format ? format(value) : value.toLocaleString('de-DE')}
           </span>
-          <button type="button" onClick={() => nudge(-1)} title={`${label} verringern`} style={btnStyle}>−</button>
-          <button type="button" onClick={() => nudge(1)} title={`${label} erhöhen`} style={btnStyle}>+</button>
+          <button type="button" onClick={() => nudge(-1)} title={`${label} verringern`} style={btnStyle} onFocus={(e) => { e.target.style.boxShadow = '0 0 0 2px rgba(47, 93, 98, 0.4)'; e.target.style.borderColor = '#2F5D62'; }} onBlur={(e) => { e.target.style.boxShadow = ''; e.target.style.borderColor = '#D3DAD6'; }}>−</button>
+          <button type="button" onClick={() => nudge(1)} title={`${label} erhöhen`} style={btnStyle} onFocus={(e) => { e.target.style.boxShadow = '0 0 0 2px rgba(47, 93, 98, 0.4)'; e.target.style.borderColor = '#2F5D62'; }} onBlur={(e) => { e.target.style.boxShadow = ''; e.target.style.borderColor = '#D3DAD6'; }}>+</button>
         </span>
       </div>
       <input type="range" min={min} max={max} step={step} value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
-        style={{ width: '100%', accentColor: '#2F5D62' }} />
-      {hint && <div style={{ fontSize: 10.5, color: '#5B6B65', marginTop: 2 }}>{hint}</div>}
+        style={{ width: '100%', accentColor }}
+        onFocus={(e) => { e.target.style.outline = 'none'; e.target.style.boxShadow = '0 0 0 3px rgba(47, 93, 98, 0.3)'; }}
+        onBlur={(e) => { e.target.style.boxShadow = ''; }} />
+      {hint && <div style={{ fontSize: 10.5, color: '#5B6B65', marginTop: 8 }}>{hint}</div>}
     </div>
   );
 }
@@ -1514,22 +1519,23 @@ function EntnahmeSimulator() {
                   width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer',
                   padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 }}>
-                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>Entnahmeverlauf</span>
+                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>Entnahmeverlauf der gewählten Strategie</span>
                   <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.ec ? '▲ einklappen' : '▼ aufklappen'}</span>
                 </button>
                 {guideOpen.ec && (
                   <div style={{ padding: '8px 12px 12px', fontSize: 12, color: '#5B6B65', lineHeight: 1.6 }}>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Was zeigt das Diagramm?</div>
-                    <div style={{ marginBottom: 8 }}>Der Entnahmeverlauf zeigt, wie hoch die jährliche Entnahme (in Euro) über die Laufzeit ausfällt. Wieder als 10./50./90. Perzentil. Bei der dynamischen Strategie wird zusätzlich die Bodenlinie (gestrichelt) angezeigt — der absolute Mindestbetrag, der nie unterschritten wird (statische Referenzrate × Startvermögen, inflationsbereinigt).</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Was zeigt die Tabelle?</div>
+                    <div style={{ marginBottom: 8 }}>Die Tabelle „Entnahmeverlauf der gewählten Strategie“ listet für jedes Jahr des Horizonts die Entnahme (in Euro) für die aktuell gewählte Strategie auf. Dargestellt sind das 10., 50. (Median) und 90. Perzentil aller simulierten Pfade. Bei der dynamischen Strategie wird zusätzlich die Bodenlinie (Floor) als eigene Spalte ausgewiesen — der absolute Mindestbetrag, der nie unterschritten wird (statische Referenzrate × Startvermögen, inflationsbereinigt).</div>
                     <div style={{ marginBottom: 10, fontWeight: 600 }}>Nach Abzug der GRV-Rente</div>
-                    <div style={{ marginBottom: 8 }}>Die orangene Linie „Nach Abzug GRV“ zeigt die Netto-Entnahme aus dem Portfolio (Entnahme − Rente − Miete). Das ist der Betrag, den das Depot tatsächlich liefern muss. Wenn diese Linie bei 0 oder darunter liegt, deckt die Rente den Bedarf vollständig.</div>
+                    <div style={{ marginBottom: 8 }}>Die Spalte „Nach Abzug GRV“ zeigt die Netto-Entnahme aus dem Portfolio (Entnahme − Rente − Miete) für das Median-Szenario. Das ist der Betrag, den das Depot tatsächlich liefern muss. Steht dort 0 oder ein negativer Wert, deckt die Rente den Bedarf vollständig.</div>
                     <div style={{ marginBottom: 10, fontWeight: 600 }}>Real vs. nominal</div>
-                    <div style={{ marginBottom: 8 }}>Gleiche Umschaltung wie beim Vermögensverlauf. Im Real-Modus ist die Kaufkraft der Entnahme über die Jahre direkt vergleichbar.</div>
+                    <div style={{ marginBottom: 8 }}>Mit „Heutige Kaufkraft“ (Standard) sind die Werte inflationsbereinigt — die Kaufkraft ist über die Jahre direkt vergleichbar. Ohne Häkchen werden nominale Beträge gezeigt (inkl. Inflation).</div>
                     <div style={{ marginBottom: 10, fontWeight: 600 }}>Interpretation</div>
-                    <div style={{ whiteSpace: 'pre-line' }}>• Steigende Entnahme (dynamisch): Portfolio wächst, Entnahme partizipiert (Ceiling begrenzt).
-• Fallende Entnahme: Portfolio schrumpft, Floor begrenzt den Absturz.
-• Konstante Entnahme (Bengen/Statisch): Linie verläuft flach (real), nur bei Ausfall bricht sie ein.
-• Große Spreizung (Bandbreite 10.–90.) = hohes Unsicherheitsrisiko für die Planung.</div>
+                    <div style={{ whiteSpace: 'pre-line' }}>• Steigende Werte (dynamisch): Portfolio wächst, Entnahme partizipiert (Ceiling begrenzt).
+• Fallende Werte: Portfolio schrumpft, Floor begrenzt den Absturz.
+• Konstante Werte (Bengen/Statisch): Reihe verläuft flach (real), nur bei Ausfall bricht sie ein.
+• Große Spreizung zwischen P10 und P90 = hohes Unsicherheitsrisiko für die Planung.
+• Die Tabelle erlaubt exakte Jahreswerte abzulesen, das Diagramm („Entnahmeverlauf (Detail)“) zeigt den visuellen Verlauf.</div>
                   </div>
                 )}
               </div>
@@ -1647,6 +1653,37 @@ function EntnahmeSimulator() {
 • Kurve flach bei 0–2 % über 30+ Jahre: Sehr robuste Strategie.
 • Sprung nach Rentenbeginn: Wenn Rente einsetzt, sinkt der Bedarf aus dem Portfolio → Ausfallwahrscheinlichkeit wächst langsamer.
 • Ende der Kurve = 100 % − Erfolgsquote der Heatmap (für den gewählten Horizont).</div>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ marginTop: 16, color: '#1C2521', fontWeight: 600, fontSize: 12.5 }}>Annahmen & Grenzen</div>
+              <div key="ag" style={{ border: '1px solid #E3E8E5', borderRadius: 8, marginBottom: 6, background: '#FAFBFA', overflow: 'hidden' }}>
+                <button onClick={() => toggleGuide('ag')} style={{
+                  width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer',
+                  padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                }}>
+                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>Annahmen & Grenzen</span>
+                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.ag ? '▲ einklappen' : '▼ aufklappen'}</span>
+                </button>
+                {guideOpen.ag && (
+                  <div style={{ padding: '8px 12px 12px', fontSize: 12, color: '#5B6B65', lineHeight: 1.6 }}>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Entnahme-Reihenfolge</div>
+                    <div style={{ marginBottom: 8 }}>In normalen Jahren: Aktien-ETF → Crypto → Anleihen-ETF → Gold → Liquidität.<br/>Bei ETF-Drawdown ≥ 20 % (Reserve-Modus): Liquidität → Anleihen-ETF → Gold → Crypto → Aktien-ETF. Leere Reserven werden nicht wieder aufgefüllt.</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Asset-Annahmen</div>
+                    <div style={{ marginBottom: 8 }}><strong>Crypto:</strong> parametrisch simuliert in allen Modi, ca. 15 % reale Rendite / 65 % Volatilität p.a. (grobe Schätzung).<br/><strong>Anleihen-ETF:</strong> EUR-Staats- & Investment-Grade-Unternehmensanleihen ≤ 5 J. Laufzeit, 2 % reale Rendite / 4 % Volatilität p.a.<br/><strong>Vermietete Immobilie:</strong> nicht Teil der Entnahmesimulation (illiquider Sachwert). Miete = 3 % des aktuellen Immobilienwerts p.a., reduziert den nötigen Portfolio-Entnahmebetrag.</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>GRV-Rente</div>
+                    <div style={{ marginBottom: 8 }}>Ab Rentenbeginn-Alter: Rentenpunkte × aktueller Rentenwert (42,52 €/Monat seit 1.7.2026), plus vereinfachte Ab-/Zuschläge (0,3 %/Monat vor / 0,5 %/Monat nach Regelaltersgrenze 67). Reduziert den Portfolio-Bedarf. Der Rentenwert wird real konstant gehalten. <strong>Nicht berücksichtigt:</strong> Steuern auf Rente, GKVdR-Beiträge, Mindestversicherungszeiten für Bezug ab 63.</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Simulationsmodi & Datenbasis</div>
+                    <div style={{ marginBottom: 8, whiteSpace: 'pre-line' }}>
+<strong>Monte Carlo (parametrisch):</strong> Aktien 5,0 % / 18 %, Gold 0,5 % / 15 %, Liquidität 0,0 % / 1,5 % (real p.a.), Korrelation Aktien–Gold −0,1. Normalverteilt, unabhängig — keine Fat Tails, keine Autokorrelation.
+<strong>Historisch (S&P 500 1872–2025):</strong> US-Aktien inkl. Dividenden, Gold, Liquiditäts-Proxy, deflationiert mit US-CPI — US-Näherung für Welt-Aktien (lange globale Reihe nicht verfügbar). Für 1872–1927: Shiller/Cowles-Daten, Gold ~0 % (Goldstandard, $20,67/oz bis 1933), Cash 4 % p.a. (keine verlässliche Zinsreihe). Nicht-US-Märkte (Japan, DE/AT post-WWII) liefen teils schlechter → Erfolgsquoten eher obere Schätzung.
+<strong>Historisch (Welt-Proxy 1970–2025):</strong> 65 % US Large Cap + 35 % MSCI EAFE. Kürzere Reihe (keine Weltwirtschaftskrise, kein WWII, keine Emerging Markets), feste 65/35-Gewichtung (echte MSCI-Gewichte schwankten).
+<strong>Rollierende Fenster:</strong> Exakte historische Reihenfolgen, stark überlappend → geringe effektive Stichprobengröße.
+<strong>Block-Bootstrap:</strong> Zieht zufällige Blöcke (Länge einstellbar) mit Zurücklegen und baut synthetische Pfade.
+                    </div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Wichtige Hinweise</div>
+                    <div style={{ marginBottom: 8, whiteSpace: 'pre-line' }}>• Kein Ersatz für professionelle Finanzberatung.<br/>• Modellvereinfachungen: konstante Korrelationen, keine Steuer-/Kostenmodellierung über TER hinaus, keine Verhaltensfehler.<br/>• Historische Daten ≠ zukünftige Renditen. Vergangene Erfolgsquoten garantieren keine zukünftigen Ergebnisse.</div>
                   </div>
                 )}
               </div>
@@ -1898,7 +1935,7 @@ function EntnahmeSimulator() {
                   onChange={setFloor} format={(v) => v.toFixed(1) + '%'}
                   tip="Maximaler Rückgang der Entnahme pro Jahr gegenüber dem Vorjahr (negativer Wert). Puffert schlechte Jahre ab — begrenzt von unten durch den harten Boden." />
               </>
-            )}
+            ) }
             {entnahmeStrategie === 'guyton-klinger' && (
               <>
                 <Slider label="Guardrail (Auslöseschwelle)" value={gkGuardrailPct} min={5} max={50} step={1}
@@ -1908,7 +1945,7 @@ function EntnahmeSimulator() {
                   onChange={setGkAdjustStep} format={(v) => v.toFixed(1) + '%'}
                   tip="Prozentualer Schritt, um den der Entnahmebetrag gekürzt oder erhöht wird, wenn ein Guardrail verletzt wird. Ersetzt in diesem Jahr die Inflationsanpassung." />
               </>
-            )}
+            ) }
           </div>
             <div style={{ fontSize: 11.5, color: '#5B6B65', marginTop: 4 }}>
               Reserve-Trigger: ETF ≥20% unter Allzeithoch (fest, nicht einstellbar)
@@ -2137,38 +2174,60 @@ function EntnahmeSimulator() {
             <div style={{ fontSize: 11, color: '#5B6B65', fontStyle: 'italic' }}>Auf „Berechnen" klicken, um die Heatmap zu erstellen.</div>
           )}
           {heatmap && (
-            <div style={{ overflow: 'auto', maxHeight: '70vh' }}>
-              <table style={{ borderCollapse: 'separate', borderSpacing: 2, fontSize: 10.5 }}>
-                <thead>
-                  <tr>
-                    <th style={{ position: 'sticky', top: 0, left: 0, zIndex: 4, background: '#FFFFFF', boxShadow: '0 1px 0 #D3DAD6, 1px 0 0 #D3DAD6', padding: '3px 6px', color: '#5B6B65', fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>Horizont ↓ / Rate →</th>
-                    {heatmap.xLabels.map((r) => (
-                      <th key={r} style={{ position: 'sticky', top: 0, zIndex: 3, background: '#FFFFFF', boxShadow: '0 1px 0 #D3DAD6', padding: '3px 4px', color: '#5B6B65', fontWeight: 600, textAlign: 'center' }}>{Number.isInteger(r) ? r : r.toFixed(2).replace(/\.?0+$/, '')}%</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {heatmap.grid.map((row, ai) => (
-                    <tr key={heatmap.yLabels[ai]}>
-                      <td style={{ position: 'sticky', left: 0, zIndex: 2, background: '#FFFFFF', boxShadow: '1px 0 0 #D3DAD6', padding: '3px 6px', color: '#5B6B65', fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>{heatmap.yLabels[ai]} J.</td>
-                      {row.map((v, ri) => {
-                        const isBase = heatmap.yLabels[ai] === heatmap.nearestHorizon && Math.abs(heatmap.xLabels[ri] - heatmap.nearestRate) < 1e-9;
-                        const vColor = v >= 97.5 ? '#2F5D62' : v >= 90 ? '#C08A2E' : '#A8432F';
-                        const fg = '#FFFFFF';
-                        return (
-                          <td key={ri} title={`Horizont ${heatmap.yLabels[ai]} J., Rate ${Number.isInteger(heatmap.xLabels[ri]) ? heatmap.xLabels[ri] : heatmap.xLabels[ri].toFixed(2).replace(/\.?0+$/, '')} %: Erfolgsquote ${v.toFixed(1)} %`} style={{
-                            background: vColor, color: fg, textAlign: 'center', fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif",
-                            padding: '5px 4px', minWidth: 48, borderRadius: 4, border: isBase ? '3px solid #FFD700' : '1px solid rgba(255,255,255,0.5)', boxShadow: isBase ? '0 0 0 1px #FFFFFF, 0 0 9px rgba(255,215,0,0.95)' : 'none', fontWeight: isBase ? 700 : 500,
-                          }}>
-                            {v.toFixed(1)}
-                          </td>
-                        );
-                      })}
+            <>
+              <div style={{ overflow: 'auto', maxHeight: '70vh' }}>
+                <table style={{ borderCollapse: 'separate', borderSpacing: 2, fontSize: 10.5 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ position: 'sticky', top: 0, left: 0, zIndex: 4, background: '#FFFFFF', boxShadow: '0 1px 0 #D3DAD6, 1px 0 0 #D3DAD6', padding: '3px 6px', color: '#5B6B65', fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>Horizont ↓ / Rate →</th>
+                      {heatmap.xLabels.map((r) => (
+                        <th key={r} style={{ position: 'sticky', top: 0, zIndex: 3, background: '#FFFFFF', boxShadow: '0 1px 0 #D3DAD6', padding: '3px 4px', color: '#5B6B65', fontWeight: 600, textAlign: 'center' }}>{Number.isInteger(r) ? r : r.toFixed(2).replace(/\.?0+$/, '')}%</th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {heatmap.grid.map((row, ai) => (
+                      <tr key={heatmap.yLabels[ai]}>
+                        <td style={{ position: 'sticky', left: 0, zIndex: 2, background: '#FFFFFF', boxShadow: '1px 0 0 #D3DAD6', padding: '3px 6px', color: '#5B6B65', fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>{heatmap.yLabels[ai]} J.</td>
+                        {row.map((v, ri) => {
+                          const isBase = heatmap.yLabels[ai] === heatmap.nearestHorizon && Math.abs(heatmap.xLabels[ri] - heatmap.nearestRate) < 1e-9;
+                          const vColor = v >= 97.5 ? '#2F5D62' : v >= 90 ? '#C08A2E' : '#A8432F';
+                          const fg = '#FFFFFF';
+                          return (
+                            <td key={ri} title={`Horizont ${heatmap.yLabels[ai]} J., Rate ${Number.isInteger(heatmap.xLabels[ri]) ? heatmap.xLabels[ri] : heatmap.xLabels[ri].toFixed(2).replace(/\.?0+$/, '')} %: Erfolgsquote ${v.toFixed(1)} %`} style={{
+                              background: vColor, color: fg, textAlign: 'center', fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif",
+                              padding: '5px 4px', minWidth: 48, borderRadius: 4, border: isBase ? '3px solid #FFD700' : '1px solid rgba(255,255,255,0.5)', boxShadow: isBase ? '0 0 0 1px #FFFFFF, 0 0 9px rgba(255,215,0,0.95)' : 'none', fontWeight: isBase ? 700 : 500,
+                            }}>
+                              {v.toFixed(1)}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ marginTop: 16, padding: '10px 12px', background: '#FAFBFA', border: '1px solid #E3E8E5', borderRadius: 8, fontSize: 11, color: '#5B6B65' }}>
+                <div style={{ fontWeight: 600, marginBottom: 8, color: '#1C2521' }}>Farblegende</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 16, height: 16, borderRadius: 4, background: '#2F5D62', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)' }}></span>
+                    <span>≥ 97,5 % · <strong>Sehr sicher</strong></span>
+                  </span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 16, height: 16, borderRadius: 4, background: '#C08A2E', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)' }}></span>
+                    <span>90–97,5 % · <strong>Ausgewogen</strong></span>
+                  </span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 16, height: 16, borderRadius: 4, background: '#A8432F', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)' }}></span>
+                    <span>&lt; 90 % · <strong>Riskant</strong></span>
+                  </span>
+                  <span style={{ marginLeft: 'auto', fontSize: 10.5, color: '#5B6B65' }}>
+                    Goldener Rand = deine aktuelle Einstellung
+                  </span>
+                </div>
+              </div>
+            </>
           )}
         </div>
 
@@ -2178,7 +2237,7 @@ function EntnahmeSimulator() {
             <CartesianGrid stroke="#E3E8E5" vertical={false} />
             <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
             <YAxis tickFormatter={fmtEUR} tick={{ fill: '#5B6B65', fontSize: 11, dy: 4 }} tickLine={false} axisLine={false} width={60} />
-            <Tooltip content={<LightTooltip showFloor={false} startAge={startAge} />} />
+            <RechartsTooltip content={<LightTooltip showFloor={false} startAge={startAge} />} />
             <Area dataKey="balP10" stackId="b" stroke="none" fill="transparent" />
             <Area dataKey="balBand" stackId="b" stroke="none" fill="#2F5D62" fillOpacity={0.15} />
             <Line dataKey="balP50" stroke="#2F5D62" strokeWidth={2} dot={false} />
@@ -2194,7 +2253,7 @@ function EntnahmeSimulator() {
             <CartesianGrid stroke="#E3E8E5" vertical={false} />
             <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
             <YAxis tickFormatter={fmtEUR} tick={{ fill: '#5B6B65', fontSize: 11, dy: 4 }} tickLine={false} axisLine={false} width={60} />
-            <Tooltip content={<LightTooltip showFloor startAge={startAge} />} />
+            <RechartsTooltip content={<LightTooltip showFloor startAge={startAge} />} />
             <Area dataKey="spendP10" stackId="s" stroke="none" fill="transparent" />
             <Area dataKey="spendBand" stackId="s" stroke="none" fill="#C08A2E" fillOpacity={0.15} />
             <Line dataKey="spendP50" name="Gesamtentnahme" stroke="#C08A2E" strokeWidth={2} dot={false} />
@@ -2215,139 +2274,28 @@ function EntnahmeSimulator() {
             <CartesianGrid stroke="#E3E8E5" vertical={false} />
             <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
             <YAxis tickFormatter={(v) => v.toFixed(1) + '%'} tick={{ fill: '#5B6B65', fontSize: 11, dy: 4 }} tickLine={false} axisLine={false} width={44} />
-            <Tooltip content={<FailTooltip startAge={startAge} />} />
+            <RechartsTooltip content={<FailTooltip startAge={startAge} />} />
             <Area dataKey="failRate" stroke="none" fill="#A8432F" fillOpacity={0.15} />
             <Line dataKey="failRate" stroke="#A8432F" strokeWidth={2} dot={false} />
             <Line dataKey={() => 2.5} stroke="#5B6B65" strokeWidth={1} strokeDasharray="4 4" dot={false} />
           </ComposedChart>
           <div style={{ position: 'absolute', left: 0, right: 0, bottom: 6, textAlign: 'center', color: '#1C2521', fontSize: 12 }}>Lebensalter</div>
         </ChartBlock>
-
-        {/* Notes */}
-        <div style={{ background: '#FFFFFF', border: '1px solid #D3DAD6', borderRadius: 12, padding: '16px 18px', fontSize: 12.5, color: '#5B6B65', lineHeight: 1.6, marginTop: 8 }}>
-          <div style={{ color: '#1C2521', fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Annahmen &amp; Grenzen</div>
-          Die Entnahmehöhe folgt der Vanguard-Ceiling/Floor-Regel: Sie wird jährlich aus dem aktuellen Portfoliowert berechnet und durch maximalen Anstieg, maximalen Rückgang und den harten Boden begrenzt. Die Entnahme-Reihenfolge lautet in normalen Jahren: Aktien-ETF → Crypto → Anleihen-ETF → Gold → Liquidität. Bei einem ETF-Drawdown von mindestens 20% werden zuerst Liquidität, dann Anleihen-ETF, Gold und Crypto genutzt; erst danach wird der Aktien-ETF verkauft. Leere Reserven werden nicht wieder aufgefüllt.{' '}
-          Crypto wird in allen Modi parametrisch simuliert, mit grob angenommenen 15% realer Rendite und 65% Volatilität pro Jahr. Der Anleihen-ETF steht für europäische Staats- und Investment-Grade-Unternehmensanleihen mit bis zu fünf Jahren Laufzeit; dafür werden 2% reale Rendite und 4% Volatilität angenommen. Die <strong style={{ color: '#1C2521' }}>vermietete Immobilie</strong> ist nicht Teil der Entnahmesimulation, sondern wird als illiquider Sachwert fortgeschrieben. Die Mieteinnahmen von angenommenen 3% des aktuellen Immobilienwerts reduzieren den nötigen Portfolio-Entnahmebetrag.{' '}
-          <strong style={{ color: '#1C2521' }}>GRV-Rente:</strong> Ab dem eingestellten Rentenbeginn-Alter deckt die gesetzliche Rente
-          (Rentenpunkte × aktueller Rentenwert, 42,52 €/Monat seit 1.7.2026, plus vereinfachter Ab-/Zuschlag von 0,3%/Monat vor bzw. 0,5%/Monat
-          nach der Regelaltersgrenze 67) einen Teil der Zielentnahme — das Portfolio muss nur noch die Differenz liefern. Der Rentenwert wird über
-          die gesamte Laufzeit real (inflationsbereinigt) konstant gehalten. Nicht berücksichtigt: Steuern auf die Rente, Kranken-/Pflegeversicherungsbeiträge
-          der GKVdR, sowie Mindestversicherungszeiten für einen vorzeitigen Bezug ab 63.{' '}
-          {mode === 'montecarlo' ? (
-            <>Reale Renditeannahmen (Mittelwert / Volatilität p.a.): Aktien 5,0% / 18%, Gold 0,5% / 15%, Liquidität 0,0% / 1,5%,
-            Korrelation Aktien–Gold −0,1. Normalverteilt, jahresweise unabhängig — keine Fat Tails, keine Autokorrelation.</>
-          ) : (
-            <>Datenbasis: US-Aktien (S&P 500 bzw. dessen Vorläuferindex, inkl. Dividenden), Gold und Liquiditäts-Proxy, 1872–2025,
-            deflationiert mit US-Konsumentenpreisindex — eine US-Näherung für "weltweit gestreute Aktien", da eine so lange globale Reihe
-            öffentlich nicht in dieser Länge verfügbar ist. <strong style={{ color: '#1C2521' }}>Für 1872–1927</strong> gilt zusätzlich:
-            Aktienrenditen und CPI stammen aus Robert Shillers/Cowles' Datenreihe (über DQYDJ), Gold ist auf ~0% gesetzt (US-Goldstandard,
-            Preis bis 1933 bei $20,67/oz fixiert — keine frei gehandelte Anlageklasse), Cash/Liquidität ist eine grobe, konstante 4,0%-p.a.-Näherung
-            (keine verlässliche jahresgenaue Kurzfrist-Zinsreihe für diese Periode verfügbar). Nicht-US-Märkte (Japan, Deutschland/Österreich nach
-            den Weltkriegen) verliefen historisch teils deutlich schlechter, die gezeigte Erfolgsquote ist daher eher eine obere Schätzung.{' '}
-            {mode === 'world' && 'Dieser Modus nutzt stattdessen einen Welt-Aktien-Proxy (65% US Large Cap + 35% internationale Industrieländer, MSCI EAFE) ab 1970 — realistischere Diversifikation, aber kürzere und damit weniger belastbare Datenreihe (keine Weltwirtschaftskrise, kein Zweiter Weltkrieg abgedeckt; Emerging Markets fehlen ebenfalls). Die feste 65/35-Gewichtung ist selbst eine Vereinfachung, echte MSCI-World-Gewichte schwankten historisch (US-Anteil zeitweise nur ~30%, aktuell ~70%). '}
-            {mode === 'rolling'
-              ? 'Rollierende Fenster nutzen exakte historische Reihenfolgen, überlappen sich aber stark (geringe effektive Stichprobengröße).'
-              : mode === 'world'
-              ? 'Auch hier: rollierende, überlappende Fenster mit exakten historischen Reihenfolgen.'
-              : `Block-Bootstrap zieht zufällige ${blockLen}-Jahres-Blöcke (mit Zurücklegen) aus ${bootstrapSource === 'world' ? 'dem Welt-Proxy-Datensatz (1970–2025)' : 'der S&P-500-Historie (1872–2025)'} und baut daraus ${numSims.toLocaleString('de-DE')} synthetische Pfade.`}
-            </>
-          )}
-          {' '}Kein Ersatz für professionelle Finanzberatung.
-        </div>
-          </div>
-        </div>
+        <style>{`
+          @media (max-width: 860px) { .sim-grid { grid-template-columns: 1fr !important; } }
+          .sim-grid > * { min-width: 0; }
+          input[type="range"] { height: 4px; }
+        `}</style>
       </div>
-
-      <style>{`
-        @media (max-width: 860px) { .sim-grid { grid-template-columns: 1fr !important; } }
-        .sim-grid > * { min-width: 0; }
-        input[type="range"] { height: 4px; }
-      `}</style>
-      {expandedChart && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setExpandedChart(null)}>
-          <div style={{ background: '#EEF1EF', borderRadius: 16, padding: 24, width: '90vw', maxWidth: 1200, height: '85vh', display: 'flex', flexDirection: 'column', position: 'relative' }} onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setExpandedChart(null)} style={{ position: 'absolute', top: 12, right: 16, background: 'none', border: 'none', fontSize: 28, cursor: 'pointer', color: '#5B6B65', lineHeight: 1, zIndex: 1 }}>&times;</button>
-            {expandedChart === 'vermoegen' && (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Vermögensverlauf</div>
-                <div style={{ fontSize: 13, color: '#5B6B65', marginBottom: 12 }}>10./50./90. Perzentil, Gesamtvermögen</div>
-                <div style={{ flex: 1, minHeight: 300 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 10, bottom: 30 }}>
-                      <CartesianGrid stroke="#E3E8E5" vertical={false} />
-                      <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 13 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
-                      <YAxis tickFormatter={fmtEUR} tick={{ fill: '#5B6B65', fontSize: 13, dy: 4 }} tickLine={false} axisLine={false} width={80} />
-                      <Tooltip content={<LightTooltip showFloor={false} startAge={startAge} />} />
-                      <Area dataKey="balP10" stackId="b" stroke="none" fill="transparent" />
-                      <Area dataKey="balBand" stackId="b" stroke="none" fill="#2F5D62" fillOpacity={0.15} />
-                      <Line dataKey="balP50" stroke="#2F5D62" strokeWidth={2} dot={false} />
-                      {pensionStartYear > 0 && pensionStartYear <= horizon && (
-                        <ReferenceLine x={pensionStartAge} stroke="#3A6B8A" strokeDasharray="3 3" label={{ value: 'Rentenbeginn', position: 'insideTopRight', fill: '#3A6B8A', fontSize: 12 }} />
-                      )}
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </div>
-                <div style={{ textAlign: 'center', color: '#1C2521', fontSize: 14 }}>Lebensalter</div>
-              </div>
-            )}
-            {expandedChart === 'entnahme' && (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Entnahmeverlauf</div>
-                <div style={{ fontSize: 13, color: '#5B6B65', marginBottom: 12 }}>10./50./90. Perzentil pro Jahr{entnahmeStrategie === 'dynamisch' ? ' · Bodenlinie gestrichelt' : ''}</div>
-                <div style={{ flex: 1, minHeight: 300 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 10, bottom: 30 }}>
-                      <CartesianGrid stroke="#E3E8E5" vertical={false} />
-                      <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 13 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
-                      <YAxis tickFormatter={fmtEUR} tick={{ fill: '#5B6B65', fontSize: 13, dy: 4 }} tickLine={false} axisLine={false} width={80} />
-                      <Tooltip content={<LightTooltip showFloor startAge={startAge} />} />
-                      <Area dataKey="spendP10" stackId="s" stroke="none" fill="transparent" />
-                      <Area dataKey="spendBand" stackId="s" stroke="none" fill="#C08A2E" fillOpacity={0.15} />
-                      <Line dataKey="spendP50" name="Gesamtentnahme" stroke="#C08A2E" strokeWidth={2} dot={false} />
-                      <Line dataKey="spendAfterPensionP50" name="Nach Abzug GRV" stroke="#2F5D62" strokeWidth={2} dot={false} />
-                      <Line dataKey="pensionAmount" stroke="none" dot={false} activeDot={false} />
-                      {entnahmeStrategie === 'dynamisch' && (
-                        <Line dataKey="hardFloor" name="Bodenlinie" stroke="#A8432F" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
-                      )}
-                      {pensionStartYear > 0 && pensionStartYear <= horizon && (
-                        <ReferenceLine x={pensionStartAge} stroke="#3A6B8A" strokeDasharray="3 3" label={{ value: 'Rentenbeginn', position: 'insideTopRight', fill: '#3A6B8A', fontSize: 12 }} />
-                      )}
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </div>
-                <div style={{ textAlign: 'center', color: '#1C2521', fontSize: 14 }}>Lebensalter</div>
-              </div>
-            )}
-            {expandedChart === 'ausfall' && (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Ausfallwahrscheinlichkeit im Zeitverlauf</div>
-                <div style={{ fontSize: 13, color: '#5B6B65', marginBottom: 12 }}>Anteil Pfade, deren Vermögen bis zu diesem Jahr bereits aufgebraucht war (kumulativ) · rote Linie = 2,5%-Zielgrenze</div>
-                <div style={{ flex: 1, minHeight: 300 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={failureChartData} margin={{ top: 20, right: 30, left: 10, bottom: 30 }}>
-                      <CartesianGrid stroke="#E3E8E5" vertical={false} />
-                      <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 13 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
-                      <YAxis tickFormatter={(v) => v.toFixed(1) + '%'} tick={{ fill: '#5B6B65', fontSize: 13, dy: 4 }} tickLine={false} axisLine={false} width={55} />
-                      <Tooltip content={<FailTooltip startAge={startAge} />} />
-                      <Area dataKey="failRate" stroke="none" fill="#A8432F" fillOpacity={0.15} />
-                      <Line dataKey="failRate" stroke="#A8432F" strokeWidth={2} dot={false} />
-                      <Line dataKey={() => 2.5} stroke="#5B6B65" strokeWidth={1} strokeDasharray="4 4" dot={false} />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </div>
-                <div style={{ textAlign: 'center', color: '#1C2521', fontSize: 14 }}>Lebensalter</div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
-  );
+  </div>
+</div>
+  )
 }
-
-
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<EntnahmeSimulator />);
-  </script>
+</script>
+<script type="text/babel">
+  const root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(<EntnahmeSimulator />);
+</script>
 </body>
 </html>
