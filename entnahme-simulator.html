@@ -807,16 +807,72 @@ function Gauge({ value, target = 97.5 }) {
 }
 
 function InfoDot({ text }) {
+  const [open, setOpen] = React.useState(false);
+  const [pos, setPos] = React.useState(null);
+  const btnRef = React.useRef(null);
+  const tipRef = React.useRef(null);
+
+  const place = React.useCallback(() => {
+    if (!btnRef.current || !tipRef.current) return;
+    const b = btnRef.current.getBoundingClientRect();
+    const tw = Math.min(260, window.innerWidth - 16);
+    const th = tipRef.current.offsetHeight;
+    let left = b.left + b.width / 2 - tw / 2;
+    left = Math.min(Math.max(8, left), window.innerWidth - tw - 8);
+    let top = b.bottom + 8;
+    if (top + th > window.innerHeight - 8) top = b.top - 8 - th;
+    if (top < 8) top = 8;
+    setPos({ left, top, width: tw });
+  }, []);
+
+  React.useLayoutEffect(() => { if (open) place(); }, [open, place]);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const onDoc = (e) => {
+      if (btnRef.current && btnRef.current.contains(e.target)) return;
+      if (tipRef.current && tipRef.current.contains(e.target)) return;
+      setOpen(false);
+    };
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    const onResize = () => setOpen(false);
+    document.addEventListener('click', onDoc);
+    document.addEventListener('keydown', onKey);
+    window.addEventListener('resize', onResize);
+    window.addEventListener('scroll', onResize, true);
+    return () => {
+      document.removeEventListener('click', onDoc);
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('scroll', onResize, true);
+    };
+  }, [open]);
+
   return (
-    <span
-      title={text}
-      style={{
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        width: 15, height: 15, borderRadius: '50%', border: '1px solid #5B6B65',
-        color: '#5B6B65', fontSize: 10, marginLeft: 6, cursor: 'help', flexShrink: 0,
-        fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif", userSelect: 'none',
-      }}
-    >?</span>
+    <React.Fragment>
+      <span
+        ref={btnRef}
+        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+        style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: 15, height: 15, borderRadius: '50%', border: '1px solid #5B6B65',
+          color: open ? '#FFFFFF' : '#5B6B65', background: open ? '#5B6B65' : 'transparent',
+          fontSize: 10, marginLeft: 6, cursor: 'pointer', flexShrink: 0,
+          fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif", userSelect: 'none',
+          verticalAlign: 'middle', touchAction: 'manipulation',
+        }}
+      >?</span>
+      {open && ReactDOM.createPortal(
+        <div ref={tipRef} style={{
+          position: 'fixed', zIndex: 9999, maxWidth: 260, padding: '8px 10px',
+          borderRadius: 6, background: '#22302B', color: '#F4F6F5', fontSize: 11.5,
+          lineHeight: 1.45, boxShadow: '0 4px 14px rgba(0,0,0,0.3)',
+          visibility: pos ? 'visible' : 'hidden',
+          left: pos ? pos.left : -9999, top: pos ? pos.top : -9999,
+        }}>{text}</div>,
+        document.body
+      )}
+    </React.Fragment>
   );
 }
 
