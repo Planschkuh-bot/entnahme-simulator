@@ -1384,7 +1384,7 @@ function EntnahmeSimulator() {
     const flexibel = { vermoegen: 700000, aktien: 70, gold: 10, bitcoin: 0, anleihen: 10, wohnung: 0, etfTer: 0.14, staticRate: 4.5, dynStartRate: 5, ceiling: 5, floor: -2.5, horizon: 40, blockLen: 5, startAge: 55, rentenpunkte: 35, pensionStartAge: 65, numSims: 2500, seed: 0 };
     const minimalist = { vermoegen: 400000, aktien: 90, gold: 2, bitcoin: 3, anleihen: 0, wohnung: 0, etfTer: 0.1, staticRate: 4.5, dynStartRate: 6, ceiling: 5, floor: -2.5, horizon: 50, blockLen: 5, startAge: 45, rentenpunkte: 30, pensionStartAge: 65, numSims: 2500, seed: 0 };
     const fatfire = { vermoegen: 3000000, aktien: 98, gold: 0, bitcoin: 0, anleihen: 0, wohnung: 0, etfTer: 0.2, staticRate: 2, dynStartRate: 2.5, ceiling: 5, floor: -2.5, horizon: 60, blockLen: 5, startAge: 40, rentenpunkte: 25, pensionStartAge: 67, numSims: 2500, seed: 6 };
-    const match = (p) => vermoegen === p.vermoegen && aktien === p.aktien && gold === p.gold && bitcoin === p.bitcoin && anleihen === p.anleihen && wohnung === p.wohnung && etfTer === p.etfTer && staticRate === p.staticRate && dynStartRate === p.dynStartRate && ceiling === p.ceiling && floor === p.floor && horizon === p.horizon && blockLen === p.blockLen && startAge === p.startAge && rentenpunkte === p.rentenpunkte && pensionStartAge === p.pensionStartAge && numSims === p.numSims && seed === p.seed;
+    const match = (p) => vermoegen === p.vermoegen && aktien === p.aktien && gold === p.gold && bitcoin === p.bitcoin && anleihen === p.anleihen && wohnung === p.wohnung && etfTer === p.etfTer && staticRate === p.staticRate && dynStartRate === p.dynStartRate && ceiling === p.ceiling && floor === p.floor && horizon === p.horizon && blockLen === p.blockLen && startAge === p.startAge && rentenpunkte === p.rentenpunkte && pensionStartAge === p.pensionStartAge && numSims === p.numSims;
     if (match(rentner)) return 'rentner';
     if (match(fireFan)) return 'fire-fan';
     if (match(frugalist)) return 'frugalist';
@@ -1395,7 +1395,7 @@ function EntnahmeSimulator() {
     if (match(minimalist)) return 'minimalist';
     if (match(fatfire)) return 'fatfire';
     return '';
-  }, [vermoegen, aktien, gold, bitcoin, anleihen, wohnung, etfTer, staticRate, dynStartRate, ceiling, floor, horizon, blockLen, startAge, rentenpunkte, pensionStartAge, numSims, seed]);
+  }, [vermoegen, aktien, gold, bitcoin, anleihen, wohnung, etfTer, staticRate, dynStartRate, ceiling, floor, horizon, blockLen, startAge, rentenpunkte, pensionStartAge, numSims]);
   function shareConfig() {
     const sp = new URLSearchParams();
     sp.set('mode', mode); sp.set('vermoegen', vermoegen); sp.set('aktien', aktien); sp.set('gold', gold);
@@ -1936,15 +1936,6 @@ function EntnahmeSimulator() {
             )}
 
               </div>
-              {isCalculating && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <svg width="14" height="14" viewBox="0 0 14 14" style={{ animation: 'spin 0.8s linear infinite', flexShrink: 0 }}>
-              <circle cx="7" cy="7" r="5.5" fill="none" stroke="#D3DAD6" strokeWidth="2" />
-              <path d="M7 1.5 A5.5 5.5 0 0 1 12.5 7" fill="none" stroke="#2F5D62" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-              <span style={{ fontSize: 11.5, color: '#5B6B65' }}>Wird berechnet …</span>
-              </div>
-              )}
 
               </div>
 
@@ -2162,13 +2153,22 @@ function EntnahmeSimulator() {
           )}
           <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <button onClick={() => setSeed((s) => s + 1)} style={{
                   background: 'transparent', border: '1px solid #D3DAD6', color: '#5B6B65',
                   fontSize: 12, padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
                 }}>
                   ↻ {mode === 'rolling' ? 'Neu berechnen' : 'Neue Zufallsstichprobe'}
                 </button>
+                {isCalculating && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#5B6B65', fontSize: 11.5 }}>
+                    <svg width="14" height="14" viewBox="0 0 14 14" style={{ animation: 'spin 0.8s linear infinite', flexShrink: 0 }}>
+                      <circle cx="7" cy="7" r="5.5" fill="none" stroke="#D3DAD6" strokeWidth="2" />
+                      <path d="M7 1.5 A5.5 5.5 0 0 1 12.5 7" fill="none" stroke="#2F5D62" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                    Wird berechnet …
+                  </div>
+                )}
               </div>
               <Gauge value={result.successRate} />
               <div style={{ fontSize: 10.5, color: '#5B6B65', fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif", display: 'flex', alignItems: 'center', gap: 4 }}>
