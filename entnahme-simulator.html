@@ -1109,21 +1109,21 @@ function EntnahmeSimulator() {
   const [showGuide, setShowGuide] = useState(false);
   const [guideOpen, setGuideOpen] = useState({});
   const toggleGuide = (k) => setGuideOpen((o) => { const n = { ...o }; n[k] = !o[k]; return n; });
-  const [vermoegen, setVermoegen] = useState(300000);
-  const [aktien, setAktien] = useState(80);
+  const [vermoegen, setVermoegen] = useState(450000);
+  const [aktien, setAktien] = useState(70);
   const [gold, setGold] = useState(0);
   const [bitcoin, setBitcoin] = useState(0);
   const [wohnung, setWohnung] = useState(0);
-  const [anleihen, setAnleihen] = useState(15);
+  const [anleihen, setAnleihen] = useState(25);
   const cash = Math.max(0, 100 - aktien - gold - anleihen - bitcoin - wohnung);
 
-  const [staticRate, setStaticRate] = useState(8);
-  const [dynStartRate, setDynStartRate] = useState(12);
+  const [staticRate, setStaticRate] = useState(7);
+  const [dynStartRate, setDynStartRate] = useState(8.5);
   const [ceiling, setCeiling] = useState(5.0);
   const [floor, setFloor] = useState(-2.5);
   const [gkGuardrailPct, setGkGuardrailPct] = useState(20);
   const [gkAdjustStep, setGkAdjustStep] = useState(10);
-  const [horizon, setHorizon] = useState(25);
+  const [horizon, setHorizon] = useState(35);
   const [entnahmeStrategie, setEntnahmeStrategie] = useState('dynamisch');
   const [eimerStrategie, setEimerStrategie] = useState(true);
   const [entnahmeFrequenz, setEntnahmeFrequenz] = useState('jaehrlich');
@@ -1131,12 +1131,12 @@ function EntnahmeSimulator() {
   const [inflationRate, setInflationRate] = useState(2.0);
   const [blockLen, setBlockLen] = useState(5);
   const [bootstrapSource, setBootstrapSource] = useState('sp500');
-  const [startAge, setStartAge] = useState(67);
-  const [rentenpunkte, setRentenpunkte] = useState(40);
+  const [startAge, setStartAge] = useState(65);
+  const [rentenpunkte, setRentenpunkte] = useState(45);
   const [pensionStartAge, setPensionStartAge] = useState(67);
   const [grvBerechnen, setGrvBerechnen] = useState(true);
   const [seed, setSeed] = useState(0);
-  const [etfTer, setEtfTer] = useState(0.2);
+  const [etfTer, setEtfTer] = useState(0.18);
 
   const [numSims, setNumSims] = useState(2500);
   const pensionAnnual = grvBerechnen ? computePensionAnnual(rentenpunkte, pensionStartAge) : 0;
