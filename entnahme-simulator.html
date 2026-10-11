@@ -34,7 +34,7 @@
         async src="//gc.zgo.at/count.js"></script>
   <script type="text/babel">
     const { useState, useMemo, useEffect } = React;
-    const { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } = Recharts;
+    const { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip: RechartsTooltip, ResponsiveContainer, ReferenceLine } = Recharts;
 
 
 // ---------- Historical data: S&P 500 (incl. dividends), Gold, 3M T-Bill, US CPI ----------
@@ -820,7 +820,7 @@ function InfoDot({ text }) {
   );
 }
 
-function Slider({ label, value, min, max, step, onChange, format, hint, tip }) {
+function Slider({ label, value, min, max, step, onChange, format, hint, tip, dynamicColor = false }) {
   const nudge = (dir) => {
     const next = Math.min(max, Math.max(min, parseFloat((value + dir * step).toPrecision(12))));
     if (next !== value) onChange(next);
@@ -830,26 +830,31 @@ function Slider({ label, value, min, max, step, onChange, format, hint, tip }) {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
     borderRadius: 4, border: '1px solid #D3DAD6', background: '#FFFFFF',
     color: '#5B6B65', fontSize: 13, lineHeight: 1, cursor: 'pointer',
+    transition: 'all 0.15s ease',
   };
+  const isActive = dynamicColor && value > min;
+  const accentColor = isActive ? '#2F5D62' : '#9BA8A4';
   return (
-    <div style={{ marginBottom: 14 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, gap: 8 }}>
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 8 }}>
         <span style={{ fontSize: 12, color: '#5B6B65', display: 'flex', alignItems: 'center' }}>
           {label}
           {tip && <InfoDot text={tip} />}
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
           <span style={{ fontSize: 12, fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif", color: '#1C2521' }}>
-            {format ? format(value) : value}
+            {format ? format(value) : value.toLocaleString('de-DE')}
           </span>
-          <button type="button" onClick={() => nudge(-1)} title={`${label} verringern`} style={btnStyle}>−</button>
-          <button type="button" onClick={() => nudge(1)} title={`${label} erhöhen`} style={btnStyle}>+</button>
+          <button type="button" onClick={() => nudge(-1)} title={`${label} verringern`} style={btnStyle} onFocus={(e) => { e.target.style.boxShadow = '0 0 0 2px rgba(47, 93, 98, 0.4)'; e.target.style.borderColor = '#2F5D62'; }} onBlur={(e) => { e.target.style.boxShadow = ''; e.target.style.borderColor = '#D3DAD6'; }}>−</button>
+          <button type="button" onClick={() => nudge(1)} title={`${label} erhöhen`} style={btnStyle} onFocus={(e) => { e.target.style.boxShadow = '0 0 0 2px rgba(47, 93, 98, 0.4)'; e.target.style.borderColor = '#2F5D62'; }} onBlur={(e) => { e.target.style.boxShadow = ''; e.target.style.borderColor = '#D3DAD6'; }}>+</button>
         </span>
       </div>
       <input type="range" min={min} max={max} step={step} value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
-        style={{ width: '100%', accentColor: '#2F5D62' }} />
-      {hint && <div style={{ fontSize: 10.5, color: '#5B6B65', marginTop: 2 }}>{hint}</div>}
+        style={{ width: '100%', accentColor }}
+        onFocus={(e) => { e.target.style.outline = 'none'; e.target.style.boxShadow = '0 0 0 3px rgba(47, 93, 98, 0.3)'; }}
+        onBlur={(e) => { e.target.style.boxShadow = ''; }} />
+      {hint && <div style={{ fontSize: 10.5, color: '#5B6B65', marginTop: 8 }}>{hint}</div>}
     </div>
   );
 }
@@ -1396,7 +1401,7 @@ function EntnahmeSimulator() {
 
               <div style={{ marginTop: 16, color: '#1C2521', fontWeight: 600, fontSize: 12.5 }}>Die 4 Simulationsmethoden im Detail</div>
               {[
-                { id: 'm1', title: 'Historisch · S&P 500 (1872–2025)', text: `Dein Plan wird gegen alle echten ${horizon}-Jahres-Fenster des US-Index S&P 500 (bzw. seines Vorläufers, inkl. Dividenden) von Januar 1872 bis Dezember 2025 getestet — monatsgenau. Die Erfolgsquote zählt, in wie vielen der real eingetretenen historischen Verläufe das Geld bis zum gewählten Horizont gereicht hätte. Stärke: realitätstreu auf US-Basis, deckt Weltkriege, Weltwirtschaftskrise und die 1970er-Stagflation ab. Schwäche: nur US-Aktien-Historie; die Fenster überlappen stark (geringe effektive Stichprobengröße). Weil es nur Startpunkte bis 1871 + ${horizon} gibt, ist die Quote eher eine obere Schätzung für global diversifizierte Portfolios.` },
+                { id: 'm1', title: 'Historisch · S&P 500 (1872–2025)', text: `Dein Plan wird gegen alle echten ${horizon}-Jahres-Fenster des US-Index S&P 500 (bzw. seines Vorläufers, inkl. Dividenden) von Januar 1872 bis Dezember 2025 getestet — monatsgenau. Die Erfolgsquote zählt, in wie vielen der real eingetretenen historischen Verläufe das Geld bis zum Horizont gereicht hätte. Stärke: realitätstreu auf US-Basis, deckt Weltkriege, Weltwirtschaftskrise und die 1970er-Stagflation ab. Schwäche: nur US-Aktien-Historie; die Fenster überlappen stark (geringe effektive Stichprobengröße). Weil es nur Startpunkte bis 1871 + ${horizon} gibt, ist die Quote eher eine obere Schätzung für global diversifizierte Portfolios.` },
                 { id: 'm2', title: 'Historisch · Welt-Proxy (1970–2025)', text: 'Nutzt statt rein US-Daten einen Welt-Aktien-Proxy für 1970–2025: 65% US Large Cap (S&P 500) plus 35% internationale Industrieländer (MSCI EAFE). Dies nähert einen echten Welt-ETF besser an und ist stärker diversifiziert. Schwäche: Die Datenbasis beginnt erst 1970 — Weltwirtschaftskrise und beide Weltkriege bleiben unsichtbar, und die 65/35-Gewichtung ist eine Vereinfachung (der US-Anteil echter MSCI-World-Portfolios schwankte historisch stark). Da nur Jahresdaten vorliegen, werden die 12 Monate je Jahr geometrisch identisch aufgeteilt (kein echtes Intra-Jahres-Rauschen).' },
                 { id: 'm3', title: 'Historisch · Block-Bootstrap', text: 'Würfelt aus den historischen Daten (wählbar: S&P 500 seit 1872 oder Welt-Proxy seit 1970) viele neue, zufällig kombinierte Verläufe: zusammenhängende Blöcke von „Blocklänge“ Jahren werden mit Zurücklegen gezogen und zu synthetischen Pfaden zusammengesetzt — oft 2.500 bis 10.000 Stück. So entstehen Verläufe, die real nie so eintraten, aber auf echten Renditewerten basieren. Stärke: deutlich größere Stichprobe, bessere Schätzung von Extremwerten. Schwäche: Die Zufallskombination zerstört echte historische Reihenfolgen und mittelt Extrem-Crashs heraus. Kleine Blöcke = mehr Unabhängigkeit, große Blöcke = mehr historische Struktur bleibt erhalten.' },
                 { id: 'm4', title: 'Parametrisch · Monte Carlo', text: 'Statt echter historischer Daten erzeugt ein reines Zufallsmodell Markt-Renditen aus einer modellierten statistischen Verteilung (angenommene Erwartungswerte und Volatilitäten für Aktien, Gold, Anleihen, Liquidität) und simuliert viele unabhängige Zukunfts-Pfade (2.500–10.000). Stärke: praktisch unbegrenzt viele Szenarien. Schwäche: Das Ergebnis hängt komplett von den angenommenen Parametern ab — es testet das Modell, nicht die Realität. Historische Extremereignisse (Kriege, Crashs) erscheinen nur, wenn sie in der Verteilung stecken. Immer mit mindestens einem historischen Modus vergleichen.' },
@@ -1687,8 +1692,6 @@ function EntnahmeSimulator() {
           )}
         </div>
 
-        <div style={{ display: 'grid'
-
         <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: 20 }} className="sim-grid">
           <div style={{ background: '#FFFFFF', border: '1px solid #D3DAD6', borderRadius: 6, padding: '18px 20px', alignSelf: 'start' }}>
         {/* Mode selector */}
@@ -1793,7 +1796,10 @@ function EntnahmeSimulator() {
 
 
           <div>
-            <SectionLabel color="#3A6B8A">Zeitraum</SectionLabel>
+            <SectionLabel color="#C08A2E">Zeitraum</SectionLabel>
+            <Slider label="Alter bei Entnahmebeginn" value={startAge} min={40} max={70} step={1}
+              onChange={setStartAge} format={(v) => v + ' Jahre'}
+              tip="Dein Alter beim Start der Entnahmephase — davon hängt ab, wie viele Jahre das Portfolio reichen muss." />
             <Slider label="Entnahmehorizont" value={horizon} min={20} max={60} step={1}
               onChange={setHorizon} format={(v) => v + ' Jahre'}
               tip="Wie viele Jahre die Entnahmephase dauern soll — das Portfolio muss diesen Zeitraum überbrücken." />
@@ -1816,7 +1822,7 @@ function EntnahmeSimulator() {
             </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
           <div>
-            <SectionLabel color="#2F5D62">Portfolio</SectionLabel>
+            <SectionLabel color="#C08A2E">Portfolio</SectionLabel>
             <Slider label="Startvermögen" value={vermoegen} min={100000} max={3000000} step={5000}
               onChange={setVermoegen} format={fmtEUR}
               tip="Dein frei verfügbares Gesamtvermögen zu Beginn der Entnahmephase (Aktien + Anleihen + Gold + Bitcoin + Liquidität). Die Eigentumswohnung zählt hier nicht dazu." />
@@ -1846,14 +1852,11 @@ function EntnahmeSimulator() {
           </div>
 
           <div>
-            <SectionLabel color="#3A6B8A">Person &amp; GRV-Rente</SectionLabel>
+            <SectionLabel color="#C08A2E">GRV-Rente</SectionLabel>
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 12, color: '#5B6B65', cursor: 'pointer' }}>
               <input type="checkbox" checked={grvBerechnen} onChange={(e) => setGrvBerechnen(e.target.checked)} style={{ accentColor: '#2F5D62' }} />
               GRV berücksichtigen<InfoDot text="Aktiv: Die gesetzliche Rente reduziert ab Rentenbeginn den nötigen Betrag aus dem Portfolio. Inaktiv: Die GRV-Rente wird in der Simulation und den Kennzahlen komplett außer Acht gelassen." />
             </label>
-            <Slider label="Alter bei Entnahmebeginn" value={startAge} min={40} max={70} step={1}
-              onChange={setStartAge} format={(v) => v + ' Jahre'}
-              tip="Dein Alter beim Start der Entnahmephase — davon hängt ab, wie viele Jahre das Portfolio reichen muss." />
             <Slider label="Rentenpunkte" value={rentenpunkte} min={0} max={80} step={1}
               onChange={setRentenpunkte} format={(v) => v.toFixed(0)}
               hint="Summe der bis Rentenbeginn erwarteten Entgeltpunkte"
@@ -1914,7 +1917,7 @@ function EntnahmeSimulator() {
               </label>
             </div>
             {entnahmeStrategie === 'dynamisch' && (
-              <Slider label="Statische Referenzrate" value={staticRate} min={2} max={20} step={0.1}
+              <Slider label="Statische Referenzrate" value={staticRate} min={0} max={20} step={0.1}
                 onChange={setStaticRate} format={(v) => v.toFixed(1) + '%'} hint="Basis für den Boden"
                 tip="Der feste Prozentsatz vom Startvermögen, der als harter Mindestboden auch in schlechten Jahren nie unterschritten wird." />
             )}
@@ -1932,7 +1935,7 @@ function EntnahmeSimulator() {
                   onChange={setFloor} format={(v) => v.toFixed(1) + '%'}
                   tip="Maximaler Rückgang der Entnahme pro Jahr gegenüber dem Vorjahr (negativer Wert). Puffert schlechte Jahre ab — begrenzt von unten durch den harten Boden." />
               </>
-            )}
+            ) }
             {entnahmeStrategie === 'guyton-klinger' && (
               <>
                 <Slider label="Guardrail (Auslöseschwelle)" value={gkGuardrailPct} min={5} max={50} step={1}
@@ -1942,7 +1945,7 @@ function EntnahmeSimulator() {
                   onChange={setGkAdjustStep} format={(v) => v.toFixed(1) + '%'}
                   tip="Prozentualer Schritt, um den der Entnahmebetrag gekürzt oder erhöht wird, wenn ein Guardrail verletzt wird. Ersetzt in diesem Jahr die Inflationsanpassung." />
               </>
-            )}
+            ) }
           </div>
             <div style={{ fontSize: 11.5, color: '#5B6B65', marginTop: 4 }}>
               Reserve-Trigger: ETF ≥20% unter Allzeithoch (fest, nicht einstellbar)
@@ -2171,38 +2174,60 @@ function EntnahmeSimulator() {
             <div style={{ fontSize: 11, color: '#5B6B65', fontStyle: 'italic' }}>Auf „Berechnen" klicken, um die Heatmap zu erstellen.</div>
           )}
           {heatmap && (
-            <div style={{ overflow: 'auto', maxHeight: '70vh' }}>
-              <table style={{ borderCollapse: 'separate', borderSpacing: 2, fontSize: 10.5 }}>
-                <thead>
-                  <tr>
-                    <th style={{ position: 'sticky', top: 0, left: 0, zIndex: 4, background: '#FFFFFF', boxShadow: '0 1px 0 #D3DAD6, 1px 0 0 #D3DAD6', padding: '3px 6px', color: '#5B6B65', fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>Horizont ↓ / Rate →</th>
-                    {heatmap.xLabels.map((r) => (
-                      <th key={r} style={{ position: 'sticky', top: 0, zIndex: 3, background: '#FFFFFF', boxShadow: '0 1px 0 #D3DAD6', padding: '3px 4px', color: '#5B6B65', fontWeight: 600, textAlign: 'center' }}>{Number.isInteger(r) ? r : r.toFixed(2).replace(/\.?0+$/, '')}%</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {heatmap.grid.map((row, ai) => (
-                    <tr key={heatmap.yLabels[ai]}>
-                      <td style={{ position: 'sticky', left: 0, zIndex: 2, background: '#FFFFFF', boxShadow: '1px 0 0 #D3DAD6', padding: '3px 6px', color: '#5B6B65', fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>{heatmap.yLabels[ai]} J.</td>
-                      {row.map((v, ri) => {
-                        const isBase = heatmap.yLabels[ai] === heatmap.nearestHorizon && Math.abs(heatmap.xLabels[ri] - heatmap.nearestRate) < 1e-9;
-                        const vColor = v >= 97.5 ? '#2F5D62' : v >= 90 ? '#C08A2E' : '#A8432F';
-                        const fg = '#FFFFFF';
-                        return (
-                          <td key={ri} title={`Horizont ${heatmap.yLabels[ai]} J., Rate ${Number.isInteger(heatmap.xLabels[ri]) ? heatmap.xLabels[ri] : heatmap.xLabels[ri].toFixed(2).replace(/\.?0+$/, '')} %: Erfolgsquote ${v.toFixed(1)} %`} style={{
-                            background: vColor, color: fg, textAlign: 'center', fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif",
-                            padding: '5px 4px', minWidth: 48, borderRadius: 4, border: isBase ? '3px solid #FFD700' : '1px solid rgba(255,255,255,0.5)', boxShadow: isBase ? '0 0 0 1px #FFFFFF, 0 0 9px rgba(255,215,0,0.95)' : 'none', fontWeight: isBase ? 700 : 500,
-                          }}>
-                            {v.toFixed(1)}
-                          </td>
-                        );
-                      })}
+            <>
+              <div style={{ overflow: 'auto', maxHeight: '70vh' }}>
+                <table style={{ borderCollapse: 'separate', borderSpacing: 2, fontSize: 10.5 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ position: 'sticky', top: 0, left: 0, zIndex: 4, background: '#FFFFFF', boxShadow: '0 1px 0 #D3DAD6, 1px 0 0 #D3DAD6', padding: '3px 6px', color: '#5B6B65', fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>Horizont ↓ / Rate →</th>
+                      {heatmap.xLabels.map((r) => (
+                        <th key={r} style={{ position: 'sticky', top: 0, zIndex: 3, background: '#FFFFFF', boxShadow: '0 1px 0 #D3DAD6', padding: '3px 4px', color: '#5B6B65', fontWeight: 600, textAlign: 'center' }}>{Number.isInteger(r) ? r : r.toFixed(2).replace(/\.?0+$/, '')}%</th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {heatmap.grid.map((row, ai) => (
+                      <tr key={heatmap.yLabels[ai]}>
+                        <td style={{ position: 'sticky', left: 0, zIndex: 2, background: '#FFFFFF', boxShadow: '1px 0 0 #D3DAD6', padding: '3px 6px', color: '#5B6B65', fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>{heatmap.yLabels[ai]} J.</td>
+                        {row.map((v, ri) => {
+                          const isBase = heatmap.yLabels[ai] === heatmap.nearestHorizon && Math.abs(heatmap.xLabels[ri] - heatmap.nearestRate) < 1e-9;
+                          const vColor = v >= 97.5 ? '#2F5D62' : v >= 90 ? '#C08A2E' : '#A8432F';
+                          const fg = '#FFFFFF';
+                          return (
+                            <td key={ri} title={`Horizont ${heatmap.yLabels[ai]} J., Rate ${Number.isInteger(heatmap.xLabels[ri]) ? heatmap.xLabels[ri] : heatmap.xLabels[ri].toFixed(2).replace(/\.?0+$/, '')} %: Erfolgsquote ${v.toFixed(1)} %`} style={{
+                              background: vColor, color: fg, textAlign: 'center', fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif",
+                              padding: '5px 4px', minWidth: 48, borderRadius: 4, border: isBase ? '3px solid #FFD700' : '1px solid rgba(255,255,255,0.5)', boxShadow: isBase ? '0 0 0 1px #FFFFFF, 0 0 9px rgba(255,215,0,0.95)' : 'none', fontWeight: isBase ? 700 : 500,
+                            }}>
+                              {v.toFixed(1)}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ marginTop: 16, padding: '10px 12px', background: '#FAFBFA', border: '1px solid #E3E8E5', borderRadius: 8, fontSize: 11, color: '#5B6B65' }}>
+                <div style={{ fontWeight: 600, marginBottom: 8, color: '#1C2521' }}>Farblegende</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 16, height: 16, borderRadius: 4, background: '#2F5D62', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)' }}></span>
+                    <span>≥ 97,5 % · <strong>Sehr sicher</strong></span>
+                  </span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 16, height: 16, borderRadius: 4, background: '#C08A2E', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)' }}></span>
+                    <span>90–97,5 % · <strong>Ausgewogen</strong></span>
+                  </span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 16, height: 16, borderRadius: 4, background: '#A8432F', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)' }}></span>
+                    <span>&lt; 90 % · <strong>Riskant</strong></span>
+                  </span>
+                  <span style={{ marginLeft: 'auto', fontSize: 10.5, color: '#5B6B65' }}>
+                    Goldener Rand = deine aktuelle Einstellung
+                  </span>
+                </div>
+              </div>
+            </>
           )}
         </div>
 
@@ -2212,7 +2237,7 @@ function EntnahmeSimulator() {
             <CartesianGrid stroke="#E3E8E5" vertical={false} />
             <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
             <YAxis tickFormatter={fmtEUR} tick={{ fill: '#5B6B65', fontSize: 11, dy: 4 }} tickLine={false} axisLine={false} width={60} />
-            <Tooltip content={<LightTooltip showFloor={false} startAge={startAge} />} />
+            <RechartsTooltip content={<LightTooltip showFloor={false} startAge={startAge} />} />
             <Area dataKey="balP10" stackId="b" stroke="none" fill="transparent" />
             <Area dataKey="balBand" stackId="b" stroke="none" fill="#2F5D62" fillOpacity={0.15} />
             <Line dataKey="balP50" stroke="#2F5D62" strokeWidth={2} dot={false} />
@@ -2228,7 +2253,7 @@ function EntnahmeSimulator() {
             <CartesianGrid stroke="#E3E8E5" vertical={false} />
             <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
             <YAxis tickFormatter={fmtEUR} tick={{ fill: '#5B6B65', fontSize: 11, dy: 4 }} tickLine={false} axisLine={false} width={60} />
-            <Tooltip content={<LightTooltip showFloor startAge={startAge} />} />
+            <RechartsTooltip content={<LightTooltip showFloor startAge={startAge} />} />
             <Area dataKey="spendP10" stackId="s" stroke="none" fill="transparent" />
             <Area dataKey="spendBand" stackId="s" stroke="none" fill="#C08A2E" fillOpacity={0.15} />
             <Line dataKey="spendP50" name="Gesamtentnahme" stroke="#C08A2E" strokeWidth={2} dot={false} />
@@ -2249,7 +2274,7 @@ function EntnahmeSimulator() {
             <CartesianGrid stroke="#E3E8E5" vertical={false} />
             <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
             <YAxis tickFormatter={(v) => v.toFixed(1) + '%'} tick={{ fill: '#5B6B65', fontSize: 11, dy: 4 }} tickLine={false} axisLine={false} width={44} />
-            <Tooltip content={<FailTooltip startAge={startAge} />} />
+            <RechartsTooltip content={<FailTooltip startAge={startAge} />} />
             <Area dataKey="failRate" stroke="none" fill="#A8432F" fillOpacity={0.15} />
             <Line dataKey="failRate" stroke="#A8432F" strokeWidth={2} dot={false} />
             <Line dataKey={() => 2.5} stroke="#5B6B65" strokeWidth={1} strokeDasharray="4 4" dot={false} />
