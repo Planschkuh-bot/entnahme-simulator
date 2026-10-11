@@ -1931,12 +1931,7 @@ function EntnahmeSimulator() {
                 hint="Zusammenhängende Blöcke beim Ziehen"
                 tip="Länge der zusammenhängenden Jahresblöcke. Kleinere Blöcke = mehr Unabhängigkeit zwischen den Zufallsjahren." />
             )}
-            <button onClick={() => setSeed((s) => s + 1)} style={{
-              background: 'transparent', border: '1px solid #D3DAD6', color: '#5B6B65',
-              fontSize: 12, padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
-            }}>
-              ↻ {mode === 'rolling' ? 'Neu berechnen' : 'Neue Zufallsstichprobe'}
-            </button>
+
               </div>
               {isCalculating && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -2164,6 +2159,14 @@ function EntnahmeSimulator() {
           )}
           <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <button onClick={() => setSeed((s) => s + 1)} style={{
+                  background: 'transparent', border: '1px solid #D3DAD6', color: '#5B6B65',
+                  fontSize: 12, padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
+                }}>
+                  ↻ {mode === 'rolling' ? 'Neu berechnen' : 'Neue Zufallsstichprobe'}
+                </button>
+              </div>
               <Gauge value={result.successRate} />
               <div style={{ fontSize: 10.5, color: '#5B6B65', fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif", display: 'flex', alignItems: 'center', gap: 4 }}>
                 95%-KI: [{result.ciLow.toFixed(1)}%, {result.ciHigh.toFixed(1)}%]
