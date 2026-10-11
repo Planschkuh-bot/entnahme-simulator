@@ -1885,6 +1885,13 @@ function EntnahmeSimulator() {
             <option value="fatfire">💎 Fat FIRE (3M, 60J, 2,5%)</option>
           </select>
         </div>
+        <button onClick={shareConfig} style={{
+          width: '100%', background: 'transparent', border: '1px solid #2F5D62', color: '#2F5D62',
+          fontSize: 12, padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
+          fontWeight: 500, marginBottom: 16,
+        }}>
+          {shareLabel}
+        </button>
 
         {/* Mode selector */}
         <div style={{ marginBottom: 16 }}>
@@ -1936,26 +1943,20 @@ function EntnahmeSimulator() {
             }}>
               ↻ {mode === 'rolling' ? 'Neu berechnen' : 'Neue Zufallsstichprobe'}
             </button>
-          </div>
-            {isCalculating && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              </div>
+              {isCalculating && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <svg width="14" height="14" viewBox="0 0 14 14" style={{ animation: 'spin 0.8s linear infinite', flexShrink: 0 }}>
-                <circle cx="7" cy="7" r="5.5" fill="none" stroke="#D3DAD6" strokeWidth="2" />
-                <path d="M7 1.5 A5.5 5.5 0 0 1 12.5 7" fill="none" stroke="#2F5D62" strokeWidth="2" strokeLinecap="round" />
+              <circle cx="7" cy="7" r="5.5" fill="none" stroke="#D3DAD6" strokeWidth="2" />
+              <path d="M7 1.5 A5.5 5.5 0 0 1 12.5 7" fill="none" stroke="#2F5D62" strokeWidth="2" strokeLinecap="round" />
               </svg>
               <span style={{ fontSize: 11.5, color: '#5B6B65' }}>Wird berechnet …</span>
-            </div>
-          )}
-          <button onClick={shareConfig} style={{
-            background: 'transparent', border: '1px solid #D3DAD6', color: '#5B6B65',
-            fontSize: 12, padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
-          }}>
-            {shareLabel}
-          </button>
+              </div>
+              )}
 
-        </div>
+              </div>
 
-        {/* Kaufkraft / Nominal Toggle — ganz oben */}
+              {/* Kaufkraft / Nominal Toggle — ganz oben */}
         <div style={{ background: 'rgba(47,93,98,0.06)', border: '1px solid #C8D1CC', borderRadius: 8, padding: '12px 14px', marginBottom: 20 }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12.5, color: '#1C2521', fontWeight: 600 }}>
             <input
