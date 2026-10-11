@@ -2172,13 +2172,13 @@ function EntnahmeSimulator() {
               <Stat label="Basis" value={mode === 'montecarlo' ? 'Normalverteilt' : `${result.numPaths} Pfade`}
                 sub={mode === 'rolling' ? `alle ${horizon}-Jahres-Fenster 1872–2025` : mode === 'world' ? `alle ${horizon}-Jahres-Fenster 1970–2025` : mode === 'bootstrap' ? `Bootstrap aus ${bootstrapSource === 'world' ? 'Welt-Proxy 1970–2025' : 'S&P 500 1872–2025'}` : 'zufällig, unabhängig'}
                 tip="Auf wie vielen unterschiedlichen simulierten oder historischen Verläufen die Erfolgsquote beruht — mehr Pfade bedeuten ein verlässlicheres Ergebnis." />
-              <Stat label="Start-Entnahme (dyn.)" value={fmtEUR(result.dynStartAmount)} sub={`${dynStartRate.toFixed(1)}% vom Vermögen`}
+              <Stat label="Start-Entnahme" value={fmtEUR(result.dynStartAmount)} sub={`${entnahmeStrategie === 'bengen' ? 4 : dynStartRate.toFixed(1)}% vom Vermögen`}
                 tip="Wie viel du im ersten Jahr entnimmst, bevor sich die Entnahme danach an den Depotwert anpasst." />
               {entnahmeStrategie === 'dynamisch' ? (
                 <Stat label="Harter Boden" value={fmtEUR(result.hardFloor)} sub={`= statische Referenzrate (${fmtEUR(result.staticAmount)})`} color="#A8432F"
                   tip="Dein Sicherheitsnetz: Egal wie schlecht die Börse läuft, du bekommst nie weniger als diesen Betrag pro Jahr." />
               ) : (
-                <Stat label="Feste Entnahme" value={fmtEUR(result.dynStartAmount)} sub={`${dynStartRate.toFixed(1)}% vom Startvermögen, real konstant`} color="#2F5D62"
+                <Stat label="Feste Entnahme" value={fmtEUR(result.dynStartAmount)} sub={`${entnahmeStrategie === 'bengen' ? 4 : dynStartRate.toFixed(1)}% vom Startvermögen, real konstant`} color="#2F5D62"
                   tip="Im statischen Modus bleibt die Entnahme über die gesamte Laufzeit real konstant (nur um Inflation bereinigt) — es gibt keinen zusätzlichen Boden." />
               )}
               <Stat label="Median-Gesamtentnahme"
