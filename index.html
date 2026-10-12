@@ -2163,21 +2163,37 @@ function EntnahmeSimulator() {
           <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <button onClick={() => setSeed((s) => s + 1)} style={{
-                  background: 'transparent', border: '1px solid #D3DAD6', color: '#5B6B65',
-                  fontSize: 12, padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
-                }}>
-                  ↻ {mode === 'rolling' ? 'Neu berechnen' : 'Neue Zufallsstichprobe'}
+                <button
+                  onClick={() => setSeed((s) => s + 1)}
+                  disabled={isCalculating}
+                  style={{
+                    background: isCalculating ? 'rgba(47,93,98,0.1)' : 'transparent',
+                    border: '1px solid #D3DAD6',
+                    color: '#5B6B65',
+                    fontSize: 12,
+                    padding: '7px 14px',
+                    borderRadius: 8,
+                    cursor: isCalculating ? 'wait' : 'pointer',
+                    minWidth: 200,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  {isCalculating ? (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <svg width="14" height="14" viewBox="0 0 14 14" style={{ animation: 'spin 0.8s linear infinite', flexShrink: 0 }}>
+                        <circle cx="7" cy="7" r="5.5" fill="none" stroke="#D3DAD6" strokeWidth="2" />
+                        <path d="M7 1.5 A5.5 5.5 0 0 1 12.5 7" fill="none" stroke="#2F5D62" strokeWidth="2" strokeLinecap="round" />
+                      </svg>
+                      Wird berechnet …
+                    </span>
+                  ) : (
+                    <span>↻ {mode === 'rolling' ? 'Neu berechnen' : 'Neue Zufallsstichprobe'}</span>
+                  )}
                 </button>
-                {isCalculating && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#5B6B65', fontSize: 11.5 }}>
-                    <svg width="14" height="14" viewBox="0 0 14 14" style={{ animation: 'spin 0.8s linear infinite', flexShrink: 0 }}>
-                      <circle cx="7" cy="7" r="5.5" fill="none" stroke="#D3DAD6" strokeWidth="2" />
-                      <path d="M7 1.5 A5.5 5.5 0 0 1 12.5 7" fill="none" stroke="#2F5D62" strokeWidth="2" strokeLinecap="round" />
-                    </svg>
-                    Wird berechnet …
-                  </div>
-                )}
               </div>
               <Gauge value={result.successRate} />
               <div style={{ fontSize: 10.5, color: '#5B6B65', fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif", display: 'flex', alignItems: 'center', gap: 4 }}>
