@@ -609,16 +609,30 @@ function aggregate(paths, horizon) {
       year: t,
       balP1: percentile(sorted, 1),
       balP10: percentile(sorted, 10),
+      balP20: percentile(sorted, 20),
+      balP30: percentile(sorted, 30),
+      balP40: percentile(sorted, 40),
       balP50: percentile(sorted, 50),
+      balP60: percentile(sorted, 60),
+      balP70: percentile(sorted, 70),
+      balP80: percentile(sorted, 80),
       balP90: percentile(sorted, 90),
+      balP99: percentile(sorted, 99),
       balBand: percentile(sorted, 90) - percentile(sorted, 10),
     };
     if (t < horizon) {
       const sSorted = [...spendByYear[t]].sort((a, b) => a - b);
       entry.spendP1 = percentile(sSorted, 1);
       entry.spendP10 = percentile(sSorted, 10);
+      entry.spendP20 = percentile(sSorted, 20);
+      entry.spendP30 = percentile(sSorted, 30);
+      entry.spendP40 = percentile(sSorted, 40);
       entry.spendP50 = percentile(sSorted, 50);
+      entry.spendP60 = percentile(sSorted, 60);
+      entry.spendP70 = percentile(sSorted, 70);
+      entry.spendP80 = percentile(sSorted, 80);
       entry.spendP90 = percentile(sSorted, 90);
+      entry.spendP99 = percentile(sSorted, 99);
       entry.spendBand = percentile(sSorted, 90) - percentile(sSorted, 10);
     }
     yearsStats.push(entry);
@@ -1437,6 +1451,9 @@ function EntnahmeSimulator() {
   const [expandedChart, setExpandedChart] = useState(null);
   const [showStrategyComparison, setShowStrategyComparison] = useState(false);
   const [showWithdrawalDetail, setShowWithdrawalDetail] = useState(false);
+  const [withdrawalPercentileA, setWithdrawalPercentileA] = useState(50);
+  const [withdrawalPercentileB, setWithdrawalPercentileB] = useState(10);
+  const withdrawalPercentiles = [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 99];
   const matchedPreset = useMemo(() => {
     const rentner = { vermoegen: 300000, aktien: 80, gold: 0, bitcoin: 0, anleihen: 15, wohnung: 0, etfTer: 0.2, staticRate: 8, dynStartRate: 12, ceiling: 5, floor: -2.5, horizon: 25, blockLen: 5, startAge: 67, rentenpunkte: 40, pensionStartAge: 67, numSims: 2500, seed: 5 };
     const fireFan = { vermoegen: 1150000, aktien: 87, gold: 8, bitcoin: 0, anleihen: 0, wohnung: 0, etfTer: 0.2, staticRate: 2.4, dynStartRate: 3, ceiling: 5, floor: -2.5, horizon: 45, blockLen: 5, startAge: 50, rentenpunkte: 30, pensionStartAge: 67, numSims: 2500, seed: 6 };
@@ -2356,18 +2373,29 @@ function EntnahmeSimulator() {
             <div style={{ fontSize: 11, color: '#5B6B65', transform: showWithdrawalDetail ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▶</div>
           </div>
           {showWithdrawalDetail && (
-            <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 420, marginTop: 12 }}>
+            <>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 12, marginBottom: 10 }}>
+                {[['Erste Variante', withdrawalPercentileA, setWithdrawalPercentileA], ['Zweite Variante', withdrawalPercentileB, setWithdrawalPercentileB]].map(([label, selected, setSelected]) => (
+                  <label key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: '#5B6B65' }}>
+                    {label}
+                    <select value={selected} onChange={(e) => setSelected(Number(e.target.value))} style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid #D3DAD6', background: '#FFFFFF', color: '#1C2521', fontSize: 11.5 }}>
+                      {withdrawalPercentiles.map((percentile) => (
+                        <option key={percentile} value={percentile} disabled={percentile === (label === 'Erste Variante' ? withdrawalPercentileB : withdrawalPercentileA)}>{`P${percentile}${percentile === 50 ? ' (Median)' : ''}`}</option>
+                      ))}
+                    </select>
+                  </label>
+                ))}
+              </div>
+              <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 420 }}>
               <table style={{ width: '100%', minWidth: '760px', borderCollapse: 'collapse', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}>
                 <thead>
                   <tr style={{ borderBottom: '2px solid #D3DAD6', position: 'sticky', top: 0, zIndex: 3, background: '#FFFFFF' }}>
                     <th style={{ width: 48, minWidth: 48, boxSizing: 'border-box', textAlign: 'right', padding: '5px 7px', background: '#FFFFFF', position: 'sticky', left: 0, zIndex: 4, boxShadow: '2px 0 3px rgba(0,0,0,0.06)' }}>Jahr</th>
                     <th style={{ width: 55, minWidth: 55, boxSizing: 'border-box', textAlign: 'right', padding: '5px 7px', background: '#FFFFFF', position: 'sticky', left: 48, zIndex: 4, boxShadow: '2px 0 3px rgba(0,0,0,0.06)' }}>Alter</th>
-                    <th style={{ textAlign: 'right', padding: '5px 7px' }}>Median Entnahme</th>
-                    <th style={{ textAlign: 'right', padding: '5px 7px' }}>P10 Entnahme</th>
-                    <th style={{ textAlign: 'right', padding: '5px 7px' }}>P1 Entnahme</th>
-                    <th style={{ textAlign: 'right', padding: '5px 7px' }}>Median Endvermögen</th>
-                    <th style={{ textAlign: 'right', padding: '5px 7px' }}>P10 Endvermögen</th>
-                    <th style={{ textAlign: 'right', padding: '5px 7px' }}>P1 Endvermögen</th>
+                    <th style={{ textAlign: 'right', padding: '5px 7px' }}>{`P${withdrawalPercentileA} Entnahme`}</th>
+                    <th style={{ textAlign: 'right', padding: '5px 7px' }}>{`P${withdrawalPercentileB} Entnahme`}</th>
+                    <th style={{ textAlign: 'right', padding: '5px 7px' }}>{`P${withdrawalPercentileA} Endvermögen`}</th>
+                    <th style={{ textAlign: 'right', padding: '5px 7px' }}>{`P${withdrawalPercentileB} Endvermögen`}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2378,18 +2406,17 @@ function EntnahmeSimulator() {
                       <tr key={row.year} style={{ borderBottom: '1px solid #E8ECE9', background: index % 2 === 0 ? '#FAFBFA' : '#FFFFFF' }}>
                         <td style={{ width: 48, minWidth: 48, boxSizing: 'border-box', textAlign: 'right', padding: '5px 7px', position: 'sticky', left: 0, background: index % 2 === 0 ? '#FAFBFA' : '#FFFFFF', zIndex: 2, boxShadow: '2px 0 3px rgba(0,0,0,0.06)' }}>{row.year + 1}</td>
                         <td style={{ width: 55, minWidth: 55, boxSizing: 'border-box', textAlign: 'right', padding: '5px 7px', position: 'sticky', left: 48, background: index % 2 === 0 ? '#FAFBFA' : '#FFFFFF', zIndex: 2, boxShadow: '2px 0 3px rgba(0,0,0,0.06)' }}>{startAge + row.year + 1}</td>
-                        <td style={{ textAlign: 'right', padding: '5px 7px' }}>{value(row.spendP50)}</td>
-                        <td style={{ textAlign: 'right', padding: '5px 7px' }}>{value(row.spendP10)}</td>
-                        <td style={{ textAlign: 'right', padding: '5px 7px' }}>{value(row.spendP1)}</td>
-                        <td style={{ textAlign: 'right', padding: '5px 7px' }}>{value(row.balP50)}</td>
-                        <td style={{ textAlign: 'right', padding: '5px 7px' }}>{value(row.balP10)}</td>
-                        <td style={{ textAlign: 'right', padding: '5px 7px' }}>{value(row.balP1)}</td>
+                        <td style={{ textAlign: 'right', padding: '5px 7px' }}>{value(row[`spendP${withdrawalPercentileA}`])}</td>
+                        <td style={{ textAlign: 'right', padding: '5px 7px' }}>{value(row[`spendP${withdrawalPercentileB}`])}</td>
+                        <td style={{ textAlign: 'right', padding: '5px 7px' }}>{value(row[`balP${withdrawalPercentileA}`])}</td>
+                        <td style={{ textAlign: 'right', padding: '5px 7px' }}>{value(row[`balP${withdrawalPercentileB}`])}</td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
-            </div>
+              </div>
+            </>
           )}
         </div>
 
