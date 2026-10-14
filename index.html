@@ -2681,7 +2681,7 @@ function EntnahmeSimulator() {
       </script>
 
         <!-- Kontaktbereich (plain HTML, kein JSX) -->
-          <footer style="max-width: 1220px; margin: 40px auto 20px; padding: 24px; background: #FAFBFA; border: 1px solid #D3DAD6; border-radius: 12px; font-family: 'Inter', system-ui, sans-serif;">
+          <footer id="contactFooter" style="max-width: 1220px; margin: 40px auto 20px; padding: 24px; background: #FAFBFA; border: 1px solid #D3DAD6; border-radius: 12px; font-family: 'Inter', system-ui, sans-serif; display: none;">
             <button onclick="toggleContact()" style="width: 100%; text-align: left; background: transparent; border: none; cursor: pointer; padding: 0; font: inherit;">
               <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #1C2521; display: flex; align-items: center; justify-content: space-between;">
                 Kontakt & Feedback
@@ -2755,6 +2755,20 @@ function EntnahmeSimulator() {
           </footer>
 
           <script>
+              // Kontakt-Footer erst anzeigen, nachdem React gerendert hat (verhindert, dass er beim Laden zuerst sichtbar ist)
+              function showFooter() {
+                const footer = document.getElementById('contactFooter');
+                if (footer) footer.style.display = 'block';
+              }
+              setTimeout(showFooter, 800);
+
+              // Redirect-URL dynamisch setzen (funktioniert lokal und auf GitHub Pages)
+              function setNextUrl() {
+                const nextInput = document.querySelector('#contactForm input[name="_next"]');
+                if (nextInput) nextInput.value = window.location.origin + window.location.pathname + '?sent=1#kontakt';
+              }
+              setNextUrl();
+
               function toggleContact() {
                 const content = document.getElementById('contactContent');
                 const arrow = document.getElementById('contactArrow');
@@ -2765,7 +2779,11 @@ function EntnahmeSimulator() {
 
               // Check for success message on return from FormSubmit
               window.addEventListener('load', function() {
+                showFooter();
                 if (window.location.search.includes('sent=1')) {
+                  // Kontaktbereich automatisch öffnen
+                  const contact = document.getElementById('contactContent');
+                  if (contact && contact.style.display === 'none') toggleContact();
                   const statusDiv = document.getElementById('formStatus');
                   const form = document.getElementById('contactForm');
                   statusDiv.textContent = '✓ Nachricht erfolgreich gesendet!';
@@ -2775,8 +2793,8 @@ function EntnahmeSimulator() {
                   // Clean up URL
                   history.replaceState({}, document.title, window.location.pathname);
                   // Scroll to contact section
-                  const contact = document.getElementById('contactContent');
-                  if (contact) contact.scrollIntoView({ behavior: 'smooth' });
+                  const footer = document.getElementById('contactFooter');
+                  if (footer) footer.scrollIntoView({ behavior: 'smooth' });
                 }
               });
             </script>
