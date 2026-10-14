@@ -26,6 +26,17 @@
       from { transform: rotate(0deg); }
       to   { transform: rotate(360deg); }
     }
+    .withdrawal-table-wrap { container-type: inline-size; }
+    .withdrawal-table .short-label { display: none; }
+    @container (max-width: 620px) {
+      .withdrawal-table { font-size: 9px !important; }
+      .withdrawal-table th, .withdrawal-table td { padding-left: 2px !important; padding-right: 2px !important; }
+      .withdrawal-table .long-label { display: none; }
+      .withdrawal-table .short-label { display: inline; }
+    }
+    @container (max-width: 440px) {
+      .withdrawal-table { font-size: 8px !important; }
+    }
   </style>
 </head>
 <body>
@@ -1451,8 +1462,8 @@ function EntnahmeSimulator() {
   const [expandedChart, setExpandedChart] = useState(null);
   const [showStrategyComparison, setShowStrategyComparison] = useState(false);
   const [showWithdrawalDetail, setShowWithdrawalDetail] = useState(false);
-  const [withdrawalPercentileA, setWithdrawalPercentileA] = useState(50);
-  const [withdrawalPercentileB, setWithdrawalPercentileB] = useState(10);
+  const [withdrawalPercentileA, setWithdrawalPercentileA] = useState(10);
+  const [withdrawalPercentileB, setWithdrawalPercentileB] = useState(50);
   const withdrawalPercentiles = [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 99];
   const matchedPreset = useMemo(() => {
     const rentner = { vermoegen: 300000, aktien: 80, gold: 0, bitcoin: 0, anleihen: 15, wohnung: 0, etfTer: 0.2, staticRate: 8, dynStartRate: 12, ceiling: 5, floor: -2.5, horizon: 25, blockLen: 5, startAge: 67, rentenpunkte: 40, pensionStartAge: 67, numSims: 2500, seed: 5 };
@@ -2386,16 +2397,16 @@ function EntnahmeSimulator() {
                   </label>
                 ))}
               </div>
-              <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 420 }}>
-              <table style={{ width: '100%', minWidth: 0, tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: 9.5, fontFamily: "'IBM Plex Mono', monospace" }}>
+              <div className="withdrawal-table-wrap" style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 420 }}>
+              <table className="withdrawal-table" style={{ width: '100%', minWidth: 0, tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}>
                 <thead>
                   <tr style={{ borderBottom: '2px solid #D3DAD6', position: 'sticky', top: 0, zIndex: 3, background: '#FFFFFF' }}>
-                    <th style={{ width: 34, minWidth: 34, boxSizing: 'border-box', textAlign: 'right', padding: '4px 3px', background: '#FFFFFF', position: 'sticky', left: 0, zIndex: 4, boxShadow: '2px 0 3px rgba(0,0,0,0.06)' }}>J.</th>
-                    <th style={{ width: 40, minWidth: 40, boxSizing: 'border-box', textAlign: 'right', padding: '4px 3px', background: '#FFFFFF', position: 'sticky', left: 34, zIndex: 4, boxShadow: '2px 0 3px rgba(0,0,0,0.06)' }}>Alt.</th>
-                    <th style={{ textAlign: 'right', padding: '5px 7px' }}>{`P${withdrawalPercentileA} Entn.`}</th>
-                    <th style={{ textAlign: 'right', padding: '5px 7px' }}>{`P${withdrawalPercentileA} Verm.`}</th>
-                    <th style={{ textAlign: 'right', padding: '5px 7px' }}>{`P${withdrawalPercentileB} Entn.`}</th>
-                    <th style={{ textAlign: 'right', padding: '5px 7px' }}>{`P${withdrawalPercentileB} Verm.`}</th>
+                    <th style={{ width: 34, minWidth: 34, boxSizing: 'border-box', textAlign: 'right', padding: '4px 3px', background: '#FFFFFF', position: 'sticky', left: 0, zIndex: 4, boxShadow: '2px 0 3px rgba(0,0,0,0.06)' }}><span className="long-label">Jahr</span><span className="short-label">J.</span></th>
+                    <th style={{ width: 40, minWidth: 40, boxSizing: 'border-box', textAlign: 'right', padding: '4px 3px', background: '#FFFFFF', position: 'sticky', left: 34, zIndex: 4, boxShadow: '2px 0 3px rgba(0,0,0,0.06)' }}><span className="long-label">Alter</span><span className="short-label">Alt.</span></th>
+                    <th style={{ textAlign: 'right', padding: '5px 7px' }}><span className="long-label">{`P${withdrawalPercentileA} Entnahme`}</span><span className="short-label">{`P${withdrawalPercentileA} Entn.`}</span></th>
+                    <th style={{ textAlign: 'right', padding: '5px 7px' }}><span className="long-label">{`P${withdrawalPercentileA} Vermögen`}</span><span className="short-label">{`P${withdrawalPercentileA} Verm.`}</span></th>
+                    <th style={{ textAlign: 'right', padding: '5px 7px' }}><span className="long-label">{`P${withdrawalPercentileB} Entnahme`}</span><span className="short-label">{`P${withdrawalPercentileB} Entn.`}</span></th>
+                    <th style={{ textAlign: 'right', padding: '5px 7px' }}><span className="long-label">{`P${withdrawalPercentileB} Vermögen`}</span><span className="short-label">{`P${withdrawalPercentileB} Verm.`}</span></th>
                   </tr>
                 </thead>
                 <tbody>
