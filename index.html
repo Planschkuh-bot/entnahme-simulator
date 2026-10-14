@@ -2393,8 +2393,8 @@ function EntnahmeSimulator() {
                     <th style={{ width: 34, minWidth: 34, boxSizing: 'border-box', textAlign: 'right', padding: '4px 3px', background: '#FFFFFF', position: 'sticky', left: 0, zIndex: 4, boxShadow: '2px 0 3px rgba(0,0,0,0.06)' }}>J.</th>
                     <th style={{ width: 40, minWidth: 40, boxSizing: 'border-box', textAlign: 'right', padding: '4px 3px', background: '#FFFFFF', position: 'sticky', left: 34, zIndex: 4, boxShadow: '2px 0 3px rgba(0,0,0,0.06)' }}>Alt.</th>
                     <th style={{ textAlign: 'right', padding: '5px 7px' }}>{`P${withdrawalPercentileA} Entn.`}</th>
-                    <th style={{ textAlign: 'right', padding: '5px 7px' }}>{`P${withdrawalPercentileB} Entn.`}</th>
                     <th style={{ textAlign: 'right', padding: '5px 7px' }}>{`P${withdrawalPercentileA} Verm.`}</th>
+                    <th style={{ textAlign: 'right', padding: '5px 7px' }}>{`P${withdrawalPercentileB} Entn.`}</th>
                     <th style={{ textAlign: 'right', padding: '5px 7px' }}>{`P${withdrawalPercentileB} Verm.`}</th>
                   </tr>
                 </thead>
@@ -2407,8 +2407,8 @@ function EntnahmeSimulator() {
                         <td style={{ width: 34, minWidth: 34, boxSizing: 'border-box', textAlign: 'right', padding: '4px 3px', position: 'sticky', left: 0, background: index % 2 === 0 ? '#FAFBFA' : '#FFFFFF', zIndex: 2, boxShadow: '2px 0 3px rgba(0,0,0,0.06)' }}>{row.year + 1}</td>
                         <td style={{ width: 40, minWidth: 40, boxSizing: 'border-box', textAlign: 'right', padding: '4px 3px', position: 'sticky', left: 34, background: index % 2 === 0 ? '#FAFBFA' : '#FFFFFF', zIndex: 2, boxShadow: '2px 0 3px rgba(0,0,0,0.06)' }}>{startAge + row.year + 1}</td>
                         <td style={{ textAlign: 'right', padding: '4px 3px' }}>{value(row[`spendP${withdrawalPercentileA}`])}</td>
-                        <td style={{ textAlign: 'right', padding: '4px 3px' }}>{value(row[`spendP${withdrawalPercentileB}`])}</td>
                         <td style={{ textAlign: 'right', padding: '4px 3px' }}>{value(row[`balP${withdrawalPercentileA}`])}</td>
+                        <td style={{ textAlign: 'right', padding: '4px 3px' }}>{value(row[`spendP${withdrawalPercentileB}`])}</td>
                         <td style={{ textAlign: 'right', padding: '4px 3px' }}>{value(row[`balP${withdrawalPercentileB}`])}</td>
                       </tr>
                     );
