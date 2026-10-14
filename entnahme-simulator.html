@@ -2809,7 +2809,20 @@ function EntnahmeSimulator() {
       const footer = document.getElementById('contactFooter');
       if (footer) footer.style.display = 'block';
     }
-    setTimeout(showFooter, 800);
+    function showFooterWhenRootReady() {
+      const root = document.getElementById('root');
+      if (!root) return;
+      const reveal = () => {
+        if (root.children.length > 0) {
+          showFooter();
+          observer.disconnect();
+        }
+      };
+      const observer = new MutationObserver(reveal);
+      observer.observe(root, { childList: true, subtree: true });
+      reveal();
+    }
+    showFooterWhenRootReady();
 
     // Redirect-URL dynamisch setzen (funktioniert lokal und auf GitHub Pages)
     function setNextUrl() {
