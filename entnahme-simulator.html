@@ -2680,15 +2680,64 @@ function EntnahmeSimulator() {
   root.render(<EntnahmeSimulator />);
 </script>
 
+  <style>
+    #contactFooter input:focus, #contactFooter textarea:focus {
+      border-color: #2F5D62 !important;
+      box-shadow: 0 0 0 2px rgba(47, 93, 98, 0.15);
+    }
+    #contactContent {
+      overflow: hidden;
+      transition: max-height 0.3s ease, opacity 0.3s ease, margin-top 0.3s ease;
+    }
+    #contactContent.collapsing {
+      max-height: 0 !important;
+      opacity: 0;
+      margin-top: 0 !important;
+    }
+    #contactContent.expanding {
+      max-height: 600px;
+      opacity: 1;
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    #formStatus.animate-in {
+      animation: fadeInUp 0.35s ease;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .send-spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: #FFFFFF;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: -2px;
+      margin-right: 8px;
+    }
+    #contactTitle { transition: color 0.4s; }
+    #contactTitle.success-flash { color: #2E7D32; }
+    @media (max-width: 480px) {
+      #contactFooter { margin: 24px 12px 20px; padding: 18px; }
+      #contactFooter input, #contactFooter textarea { font-size: 16px; }
+      #contactForm button[type="submit"] { width: 100%; }
+    }
+  </style>
+
   <!-- Kontaktbereich (plain HTML, kein JSX) -->
   <footer id="contactFooter" style="max-width: 1220px; margin: 40px auto 20px; padding: 24px; background: #FAFBFA; border: 1px solid #D3DAD6; border-radius: 12px; font-family: 'Inter', system-ui, sans-serif; display: none;">
     <button onclick="toggleContact()" style="width: 100%; text-align: left; background: transparent; border: none; cursor: pointer; padding: 0; font: inherit;">
-      <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #1C2521; display: flex; align-items: center; justify-content: space-between;">
+      <h3 id="contactTitle" style="margin: 0; font-size: 16px; font-weight: 600; color: #1C2521; display: flex; align-items: center; gap: 8px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2F5D62" stroke-width="2" style="flex-shrink: 0;"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 7L2 7"/></svg>
         Kontakt & Feedback
-        <span id="contactArrow" style="font-size: 12px; color: #5B6B65; transition: transform 0.2s; transform: rotate(-90deg);">▼</span>
+        <span style="flex: 1;"></span>
+        <span id="contactArrow" style="font-size: 11px; color: #5B6B65; transition: transform 0.3s ease; transform: rotate(-90deg);">▼</span>
       </h3>
     </button>
-    <div id="contactContent" style="margin-top: 16px; display: none;">
+    <div id="contactContent" style="max-height: 0; opacity: 0; margin-top: 0;">
       <p style="margin: 0 0 16px; font-size: 13px; color: #5B6B65; line-height: 1.6;">
         Fragen, Anregungen oder Fehler gefunden? Schreib mir gerne eine Nachricht:
       </p>
@@ -2769,25 +2818,47 @@ function EntnahmeSimulator() {
     }
     setNextUrl();
 
+    let contactOpen = false;
     function toggleContact() {
       const content = document.getElementById('contactContent');
       const arrow = document.getElementById('contactArrow');
-      const isHidden = content.style.display === 'none';
-      content.style.display = isHidden ? 'block' : 'none';
-      arrow.style.transform = isHidden ? 'rotate(0deg)' : 'rotate(-90deg)';
+      contactOpen = !contactOpen;
+      if (contactOpen) {
+        content.style.maxHeight = content.scrollHeight + 'px';
+        content.style.opacity = '1';
+        content.style.marginTop = '16px';
+        arrow.style.transform = 'rotate(0deg)';
+      } else {
+        content.style.maxHeight = '0';
+        content.style.opacity = '0';
+        content.style.marginTop = '0';
+        arrow.style.transform = 'rotate(-90deg)';
+      }
     }
+    function openContact() {
+      if (!contactOpen) toggleContact();
+    }
+    function closeContact() {
+      if (contactOpen) toggleContact();
+    }
+
+    // Ladezustand beim Absenden
+    document.getElementById('contactForm').addEventListener('submit', function() {
+      const btn = this.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="send-spinner"></span>Wird gesendet...';
+    });
 
     // Check for success message on return from FormSubmit
     window.addEventListener('load', function() {
       showFooter();
       if (window.location.search.includes('sent=1')) {
-        // Kontaktbereich automatisch öffnen
-        const contact = document.getElementById('contactContent');
-        if (contact && contact.style.display === 'none') toggleContact();
+        openContact();
         const statusDiv = document.getElementById('formStatus');
         const form = document.getElementById('contactForm');
         statusDiv.textContent = '✓ Nachricht erfolgreich gesendet!';
         statusDiv.style.cssText = 'margin-top: 12px; padding: 12px; background: #E8F5E9; color: #2E7D32; border-radius: 8px; font-size: 13px;';
+        statusDiv.classList.add('animate-in');
         statusDiv.style.display = 'block';
         if (form) form.reset();
         // Clean up URL
@@ -2795,6 +2866,18 @@ function EntnahmeSimulator() {
         // Scroll to contact section
         const footer = document.getElementById('contactFooter');
         if (footer) footer.scrollIntoView({ behavior: 'smooth' });
+        // Titel kurz grün aufblenden
+        const title = document.getElementById('contactTitle');
+        setTimeout(() => {
+          title.classList.add('success-flash');
+          setTimeout(() => title.classList.remove('success-flash'), 800);
+        }, 200);
+        // Kontaktbereich nach 4 Sekunden wieder einklappen
+        setTimeout(() => {
+          statusDiv.style.display = 'none';
+          statusDiv.classList.remove('animate-in');
+          closeContact();
+        }, 4000);
       }
     });
   </script>
