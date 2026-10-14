@@ -2679,5 +2679,106 @@ function EntnahmeSimulator() {
   const root = ReactDOM.createRoot(document.getElementById('root'));
   root.render(<EntnahmeSimulator />);
 </script>
+
+  <!-- Kontaktbereich (plain HTML, kein JSX) -->
+  <footer style="max-width: 1220px; margin: 40px auto 20px; padding: 24px; background: #FAFBFA; border: 1px solid #D3DAD6; border-radius: 12px; font-family: 'Inter', system-ui, sans-serif;">
+    <button onclick="toggleContact()" style="width: 100%; text-align: left; background: transparent; border: none; cursor: pointer; padding: 0; font: inherit;">
+      <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #1C2521; display: flex; align-items: center; justify-content: space-between;">
+        Kontakt & Feedback
+        <span id="contactArrow" style="font-size: 12px; color: #5B6B65; transition: transform 0.2s; transform: rotate(-90deg);">▼</span>
+      </h3>
+    </button>
+    <div id="contactContent" style="margin-top: 16px; display: none;">
+      <p style="margin: 0 0 16px; font-size: 13px; color: #5B6B65; line-height: 1.6;">
+        Fragen, Anregungen oder Fehler gefunden? Schreib mir gerne eine Nachricht:
+      </p>
+      
+      <form id="contactForm" action="https://formsubmit.co/SWR-Entnahmesimulator@gmx.de" method="POST" style="max-width: 480px;">
+        <input type="hidden" name="_subject" value="Feedback Entnahmesimulator" />
+        <input type="hidden" name="_template" value="table" />
+        <input type="hidden" name="_captcha" value="false" />
+        <input type="hidden" name="_next" value="http://localhost:8080/entnahme-simulator.html?sent=1#kontakt" />
+
+        <div style="margin-bottom: 12px;">
+          <label for="name" style="display: block; margin-bottom: 4px; font-size: 12.5px; font-weight: 500; color: #1C2521;">
+            Name (optional)
+          </label>
+          <input
+            type="text"
+            id="name"
+            name="name"
+            style="width: 100%; padding: 10px 12px; font-size: 13px; font-family: inherit; border: 1px solid #D3DAD6; border-radius: 8px; background: #FFFFFF; box-sizing: border-box; outline: none;"
+          />
+        </div>
+
+        <div style="margin-bottom: 12px;">
+          <label for="email" style="display: block; margin-bottom: 4px; font-size: 12.5px; font-weight: 500; color: #1C2521;">
+            E-Mail (optional)
+          </label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            placeholder="optional"
+            style="width: 100%; padding: 10px 12px; font-size: 13px; font-family: inherit; border: 1px solid #D3DAD6; border-radius: 8px; background: #FFFFFF; box-sizing: border-box; outline: none;"
+          />
+        </div>
+
+        <div style="margin-bottom: 16px;">
+          <label for="message" style="display: block; margin-bottom: 4px; font-size: 12.5px; font-weight: 500; color: #1C2521;">
+            Nachricht
+          </label>
+          <textarea
+            id="message"
+            name="message"
+            rows="5"
+            required
+            placeholder="Deine Nachricht..."
+            style="width: 100%; padding: 10px 12px; font-size: 13px; font-family: inherit; border: 1px solid #D3DAD6; border-radius: 8px; background: #FFFFFF; box-sizing: border-box; outline: none; resize: vertical;"
+          ></textarea>
+        </div>
+
+        <button
+          type="submit"
+          style="padding: 12px 24px; font-size: 13px; font-weight: 600; font-family: inherit; background: #2F5D62; color: #FFFFFF; border: none; border-radius: 8px; cursor: pointer;"
+        >
+          Nachricht senden
+        </button>
+
+        <div id="formStatus" style="margin-top: 12px; display: none;"></div>
+
+        <p style="margin: 12px 0 0; font-size: 11px; color: #8A9A94;">
+          Das Formular wird über <a href="https://formsubmit.co" target="_blank" rel="noopener" style="color: #3A6B8A; text-decoration: underline;">FormSubmit</a> versendet – deine E-Mail-Adresse wird nur für die Antwort verwendet.
+        </p>
+      </form>
+    </div>
+  </footer>
+
+  <script>
+    function toggleContact() {
+      const content = document.getElementById('contactContent');
+      const arrow = document.getElementById('contactArrow');
+      const isHidden = content.style.display === 'none';
+      content.style.display = isHidden ? 'block' : 'none';
+      arrow.style.transform = isHidden ? 'rotate(0deg)' : 'rotate(-90deg)';
+    }
+
+    // Check for success message on return from FormSubmit
+    window.addEventListener('load', function() {
+      if (window.location.search.includes('sent=1')) {
+        const statusDiv = document.getElementById('formStatus');
+        const form = document.getElementById('contactForm');
+        statusDiv.textContent = '✓ Nachricht erfolgreich gesendet!';
+        statusDiv.style.cssText = 'margin-top: 12px; padding: 12px; background: #E8F5E9; color: #2E7D32; border-radius: 8px; font-size: 13px;';
+        statusDiv.style.display = 'block';
+        if (form) form.reset();
+        // Clean up URL
+        history.replaceState({}, document.title, window.location.pathname);
+        // Scroll to contact section
+        const contact = document.getElementById('contactContent');
+        if (contact) contact.scrollIntoView({ behavior: 'smooth' });
+      }
+    });
+  </script>
 </body>
 </html>
