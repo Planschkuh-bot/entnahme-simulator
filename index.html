@@ -1096,6 +1096,69 @@ function useDebounced(value, delay = 200) {
   return [debounced, isPending];
 }
 
+function ContactSection() {
+  const [open, setOpen] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(() => new URLSearchParams(window.location.search).get('sent') === '1');
+
+  useEffect(() => {
+    if (sent) {
+      setOpen(true);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [sent]);
+
+  const submitForm = (event) => {
+    setSending(true);
+    const nextInput = event.currentTarget.querySelector('input[name="_next"]');
+    nextInput.value = window.location.origin + window.location.pathname + '?sent=1#kontakt';
+  };
+
+  const fieldStyle = {
+    width: '100%', padding: '11px 12px', fontSize: 13, fontFamily: 'inherit',
+    color: '#1C2521', background: '#FFFFFF', border: '1px solid #C8D1CC',
+    borderRadius: 8, boxSizing: 'border-box', outline: 'none',
+  };
+
+  return (
+    <section id="kontakt" style={{ width: '100%', boxSizing: 'border-box', margin: '32px 0 20px', background: '#FFFFFF', border: '1px solid #D3DAD6', borderRadius: 12, overflow: 'hidden', fontFamily: "'Inter', system-ui, sans-serif", boxShadow: '0 2px 8px rgba(28,37,33,0.04)' }}>
+      <button type="button" aria-expanded={open} aria-controls="contactContent" onClick={() => setOpen((value) => !value)} style={{ width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer', padding: '15px 18px', font: 'inherit' }}>
+        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: sent ? '#2E7D32' : '#1C2521', display: 'flex', alignItems: 'center', gap: 9 }}>
+          <span style={{ width: 28, height: 28, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 7, background: 'rgba(47,93,98,0.1)', color: '#2F5D62', fontSize: 15 }} aria-hidden="true">✉</span>
+          <span>Kontakt & Feedback</span>
+          <span style={{ flex: 1 }} />
+          <span style={{ fontSize: 11, color: '#5B6B65', transform: open ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.3s ease' }}>▼</span>
+        </h3>
+      </button>
+      <div id="contactContent" style={{ maxHeight: open ? 600 : 0, opacity: open ? 1 : 0, overflow: 'hidden', borderTop: open ? '1px solid #E3E8E5' : '1px solid transparent', transition: 'max-height 0.3s ease, opacity 0.3s ease, border-color 0.3s ease' }}>
+        <div style={{ padding: '18px 18px 20px', background: '#FAFBFA' }}>
+          <p style={{ margin: '0 0 16px', fontSize: 12.5, color: '#5B6B65', lineHeight: 1.6 }}>Fragen, Anregungen oder Fehler gefunden? Schreib mir gerne eine Nachricht.</p>
+          <form action="https://formsubmit.co/418bcdb6b284064b3d62fa1c7a4a15d2" method="POST" onSubmit={submitForm} style={{ width: '100%', maxWidth: 720 }}>
+            <input type="hidden" name="_subject" value="Feedback Entnahmesimulator" />
+            <input type="hidden" name="_template" value="table" />
+            <input type="hidden" name="_captcha" value="false" />
+            <input type="hidden" name="_next" value="" />
+            <div style={{ marginBottom: 12 }}>
+              <label htmlFor="reactContactName" style={{ display: 'block', marginBottom: 5, fontSize: 11.5, fontWeight: 600, color: '#1C2521' }}>Name <span style={{ color: '#8A9A94', fontWeight: 400 }}>(optional)</span></label>
+              <input id="reactContactName" type="text" name="name" style={fieldStyle} />
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label htmlFor="reactContactEmail" style={{ display: 'block', marginBottom: 5, fontSize: 11.5, fontWeight: 600, color: '#1C2521' }}>E-Mail <span style={{ color: '#8A9A94', fontWeight: 400 }}>(optional)</span></label>
+              <input id="reactContactEmail" type="email" name="email" placeholder="optional" style={fieldStyle} />
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label htmlFor="reactContactMessage" style={{ display: 'block', marginBottom: 5, fontSize: 11.5, fontWeight: 600, color: '#1C2521' }}>Nachricht</label>
+              <textarea id="reactContactMessage" name="message" rows="5" required placeholder="Deine Nachricht..." style={{ ...fieldStyle, resize: 'vertical', lineHeight: 1.5 }} />
+            </div>
+            <button type="submit" disabled={sending} style={{ width: '100%', padding: '11px 18px', fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit', background: sending ? '#6C898B' : '#2F5D62', color: '#FFFFFF', border: 'none', borderRadius: 8, cursor: sending ? 'wait' : 'pointer', transition: 'background 0.2s' }}>{sending ? 'Wird gesendet...' : 'Nachricht senden'}</button>
+            {sent && <div style={{ marginTop: 12, padding: '10px 12px', background: '#E8F5E9', color: '#2E7D32', border: '1px solid #B8DDBB', borderRadius: 8, fontSize: 12.5 }}>Nachricht erfolgreich gesendet.</div>}
+          </form>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function EntnahmeSimulator() {
   useEffect(() => {
     const link = document.createElement('link');
@@ -2668,6 +2731,7 @@ function EntnahmeSimulator() {
             </div>
           </div>
         )}
+        <ContactSection />
       </div>
         </div>
         </div>
@@ -2728,7 +2792,7 @@ function EntnahmeSimulator() {
         </style>
 
         <!-- Kontaktbereich (plain HTML, kein JSX) -->
-          <footer id="contactFooter" style="max-width: 1220px; margin: 40px auto 20px; padding: 24px; background: #FAFBFA; border: 1px solid #D3DAD6; border-radius: 12px; font-family: 'Inter', system-ui, sans-serif; display: none;">
+          <footer id="legacyContactFooter" style="display: none !important;">
             <button onclick="toggleContact()" style="width: 100%; text-align: left; background: transparent; border: none; cursor: pointer; padding: 0; font: inherit;">
               <h3 id="contactTitle" style="margin: 0; font-size: 16px; font-weight: 600; color: #1C2521; display: flex; align-items: center; gap: 8px;">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2F5D62" stroke-width="2" style="flex-shrink: 0;"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 7L2 7"/></svg>
@@ -2803,8 +2867,8 @@ function EntnahmeSimulator() {
             </div>
           </footer>
 
-          <script>
-            // Kontakt-Footer erst anzeigen, nachdem React gerendert hat (verhindert, dass er beim Laden zuerst sichtbar ist)
+          <script type="text/plain">
+            // Legacy-Kontaktbereich nicht ausführen
             function showFooter() {
             const footer = document.getElementById('contactFooter');
             if (footer) footer.style.display = 'block';
