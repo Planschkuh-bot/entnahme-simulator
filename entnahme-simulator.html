@@ -45,6 +45,12 @@
   <script data-goatcounter="https://planschkuh-entnahme.goatcounter.com/count"
         async src="//gc.zgo.at/count.js"></script>
   <script type="text/babel">
+const SWR_LANG_KEY = 'swrsim-lang';
+let LANG = (() => {
+  try { const s = localStorage.getItem(SWR_LANG_KEY); if (s === 'de' || s === 'en') return s; } catch (e) {}
+  return 'de';
+})();
+const t = (de, en) => (LANG === 'en' ? en : de);
     const { useState, useMemo, useEffect } = React;
     const { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip: RechartsTooltip, ResponsiveContainer, ReferenceLine } = Recharts;
 
@@ -805,9 +811,9 @@ function runHistoricalBootstrap(p) {
 
 // ---------- UI helpers ----------
 
-const fmtEUR = (v) => v.toLocaleString('de-DE', { maximumFractionDigits: 0 }) + ' \u20ac';
+const fmtEUR = (v) => v.toLocaleString((LANG === 'en' ? 'en-US' : 'de-DE'), { maximumFractionDigits: 0 }) + ' \u20ac';
 const fmtEURk = (v) => {
-  if (Math.abs(v) >= 1000) return (v / 1000).toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + 'k';
+  if (Math.abs(v) >= 1000) return (v / 1000).toLocaleString((LANG === 'en' ? 'en-US' : 'de-DE'), { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + 'k';
   return fmtEUR(v);
 };
 
@@ -833,7 +839,7 @@ function Gauge({ value, target = 97.5 }) {
       <text x="90" y="86" textAnchor="middle" fontSize="30" fontFamily="ui-monospace, monospace" fill="#1C2521" fontWeight="600">
         {value.toFixed(1)}%
       </text>
-      <text x="90" y="108" textAnchor="middle" fontSize="10" fill="#5B6B65" letterSpacing="0.5">ERFOLGSQUOTE</text>
+      <text x="90" y="108" textAnchor="middle" fontSize="10" fill="#5B6B65" letterSpacing="0.5">{t('ERFOLGSQUOTE', 'SUCCESS RATE')}</text>
     </svg>
   );
 }
@@ -931,10 +937,10 @@ function Slider({ label, value, min, max, step, onChange, format, hint, tip, dyn
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
           <span style={{ fontSize: 12, fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif", color: '#1C2521' }}>
-            {format ? format(value) : value.toLocaleString('de-DE')}
+            {format ? format(value) : value.toLocaleString((LANG === 'en' ? 'en-US' : 'de-DE'))}
           </span>
-          <button type="button" onClick={() => nudge(-1)} title={`${label} verringern`} style={btnStyle} onFocus={(e) => { e.target.style.boxShadow = '0 0 0 2px rgba(47, 93, 98, 0.4)'; e.target.style.borderColor = '#2F5D62'; }} onBlur={(e) => { e.target.style.boxShadow = ''; e.target.style.borderColor = '#D3DAD6'; }}>−</button>
-          <button type="button" onClick={() => nudge(1)} title={`${label} erhöhen`} style={btnStyle} onFocus={(e) => { e.target.style.boxShadow = '0 0 0 2px rgba(47, 93, 98, 0.4)'; e.target.style.borderColor = '#2F5D62'; }} onBlur={(e) => { e.target.style.boxShadow = ''; e.target.style.borderColor = '#D3DAD6'; }}>+</button>
+          <button type="button" onClick={() => nudge(-1)} title={t(`${label} verringern`, `Decrease ${label}`)} style={btnStyle} onFocus={(e) => { e.target.style.boxShadow = '0 0 0 2px rgba(47, 93, 98, 0.4)'; e.target.style.borderColor = '#2F5D62'; }} onBlur={(e) => { e.target.style.boxShadow = ''; e.target.style.borderColor = '#D3DAD6'; }}>−</button>
+          <button type="button" onClick={() => nudge(1)} title={t(`${label} erhöhen`, `Increase ${label}`)} style={btnStyle} onFocus={(e) => { e.target.style.boxShadow = '0 0 0 2px rgba(47, 93, 98, 0.4)'; e.target.style.borderColor = '#2F5D62'; }} onBlur={(e) => { e.target.style.boxShadow = ''; e.target.style.borderColor = '#D3DAD6'; }}>+</button>
         </span>
       </div>
       <input type="range" min={min} max={max} step={step} value={value}
@@ -994,7 +1000,7 @@ function ChartBlock({ title, subtitle, children, onExpand }) {
           <div style={{ fontSize: 11.5, color: '#5B6B65' }} dangerouslySetInnerHTML={{ __html: subtitle }} />
         </div>
         {onExpand && (
-          <button onClick={onExpand} title="Diagramm vergrößern" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#5B6B65', fontSize: 16, lineHeight: 1, flexShrink: 0 }}>
+          <button onClick={onExpand} title={t("Diagramm vergrößern", "Enlarge chart")} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#5B6B65', fontSize: 16, lineHeight: 1, flexShrink: 0 }}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
         )}
@@ -1028,11 +1034,11 @@ function LightTooltip({ active, payload, label, showFloor = true, startAge = 67 
       color: '#1C2521',
       lineHeight: 1.4,
     }}>
-      <div style={{ fontWeight: 600, color: '#5B6B65', marginBottom: 4, fontSize: 11.5 }}>Alter: {label} / Jahr der Entnahme: {withdrawalYear}</div>
+      <div style={{ fontWeight: 600, color: '#5B6B65', marginBottom: 4, fontSize: 11.5 }}>{t("Alter", "Age")}: {label} / {t("Jahr der Entnahme", "Withdrawal year")}: {withdrawalYear}</div>
       {p50 && (
         <div style={{ fontSize: 13, fontWeight: 600, color: '#1C2521', marginBottom: 3 }}>
           Median: <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEUR(p50.value)}</span>
-          {pensionAmount && pensionAmount.value !== null && <span style={{ color: '#3A6B8A', fontSize: 12 }}> · GRV: {fmtEUR(pensionAmount.value)} / {(pensionAmount.value / p50.value * 100).toFixed(1)} %</span>}
+          {pensionAmount && pensionAmount.value !== null && <span style={{ color: '#3A6B8A', fontSize: 12 }}> · {t('GRV', 'Pension')}: {fmtEUR(pensionAmount.value)} / {(pensionAmount.value / p50.value * 100).toFixed(1)} %</span>}
         </div>
       )}
       <div style={{ display: 'grid', gridTemplateColumns: showFloor ? '80px repeat(4, 1fr)' : '80px repeat(3, 1fr)', columnGap: 4, fontSize: 10.5, color: '#5B6B65', marginTop: 4, textAlign: 'right' }}>
@@ -1040,11 +1046,11 @@ function LightTooltip({ active, payload, label, showFloor = true, startAge = 67 
         <span>P90</span>
         <span>Median</span>
         <span>P10</span>
-        {showFloor && <span style={{ color: '#A8432F' }}>Boden</span>}
+        {showFloor && <span style={{ color: '#A8432F' }}>{t("Boden", "Floor")}</span>}
       </div>
       {base && band && (
         <div style={{ display: 'grid', gridTemplateColumns: showFloor ? '80px repeat(4, 1fr)' : '80px repeat(3, 1fr)', columnGap: 4, fontSize: 11.5, color: '#5B6B65', textAlign: 'right' }}>
-          <span style={{ textAlign: 'left' }}>Bereich:</span>
+          <span style={{ textAlign: 'left' }}>{t("Bereich", "Range")}:</span>
           <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEURk(base.value + band.value)}</span>
           <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEURk(p50.value)}</span>
           <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEURk(base.value)}</span>
@@ -1053,7 +1059,7 @@ function LightTooltip({ active, payload, label, showFloor = true, startAge = 67 
       )}
       {pensionAmount && pensionAmount.value !== null && p50 && base && band && (
         <div style={{ display: 'grid', gridTemplateColumns: showFloor ? '80px repeat(4, 1fr)' : '80px repeat(3, 1fr)', columnGap: 4, fontSize: 12, color: '#3A6B8A', marginBottom: 3, textAlign: 'right' }}>
-          <span style={{ textAlign: 'left' }}>GRV-Rente:</span>
+          <span style={{ textAlign: 'left' }}>{t("GRV-Rente", "Pension")}:</span>
           <span>{(pensionAmount.value / (base.value + band.value) * 100).toFixed(1)} %</span>
           <span>{(pensionAmount.value / p50.value * 100).toFixed(1)} %</span>
           <span>{(pensionAmount.value / base.value * 100).toFixed(1)} %</span>
@@ -1062,7 +1068,7 @@ function LightTooltip({ active, payload, label, showFloor = true, startAge = 67 
       )}
       {pensionAmount && pensionAmount.value !== null && base && band && p50 && (
         <div style={{ display: 'grid', gridTemplateColumns: showFloor ? '80px repeat(4, 1fr)' : '80px repeat(3, 1fr)', columnGap: 4, fontSize: 11.5, color: '#2F5D62', marginTop: 3, textAlign: 'right' }}>
-          <span style={{ textAlign: 'left' }}>Nach Abzug GRV:</span>
+          <span style={{ textAlign: 'left' }}>{t("Nach Abzug GRV", "After pension")}:</span>
           <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEURk(Math.max(base.value + band.value - pensionAmount.value, 0))}</span>
           <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEURk(Math.max(p50.value - pensionAmount.value, 0))}</span>
           <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtEURk(Math.max(base.value - pensionAmount.value, 0))}</span>
@@ -1089,9 +1095,9 @@ function FailTooltip({ active, payload, label, startAge = 67 }) {
       color: '#1C2521',
       lineHeight: 1.4,
     }}>
-      <div style={{ fontWeight: 600, color: '#5B6B65', marginBottom: 4, fontSize: 11.5 }}>Alter: {label} / Jahr der Entnahme: {withdrawalYear}</div>
+      <div style={{ fontWeight: 600, color: '#5B6B65', marginBottom: 4, fontSize: 11.5 }}>{t("Alter", "Age")}: {label} / {t("Jahr der Entnahme", "Withdrawal year")}: {withdrawalYear}</div>
       <div style={{ fontSize: 13, fontWeight: 600, color: '#A8432F' }}>
-        Ausfallwahrscheinlichkeit: <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{entry.value.toFixed(1)}%</span>
+        {t("Ausfallwahrscheinlichkeit", "Failure probability")}: <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{entry.value.toFixed(1)}%</span>
       </div>
     </div>
   );
@@ -1151,14 +1157,14 @@ function ContactSection() {
       <button type="button" aria-expanded={open} aria-controls="contactContent" onClick={() => setOpen((value) => !value)} style={{ width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer', padding: '15px 18px', font: 'inherit' }}>
         <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: sent ? '#2E7D32' : '#1C2521', display: 'flex', alignItems: 'center', gap: 9 }}>
           <span style={{ width: 28, height: 28, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 7, background: 'rgba(47,93,98,0.1)', color: '#2F5D62', fontSize: 15 }} aria-hidden="true">✉</span>
-          <span>Kontakt & Feedback</span>
+          <span>{t('Kontakt & Feedback', 'Contact & feedback')}</span>
           <span style={{ flex: 1 }} />
           <span style={{ fontSize: 11, color: '#5B6B65', transform: open ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.3s ease' }}>▼</span>
         </h3>
       </button>
       <div id="contactContent" style={{ maxHeight: open ? 600 : 0, opacity: open ? 1 : 0, overflow: 'hidden', borderTop: open ? '1px solid #E3E8E5' : '1px solid transparent', transition: 'max-height 0.3s ease, opacity 0.3s ease, border-color 0.3s ease' }}>
         <div style={{ padding: '18px 18px 20px', background: '#FAFBFA' }}>
-          <p style={{ margin: '0 0 16px', fontSize: 12.5, color: '#5B6B65', lineHeight: 1.6 }}>Fragen, Anregungen oder Fehler gefunden? Schreib mir gerne eine Nachricht.</p>
+          <p style={{ margin: '0 0 16px', fontSize: 12.5, color: '#5B6B65', lineHeight: 1.6 }}>{t("Fragen, Anregungen oder Fehler gefunden? Schreib mir gerne eine Nachricht.", "Questions, suggestions or found a bug? Feel free to write me a message.")}</p>
           <form action="https://formsubmit.co/418bcdb6b284064b3d62fa1c7a4a15d2" method="POST" onSubmit={submitForm} style={{ width: '100%', maxWidth: 720 }}>
           <input type="hidden" name="_subject" value="Feedback Entnahmesimulator" />
           <input type="hidden" name="_template" value="table" />
@@ -1173,11 +1179,11 @@ function ContactSection() {
             <input id="reactContactEmail" type="email" name="email" placeholder="optional" style={fieldStyle} />
           </div>
           <div style={{ marginBottom: 16 }}>
-            <label htmlFor="reactContactMessage" style={{ display: 'block', marginBottom: 5, fontSize: 11.5, fontWeight: 600, color: '#1C2521' }}>Nachricht</label>
-            <textarea id="reactContactMessage" name="message" rows="5" required placeholder="Deine Nachricht..." style={{ ...fieldStyle, resize: 'vertical', lineHeight: 1.5 }} />
+            <label htmlFor="reactContactMessage" style={{ display: 'block', marginBottom: 5, fontSize: 11.5, fontWeight: 600, color: '#1C2521' }}>{t("Nachricht", "Message")}</label>
+            <textarea id="reactContactMessage" name="message" rows="5" required placeholder={t("Deine Nachricht...", "Your message...")} style={{ ...fieldStyle, resize: 'vertical', lineHeight: 1.5 }} />
           </div>
-          <button type="submit" disabled={sending} style={{ width: '100%', padding: '11px 18px', fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit', background: sending ? '#6C898B' : '#2F5D62', color: '#FFFFFF', border: 'none', borderRadius: 8, cursor: sending ? 'wait' : 'pointer', transition: 'background 0.2s' }}>{sending ? 'Wird gesendet...' : 'Nachricht senden'}</button>
-          {sent && <div style={{ marginTop: 12, padding: '10px 12px', background: '#E8F5E9', color: '#2E7D32', border: '1px solid #B8DDBB', borderRadius: 8, fontSize: 12.5 }}>Nachricht erfolgreich gesendet.</div>}
+          <button type="submit" disabled={sending} style={{ width: '100%', padding: '11px 18px', fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit', background: sending ? '#6C898B' : '#2F5D62', color: '#FFFFFF', border: 'none', borderRadius: 8, cursor: sending ? 'wait' : 'pointer', transition: 'background 0.2s' }}>{sending ? t('Wird gesendet...', 'Sending...') : t('Nachricht senden', 'Send message')}</button>
+          {sent && <div style={{ marginTop: 12, padding: '10px 12px', background: '#E8F5E9', color: '#2E7D32', border: '1px solid #B8DDBB', borderRadius: 8, fontSize: 12.5 }}>{t('Nachricht erfolgreich gesendet.', 'Message sent successfully.')}</div>}
         </form>
         </div>
       </div>
@@ -1185,7 +1191,22 @@ function ContactSection() {
   );
 }
 
+const EN_STRAT = { 'Dynamisch (Vanguard)': 'Dynamic (Vanguard)', 'Konstante %': 'Constant %', '4%-Regel (Bengen)': '4% rule (Bengen)', 'Statisch (fest, real)': 'Static (fixed, real)', '1/E[T] (Lebenserwartung)': '1/E[T] (life expectancy)', 'Guyton-Klinger': 'Guyton-Klinger' };
+function Flag({ code }) {
+  if (code === 'de') {
+    return (<svg viewBox="0 0 5 3" width="28" height="17" style={{ display: 'block', borderRadius: 2 }}><rect width="5" height="1" y="0" fill="#000" /><rect width="5" height="1" y="1" fill="#D00" /><rect width="5" height="1" y="2" fill="#FFCE00" /></svg>);
+  }
+  return (<svg viewBox="0 0 60 30" width="28" height="17" style={{ display: 'block', borderRadius: 2 }}><clipPath id="gbS"><path d="M0,0 v30 h60 v-30 z" /></clipPath><clipPath id="gbT"><path d="M30,15 h30 v15 z v15 h-30 z h-30 v-15 z v-15 h30 z" /></clipPath><g clipPath="url(#gbS)"><path d="M0,0 v30 h60 v-30 z" fill="#012169" /><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" strokeWidth="6" /><path d="M0,0 L60,30 M60,0 L0,30" clipPath="url(#gbT)" stroke="#C8102E" strokeWidth="4" /><path d="M30,0 v30 M0,15 h60" stroke="#fff" strokeWidth="10" /><path d="M30,0 v30 M0,15 h60" stroke="#C8102E" strokeWidth="6" /></g></svg>);
+}
+
 function EntnahmeSimulator() {
+  const [lang, setLang] = useState(LANG);
+  LANG = lang;
+  useEffect(() => {
+    try { localStorage.setItem(SWR_LANG_KEY, lang); } catch (e) {}
+    document.documentElement.lang = lang;
+    document.title = lang === 'en' ? 'Withdrawal Simulator' : 'Entnahme-Simulator';
+  }, [lang]);
   useEffect(() => {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
@@ -1308,34 +1329,34 @@ function EntnahmeSimulator() {
         const lo = Math.max(0, d.aktien - 5), hi = Math.min(100 - d.gold - d.bitcoin - wohnung, d.aktien + 5);
         const rLo = run({ aktien: lo, cash: Math.max(0, 100 - lo - d.gold - d.bitcoin - wohnung) });
         const rHi = run({ aktien: hi, cash: Math.max(0, 100 - hi - d.gold - d.bitcoin - wohnung) });
-        items.push({ label: 'Aktienquote ±5%-Pkt.', delta: impact(rLo, rHi) });
+        items.push({ label: t('Aktienquote ±5%-Pkt.', 'Equity share ±5 pp'), delta: impact(rLo, rHi) });
       }
       {
         const rLo = run({ dynStartRate: Math.max(2, d.dynStartRate - 0.3) });
         const rHi = run({ dynStartRate: Math.min(6, d.dynStartRate + 0.3) });
-        items.push({ label: 'Dyn. Startrate ±0,3%-Pkt.', delta: impact(rLo, rHi) });
+        items.push({ label: t('Dyn. Startrate ±0,3%-Pkt.', 'Dyn. start rate ±0.3 pp'), delta: impact(rLo, rHi) });
       }
       {
         const rLo = run({ horizon: Math.max(25, d.horizon - 5) });
         const rHi = run({ horizon: Math.min(55, d.horizon + 5) });
-        items.push({ label: 'Horizont ±5 Jahre', delta: impact(rLo, rHi) });
+        items.push({ label: t('Horizont ±5 Jahre', 'Horizon ±5 years'), delta: impact(rLo, rHi) });
       }
       {
         const ageLo = Math.max(63, d.pensionStartAge - 1), ageHi = Math.min(75, d.pensionStartAge + 1);
         const rLo = run({ pensionStartAge: ageLo, pensionAnnual: grvBerechnen ? computePensionAnnual(rentenpunkte, ageLo) : 0 });
         const rHi = run({ pensionStartAge: ageHi, pensionAnnual: grvBerechnen ? computePensionAnnual(rentenpunkte, ageHi) : 0 });
-        items.push({ label: 'Rentenbeginn ±1 Jahr', delta: impact(rLo, rHi) });
+        items.push({ label: t('Rentenbeginn ±1 Jahr', 'Pension start ±1 year'), delta: impact(rLo, rHi) });
       }
       {
         const lo = Math.max(0, d.bitcoin - 3), hi = Math.min(20, d.bitcoin + 3);
         const rLo = run({ bitcoin: lo, cash: Math.max(0, 100 - d.aktien - d.gold - lo - wohnung) });
         const rHi = run({ bitcoin: hi, cash: Math.max(0, 100 - d.aktien - d.gold - hi - wohnung) });
-        items.push({ label: 'Bitcoin ±3%-Pkt.', delta: impact(rLo, rHi) });
+        items.push({ label: t('Bitcoin ±3%-Pkt.', 'Bitcoin ±3 pp'), delta: impact(rLo, rHi) });
       }
       {
         const rLo = run({ pensionAnnual: grvBerechnen ? computePensionAnnual(Math.max(0, rentenpunkte - 5), d.pensionStartAge) : 0 });
         const rHi = run({ pensionAnnual: grvBerechnen ? computePensionAnnual(rentenpunkte + 5, d.pensionStartAge) : 0 });
-        items.push({ label: 'Rentenpunkte ±5', delta: impact(rLo, rHi) });
+        items.push({ label: t('Rentenpunkte ±5', 'Pension points ±5'), delta: impact(rLo, rHi) });
       }
 
       items.sort((a, b) => b.delta - a.delta);
@@ -1502,9 +1523,9 @@ function EntnahmeSimulator() {
     const url = window.location.origin + window.location.pathname + '?' + sp.toString();
     try {
       navigator.clipboard.writeText(url);
-      setShareLabel('✓ Link kopiert');
+      setShareLabel(t('✓ Link kopiert', '✓ Link copied'));
     } catch (e) {
-      setShareLabel('Kopieren fehlgeschlagen');
+      setShareLabel(t('Kopieren fehlgeschlagen', 'Copy failed'));
     }
     setTimeout(() => setShareLabel('🔗 Konfiguration teilen'), 2000);
   }
@@ -1604,11 +1625,19 @@ function EntnahmeSimulator() {
           />
           <div style={{ minWidth: 260, flex: 1 }}>
             <h1 style={{ fontSize: 23, fontWeight: 700, margin: '0 0 5px', letterSpacing: -0.3, fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif", color: '#1C2521', lineHeight: 1.25 }}>
-              Multi-Asset Entnahme-Simulation mit wählbarer Strategie & Simulationsmethode
+              {t('Multi-Asset Entnahme-Simulation mit wählbarer Strategie & Simulationsmethode', 'Multi-asset withdrawal simulation with selectable strategy & simulation method')}
             </h1>
             <div style={{ fontSize: 11, letterSpacing: 1.2, color: '#3A6B8A', fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif" }}>
-              Dynamisch (Vanguard) · Konstante % (Portfoliobezogen) · 1/E[T] (Lebenserwartung) · 4%-Regel (Bengen) · Statisch (fest, real) · Guyton-Klinger
+              {t('Dynamisch (Vanguard) · Konstante % (Portfoliobezogen) · 1/E[T] (Lebenserwartung) · 4%-Regel (Bengen) · Statisch (fest, real) · Guyton-Klinger', 'Dynamic (Vanguard) · Constant % (portfolio-based) · 1/E[T] (life expectancy) · 4% rule (Bengen) · Static (fixed, real) · Guyton-Klinger')}
             </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', alignSelf: 'flex-start' }}>
+            {['de', 'en'].map((c) => (
+              <button key={c} onClick={() => setLang(c)} aria-label={c === 'de' ? 'Deutsch' : 'English'} title={c === 'de' ? 'Deutsch' : 'English'}
+                style={{ padding: 3, background: 'transparent', cursor: 'pointer', borderRadius: 6, border: lang === c ? '2px solid #2F5D62' : '2px solid transparent', opacity: lang === c ? 1 : 0.55 }}>
+                <Flag code={c} />
+              </button>
+            ))}
           </div>
         </div>
 
@@ -1617,11 +1646,12 @@ function EntnahmeSimulator() {
             width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer',
             padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
-            <span style={{ fontSize: 13.5, fontWeight: 600, color: '#1C2521' }}>📖 Anleitung: Wie benutze ich dieses Tool?</span>
-            <span style={{ fontSize: 12, color: '#5B6B65' }}>{showGuide ? '▲ einklappen' : '▼ aufklappen'}</span>
+            <span style={{ fontSize: 13.5, fontWeight: 600, color: '#1C2521' }}>{t('📖 Anleitung: Wie benutze ich dieses Tool?', '📖 Guide: How do I use this tool?')}</span>
+            <span style={{ fontSize: 12, color: '#5B6B65' }}>{showGuide ? t('▲ einklappen', '▲ collapse') : t('▼ aufklappen', '▼ expand')}</span>
           </button>
           {showGuide && (
             <div style={{ padding: '0 18px 18px', fontSize: 12.5, color: '#5B6B65', lineHeight: 1.7 }}>
+{t(<>
               <p style={{ margin: '0 0 10px' }}>
                 Dieses Tool prüft: <strong style={{ color: '#1C2521' }}>"Wenn ich jedes Jahr Geld aus meinem Vermögen entnehme, reicht es dann
                 bis zum Ende der geplanten Zeit — auch wenn die Börse mal schlecht läuft?"</strong> Dafür werden viele mögliche
@@ -1648,13 +1678,34 @@ function EntnahmeSimulator() {
                 S&P-500-Daten, ein Welt-Aktien-Näherungswert, eine Zufalls-Neukombination historischer Verläufe (Bootstrap), oder ein rein
                 mathematisches Modell (Monte Carlo). Es lohnt sich, mehrere Modi zu vergleichen statt nur einem zu vertrauen.
               </p>
+</>, <>
+<p style={{ margin: '0 0 10px' }}>
+This tool checks: <strong style={{ color: '#1C2521' }}>"If I withdraw money from my assets every year, will it last until the end of the planned period — even when the market has bad stretches?"</strong> To answer this, many possible future paths are played through (real historical data or statistically generated scenarios), and the result is a success rate: the percentage of cases in which the money lasted.
+</p>
+<p style={{ margin: '0 0 6px', color: '#1C2521', fontWeight: 600, fontSize: 12.5 }}>The key building blocks:</p>
+<ul style={{ margin: '0 0 10px', paddingLeft: 20 }}>
+<li style={{ marginBottom: 4 }}><strong style={{ color: '#1C2521' }}>Portfolio</strong> — your asset allocation: equity ETF (growth, highly volatile), gold and cash (reserve for crises), optionally Bitcoin and an owned apartment.</li>
+<li style={{ marginBottom: 4 }}><strong style={{ color: '#1C2521' }}>Withdrawal frequency</strong> — "Monthly" spreads the amount smoothly over the year; "Yearly" takes the full amount at the start of the year (cash-buffer effect, but often stricter in stress years).</li>
+<li style={{ marginBottom: 4 }}><strong style={{ color: '#1C2521' }}>Statutory pension (GRV)</strong> — once it starts, your statutory pension reduces the amount needed from the portfolio.</li>
+<li><strong style={{ color: '#1C2521' }}>Success rate</strong> — the round gauge above: the percentage of all tested paths in which the money lasted. Goal: usually as close to 97.5–100% as possible.</li>
+</ul>
+<p style={{ margin: '0 0 10px' }}>
+<strong style={{ color: '#1C2521' }}>Tip:</strong> If you hover over the small <span style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 14, height: 14, borderRadius: '50%',
+                  border: '1px solid #5B6B65', fontSize: 9, verticalAlign: 'middle',
+                }}>?</span> symbols next to the fields, a short explanation appears.
+</p>
+<p style={{ margin: 0 }}>
+Four calculation modes are available at the top (more details in the tooltip on each tab): real historical S&P 500 data, a world equity proxy, a random recombination of historical paths (bootstrap), or a purely mathematical model (Monte Carlo). It is worth comparing several modes rather than trusting just one.
+</p>
+</>)}
 
-              <div style={{ marginTop: 16, color: '#1C2521', fontWeight: 600, fontSize: 12.5 }}>Die 4 Simulationsmethoden im Detail</div>
+              <div style={{ marginTop: 16, color: '#1C2521', fontWeight: 600, fontSize: 12.5 }}>{t("Die 4 Simulationsmethoden im Detail", "The 4 simulation methods in detail")}</div>
               {[
-                { id: 'm1', title: 'Historisch · S&P 500 (1872–2025)', text: `Dein Plan wird gegen alle echten ${horizon}-Jahres-Fenster des US-Index S&P 500 (bzw. seines Vorläufers, inkl. Dividenden) von Januar 1872 bis Dezember 2025 getestet — monatsgenau. Die Erfolgsquote zählt, in wie vielen der real eingetretenen historischen Verläufe das Geld bis zum Horizont gereicht hätte. Stärke: realitätstreu auf US-Basis, deckt Weltkriege, Weltwirtschaftskrise und die 1970er-Stagflation ab. Schwäche: nur US-Aktien-Historie; die Fenster überlappen stark (geringe effektive Stichprobengröße). Weil es nur Startpunkte bis 1871 + ${horizon} gibt, ist die Quote eher eine obere Schätzung für global diversifizierte Portfolios.` },
-                { id: 'm2', title: 'Historisch · Welt-Proxy (1970–2025)', text: 'Nutzt statt rein US-Daten einen Welt-Aktien-Proxy für 1970–2025: 65% US Large Cap (S&P 500) plus 35% internationale Industrieländer (MSCI EAFE). Dies nähert einen echten Welt-ETF besser an und ist stärker diversifiziert. Schwäche: Die Datenbasis beginnt erst 1970 — Weltwirtschaftskrise und beide Weltkriege bleiben unsichtbar, und die 65/35-Gewichtung ist eine Vereinfachung (der US-Anteil echter MSCI-World-Portfolios schwankte historisch stark). Da nur Jahresdaten vorliegen, werden die 12 Monate je Jahr geometrisch identisch aufgeteilt (kein echtes Intra-Jahres-Rauschen).' },
-                { id: 'm3', title: 'Historisch · Block-Bootstrap', text: 'Würfelt aus den historischen Daten (wählbar: S&P 500 seit 1872 oder Welt-Proxy seit 1970) viele neue, zufällig kombinierte Verläufe: zusammenhängende Blöcke von „Blocklänge“ Jahren werden mit Zurücklegen gezogen und zu synthetischen Pfaden zusammengesetzt — oft 2.500 bis 10.000 Stück. So entstehen Verläufe, die real nie so eintraten, aber auf echten Renditewerten basieren. Stärke: deutlich größere Stichprobe, bessere Schätzung von Extremwerten. Schwäche: Die Zufallskombination zerstört echte historische Reihenfolgen und mittelt Extrem-Crashs heraus. Kleine Blöcke = mehr Unabhängigkeit, große Blöcke = mehr historische Struktur bleibt erhalten.' },
-                { id: 'm4', title: 'Parametrisch · Monte Carlo', text: 'Statt echter historischer Daten erzeugt ein reines Zufallsmodell Markt-Renditen aus einer modellierten statistischen Verteilung (angenommene Erwartungswerte und Volatilitäten für Aktien, Gold, Anleihen, Liquidität) und simuliert viele unabhängige Zukunfts-Pfade (2.500–10.000). Stärke: praktisch unbegrenzt viele Szenarien. Schwäche: Das Ergebnis hängt komplett von den angenommenen Parametern ab — es testet das Modell, nicht die Realität. Historische Extremereignisse (Kriege, Crashs) erscheinen nur, wenn sie in der Verteilung stecken. Immer mit mindestens einem historischen Modus vergleichen.' },
+                { id: 'm1', title: t('Historisch · S&P 500 (1872–2025)', 'Historical · S&P 500 (1872–2025)'), text: t(`Dein Plan wird gegen alle echten ${horizon}-Jahres-Fenster des US-Index S&P 500 (bzw. seines Vorläufers, inkl. Dividenden) von Januar 1872 bis Dezember 2025 getestet — monatsgenau. Die Erfolgsquote zählt, in wie vielen der real eingetretenen historischen Verläufe das Geld bis zum Horizont gereicht hätte. Stärke: realitätstreu auf US-Basis, deckt Weltkriege, Weltwirtschaftskrise und die 1970er-Stagflation ab. Schwäche: nur US-Aktien-Historie; die Fenster überlappen stark (geringe effektive Stichprobengröße). Weil es nur Startpunkte bis 1871 + ${horizon} gibt, ist die Quote eher eine obere Schätzung für global diversifizierte Portfolios.`, `Your plan is tested against all real ${horizon}-year windows of the US index S&P 500 (or its predecessor, incl. dividends) from January 1872 to December 2025 — month by month. The success rate counts in how many of the historical paths that actually occurred the money would have lasted until the horizon. Strength: realistic on a US basis, covers world wars, the Great Depression and the 1970s stagflation. Weakness: US equity history only; the windows overlap heavily (low effective sample size). Since there are only start points up to 1871 + ${horizon}, the rate is rather an upper estimate for globally diversified portfolios.`) },
+                { id: 'm2', title: t('Historisch · Welt-Proxy (1970–2025)', 'Historical · World proxy (1970–2025)'), text: t('Nutzt statt rein US-Daten einen Welt-Aktien-Proxy für 1970–2025: 65% US Large Cap (S&P 500) plus 35% internationale Industrieländer (MSCI EAFE). Dies nähert einen echten Welt-ETF besser an und ist stärker diversifiziert. Schwäche: Die Datenbasis beginnt erst 1970 — Weltwirtschaftskrise und beide Weltkriege bleiben unsichtbar, und die 65/35-Gewichtung ist eine Vereinfachung (der US-Anteil echter MSCI-World-Portfolios schwankte historisch stark). Da nur Jahresdaten vorliegen, werden die 12 Monate je Jahr geometrisch identisch aufgeteilt (kein echtes Intra-Jahres-Rauschen).', `Instead of US-only data, uses a world equity proxy for 1970–2025: 65% US large cap (S&P 500) plus 35% international developed markets (MSCI EAFE). This approximates a real world ETF better and is more diversified. Weakness: the data only begins in 1970 — the Great Depression and both world wars remain invisible, and the 65/35 weighting is a simplification (the US share of real MSCI World portfolios varied widely historically). Since only annual data is available, the 12 months of each year are split geometrically identically (no real intra-year noise).`) },
+                { id: 'm3', title: t('Historisch · Block-Bootstrap', 'Historical · Block bootstrap'), text: t('Würfelt aus den historischen Daten (wählbar: S&P 500 seit 1872 oder Welt-Proxy seit 1970) viele neue, zufällig kombinierte Verläufe: zusammenhängende Blöcke von „Blocklänge“ Jahren werden mit Zurücklegen gezogen und zu synthetischen Pfaden zusammengesetzt — oft 2.500 bis 10.000 Stück. So entstehen Verläufe, die real nie so eintraten, aber auf echten Renditewerten basieren. Stärke: deutlich größere Stichprobe, bessere Schätzung von Extremwerten. Schwäche: Die Zufallskombination zerstört echte historische Reihenfolgen und mittelt Extrem-Crashs heraus. Kleine Blöcke = mehr Unabhängigkeit, große Blöcke = mehr historische Struktur bleibt erhalten.', `Resamples many new, randomly combined paths from the historical data (selectable: S&P 500 since 1872 or world proxy since 1970): contiguous blocks of "block length" years are drawn with replacement and assembled into synthetic paths — often 2,500 to 10,000 of them. This produces paths that never occurred in reality but are based on real return values. Strength: much larger sample, better estimation of extreme values. Weakness: the random combination destroys real historical sequences and averages out extreme crashes. Small blocks = more independence, large blocks = more historical structure is preserved.`) },
+                { id: 'm4', title: t('Parametrisch · Monte Carlo', 'Parametric · Monte Carlo'), text: t('Statt echter historischer Daten erzeugt ein reines Zufallsmodell Markt-Renditen aus einer modellierten statistischen Verteilung (angenommene Erwartungswerte und Volatilitäten für Aktien, Gold, Anleihen, Liquidität) und simuliert viele unabhängige Zukunfts-Pfade (2.500–10.000). Stärke: praktisch unbegrenzt viele Szenarien. Schwäche: Das Ergebnis hängt komplett von den angenommenen Parametern ab — es testet das Modell, nicht die Realität. Historische Extremereignisse (Kriege, Crashs) erscheinen nur, wenn sie in der Verteilung stecken. Immer mit mindestens einem historischen Modus vergleichen.', `Instead of real historical data, a pure random model generates market returns from a modeled statistical distribution (assumed expected values and volatilities for equities, gold, bonds, cash) and simulates many independent future paths (2,500–10,000). Strength: practically unlimited scenarios. Weakness: the result depends entirely on the assumed parameters — it tests the model, not reality. Historical extreme events (wars, crashes) only appear if they are embedded in the distribution. Always compare with at least one historical mode.`) },
               ].map((it) => (
                 <div key={it.id} style={{ border: '1px solid #E3E8E5', borderRadius: 8, marginBottom: 6, background: '#FAFBFA', overflow: 'hidden' }}>
                   <button onClick={() => toggleGuide(it.id)} style={{
@@ -1662,20 +1713,20 @@ function EntnahmeSimulator() {
                     padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   }}>
                     <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>{it.title}</span>
-                    <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen[it.id] ? '▲ einklappen' : '▼ aufklappen'}</span>
+                    <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen[it.id] ? t('▲ einklappen', '▲ collapse') : t('▼ aufklappen', '▼ expand')}</span>
                   </button>
                   {guideOpen[it.id] && <div style={{ padding: '8px 12px 12px', fontSize: 12, color: '#5B6B65', lineHeight: 1.6 }}>{it.text}</div>}
                 </div>
               ))}
 
-              <div style={{ marginTop: 16, color: '#1C2521', fontWeight: 600, fontSize: 12.5 }}>Die 6 Entnahmestrategien im Detail</div>
+              <div style={{ marginTop: 16, color: '#1C2521', fontWeight: 600, fontSize: 12.5 }}>{t("Die 6 Entnahmestrategien im Detail", "The 6 withdrawal strategies in detail")}</div>
               {[
-                { id: 's1', title: 'Dynamisch (Vanguard)', text: `Die Entnahme wird jedes Jahr als „Dynamische Startrate“ × aktueller Portfoliowert berechnet und dann durch drei Begrenzungen geführt: Ceiling (max. Anstieg zum Vorjahr), Floor (max. Rückgang zum Vorjahr) und ein harter Boden (= statische Referenzrate vom Startvermögen, der nie unterschritten wird). So wächst die Entnahme in guten Jahren mit, sinkt aber in schlechten nur begrenzt. Einzeln einstellbar sind Startrate, Ceiling, Floor und die statische Referenzrate.` },
-                { id: 's2', title: 'Konstante % (Portfoliobezogen)', text: 'Jedes Jahr wird ein fester Prozentsatz des jeweils aktuellen Portfolio-Werts entnommen — die Entnahme schwankt also direkt mit dem Depot. Bei hohen Kursen steigt sie, in schlechten Jahren sinkt sie stark mit. Sehr einfach, aber am wenigsten planungssicher: Der absolute Geldbetrag variiert stark und es gibt keinen festen Mindestbetrag. Einstellbar ist nur die Dynamische Startrate.' },
-                { id: 's6', title: '1/E[T] (Lebenserwartung)', text: `Jedes Jahr wird 1/E[T] des aktuellen Depotwerts entnommen, wobei E[T] die verbleibenden Jahre bis zum Entnahmehorizont ist. Beispiel: Bei 40 Jahren Restlaufzeit = 2,5 % des Depots, bei 25 Jahren = 4 %, bei 10 Jahren = 10 %. Die Entnahme passt sich automatisch der Marktentwicklung an — nach einem Crash sinkt sie, nach einem Boom steigt sie. Das Depot wird planmäßig bis zum letzten Jahr des Horizonts vollständig aufgezehrt. Kein einstellbarer Parameter nötig.` },
-                { id: 's3', title: '4%-Regel (Bengen)', text: 'Die klassische „4%-Regel“: Es werden dauerhaft 4% des Startvermögens entnommen, real (inflationsbereinigt) konstant gehalten — ohne Floor oder Ceiling, ohne Anpassung an den aktuellen Depotwert. Historisch hielt diese Strategie in US-Auswertungen über 30 Jahre fast immer. Es ist ein sehr konservatives Referenzmodell, ignoriert aber die aktuelle Marktlage während der Laufzeit.' },
-                { id: 's4', title: 'Statisch (fest, real)', text: 'Jahr 1 = Startentnahmerate × Startvermögen; danach bleibt der absolute Betrag real (nur um Inflation bereinigt) über die gesamte Laufzeit konstant. Sehr vorhersehbar, die Kaufkraft bleibt erhalten, aber es gibt keinerlei Anpassung an gute oder schlechte Börsenjahre — ein Einbruch kann das Portfolio stark belasten. Einstellbar ist die Startentnahmerate.' },
-                { id: 's5', title: 'Guyton-Klinger', text: 'Startbetrag = Startrate × Vermögen, danach jährliche Inflationsanpassung — mit drei Regeln: (1) Nach einem Jahr mit negativem Depot-Rendit wird die Inflationsanpassung ausgesetzt (der Betrag bleibt gleich). (2) Capital-Preservation: Steigt die Entnahmequote über Ausgangsquote + Guardrail, wird der Betrag um den Anpassungsschritt gekürzt. (3) Prosperity: Fällt die Quote unter Ausgangsquote − Guardrail, wird erhöht. Das ersetzt die reine Inflationsanpassung und glättet starke Rückschläge. Einstellbar sind Startrate, Guardrail-Schwelle (±) und der Anpassungsschritt.' },
+                { id: 's1', title: t('Dynamisch (Vanguard)', 'Dynamic (Vanguard)'), text: t(`Die Entnahme wird jedes Jahr als „Dynamische Startrate“ × aktueller Portfoliowert berechnet und dann durch drei Begrenzungen geführt: Ceiling (max. Anstieg zum Vorjahr), Floor (max. Rückgang zum Vorjahr) und ein harter Boden (= statische Referenzrate vom Startvermögen, der nie unterschritten wird). So wächst die Entnahme in guten Jahren mit, sinkt aber in schlechten nur begrenzt. Einzeln einstellbar sind Startrate, Ceiling, Floor und die statische Referenzrate.`, `Each year the withdrawal is calculated as the "dynamic start rate" × current portfolio value and then passed through three limits: ceiling (max. increase versus the prior year), floor (max. decrease versus the prior year) and a hard floor (= static reference rate on starting assets, never undercut). The withdrawal thus grows with good years but falls only to a limited degree in bad ones. Start rate, ceiling, floor and static reference rate can be set individually.`) },
+                { id: 's2', title: t('Konstante % (Portfoliobezogen)', 'Constant % (portfolio-based)'), text: t('Jedes Jahr wird ein fester Prozentsatz des jeweils aktuellen Portfolio-Werts entnommen — die Entnahme schwankt also direkt mit dem Depot. Bei hohen Kursen steigt sie, in schlechten Jahren sinkt sie stark mit. Sehr einfach, aber am wenigsten planungssicher: Der absolute Geldbetrag variiert stark und es gibt keinen festen Mindestbetrag. Einstellbar ist nur die Dynamische Startrate.', `Each year a fixed percentage of the current portfolio value is withdrawn — so the withdrawal fluctuates directly with the portfolio. It rises when prices are high and falls sharply in bad years. Very simple, but the least predictable: the absolute amount varies widely and there is no fixed minimum. Only the dynamic start rate can be set.`) },
+                { id: 's6', title: t('1/E[T] (Lebenserwartung)', '1/E[T] (life expectancy)'), text: t(`Jedes Jahr wird 1/E[T] des aktuellen Depotwerts entnommen, wobei E[T] die verbleibenden Jahre bis zum Entnahmehorizont ist. Beispiel: Bei 40 Jahren Restlaufzeit = 2,5 % des Depots, bei 25 Jahren = 4 %, bei 10 Jahren = 10 %. Die Entnahme passt sich automatisch der Marktentwicklung an — nach einem Crash sinkt sie, nach einem Boom steigt sie. Das Depot wird planmäßig bis zum letzten Jahr des Horizonts vollständig aufgezehrt. Kein einstellbarer Parameter nötig.`, `Each year 1/E[T] of the current portfolio value is withdrawn, where E[T] is the number of years remaining until the withdrawal horizon. Example: with 40 years remaining = 2.5% of the portfolio, with 25 years = 4%, with 10 years = 10%. The withdrawal adapts automatically to market developments — it falls after a crash and rises after a boom. The portfolio is fully drawn down on schedule by the last year of the horizon. No adjustable parameter is needed.`) },
+                { id: 's3', title: t('4%-Regel (Bengen)', '4% rule (Bengen)'), text: t('Die klassische „4%-Regel“: Es werden dauerhaft 4% des Startvermögens entnommen, real (inflationsbereinigt) konstant gehalten — ohne Floor oder Ceiling, ohne Anpassung an den aktuellen Depotwert. Historisch hielt diese Strategie in US-Auswertungen über 30 Jahre fast immer. Es ist ein sehr konservatives Referenzmodell, ignoriert aber die aktuelle Marktlage während der Laufzeit.', `The classic "4% rule": 4% of the starting assets are withdrawn permanently and kept constant in real (inflation-adjusted) terms — with no floor or ceiling and no adjustment to the current portfolio value. Historically this strategy almost always held over 30 years in US studies. It is a very conservative reference model, but ignores the current market situation during the period.`) },
+                { id: 's4', title: t('Statisch (fest, real)', 'Static (fixed, real)'), text: t('Jahr 1 = Startentnahmerate × Startvermögen; danach bleibt der absolute Betrag real (nur um Inflation bereinigt) über die gesamte Laufzeit konstant. Sehr vorhersehbar, die Kaufkraft bleibt erhalten, aber es gibt keinerlei Anpassung an gute oder schlechte Börsenjahre — ein Einbruch kann das Portfolio stark belasten. Einstellbar ist die Startentnahmerate.', `Year 1 = starting withdrawal rate × starting assets; after that the absolute amount stays constant in real terms (adjusted for inflation only) for the entire period. Very predictable and purchasing power is preserved, but there is no adjustment to good or bad market years — a slump can put heavy strain on the portfolio. The starting withdrawal rate can be set.`) },
+                { id: 's5', title: t('Guyton-Klinger', 'Guyton-Klinger'), text: t('Startbetrag = Startrate × Vermögen, danach jährliche Inflationsanpassung — mit drei Regeln: (1) Nach einem Jahr mit negativem Depot-Rendit wird die Inflationsanpassung ausgesetzt (der Betrag bleibt gleich). (2) Capital-Preservation: Steigt die Entnahmequote über Ausgangsquote + Guardrail, wird der Betrag um den Anpassungsschritt gekürzt. (3) Prosperity: Fällt die Quote unter Ausgangsquote − Guardrail, wird erhöht. Das ersetzt die reine Inflationsanpassung und glättet starke Rückschläge. Einstellbar sind Startrate, Guardrail-Schwelle (±) und der Anpassungsschritt.', `Starting amount = start rate × assets, then an annual inflation adjustment — with three rules: (1) After a year with a negative portfolio return the inflation adjustment is suspended (the amount stays the same). (2) Capital preservation: if the withdrawal rate rises above initial rate + guardrail, the amount is cut by the adjustment step. (3) Prosperity: if the rate falls below initial rate − guardrail, it is raised. This replaces the plain inflation adjustment and smooths severe setbacks. Start rate, guardrail threshold (±) and adjustment step can be set.`) },
               ].map((it) => (
                 <div key={it.id} style={{ border: '1px solid #E3E8E5', borderRadius: 8, marginBottom: 6, background: '#FAFBFA', overflow: 'hidden' }}>
                   <button onClick={() => toggleGuide(it.id)} style={{
@@ -1683,7 +1734,7 @@ function EntnahmeSimulator() {
                     padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   }}>
                     <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>{it.title}</span>
-                    <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen[it.id] ? '▲ einklappen' : '▼ aufklappen'}</span>
+                    <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen[it.id] ? t('▲ einklappen', '▲ collapse') : t('▼ aufklappen', '▼ expand')}</span>
                   </button>
                   {guideOpen[it.id] && <div style={{ padding: '8px 12px 12px', fontSize: 12, color: '#5B6B65', lineHeight: 1.6 }}>{it.text}</div>}
                 </div>
@@ -1694,17 +1745,17 @@ function EntnahmeSimulator() {
                   width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer',
                   padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 }}>
-                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>Entnahme-Frequenz</span>
-                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.ef ? '▲ einklappen' : '▼ aufklappen'}</span>
+                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>{t("Entnahme-Frequenz", "Withdrawal frequency")}</span>
+                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.ef ? t('▲ einklappen', '▲ collapse') : t('▼ aufklappen', '▼ expand')}</span>
                 </button>
                 {guideOpen.ef && (
                   <div style={{ padding: '8px 12px 12px', fontSize: 12, color: '#5B6B65', lineHeight: 1.6 }}>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Monatlich vs. Jährlich</div>
-                    <div style={{ marginBottom: 8 }}>"Monatlich" verteilt die Jahressumme auf 12 Raten — die Entnahme erfolgt glatt über das Jahr. "Jährlich" entnimmt die komplette Jahressumme auf einen Schlag zu Jahresbeginn — dieser Betrag ist damit für den Rest des Jahres von der Marktentwicklung abgeschirmt (echter Cash-Puffer-Effekt), nur das Restvermögen bleibt investiert.</div>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Auswirkung auf die Simulation</div>
-                    <div style={{ marginBottom: 8 }}>"Jährlich" braucht die volle Summe sofort verfügbar, bevor die Rendite des Jahres wirken konnte — "Monatlich" kann sich dagegen im Jahresverlauf noch in eine knappe Lage hineinwachsen. Das kann "Jährlich" ausgerechnet in Grenzfällen strenger machen, obwohl der entnommene Betrag selbst sicherer verwahrt ist.</div>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Empfehlung</div>
-                    <div style={{ whiteSpace: 'pre-line' }}>• Für realistische Planung: "Monatlich" (Standard) — entspricht realer Ausgabeverhalten.<br/>• Zum Testen der Robustheit: beide Varianten vergleichen.<br/>• "Jährlich" kann in Stressjahren geringfügig schlechtere Erfolgsquoten liefern, da der Puffer-Effekt erst ab dem nächsten Jahr greift.</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Monatlich vs. Jährlich", "Monthly vs. yearly")}</div>
+                    <div style={{ marginBottom: 8 }}>{t(`"Monatlich" verteilt die Jahressumme auf 12 Raten — die Entnahme erfolgt glatt über das Jahr. "Jährlich" entnimmt die komplette Jahressumme auf einen Schlag zu Jahresbeginn — dieser Betrag ist damit für den Rest des Jahres von der Marktentwicklung abgeschirmt (echter Cash-Puffer-Effekt), nur das Restvermögen bleibt investiert.`, `"Monthly" spreads the annual sum over 12 installments — the withdrawal happens smoothly over the year. "Yearly" takes the whole annual sum in one go at the start of the year — that amount is then shielded from market movements for the rest of the year (a real cash-buffer effect), and only the remaining assets stay invested.`)}</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Auswirkung auf die Simulation", "Effect on the simulation")}</div>
+                    <div style={{ marginBottom: 8 }}>{t(`"Jährlich" braucht die volle Summe sofort verfügbar, bevor die Rendite des Jahres wirken konnte — "Monatlich" kann sich dagegen im Jahresverlauf noch in eine knappe Lage hineinwachsen. Das kann "Jährlich" ausgerechnet in Grenzfällen strenger machen, obwohl der entnommene Betrag selbst sicherer verwahrt ist.`, `"Yearly" needs the full sum available immediately, before the year's return has had a chance to work — "Monthly", by contrast, can still grow into a tight situation over the course of the year. This can make "Yearly" stricter precisely in borderline cases, even though the withdrawn amount itself is held more safely.`)}</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Empfehlung", "Recommendation")}</div>
+                    <div style={{ whiteSpace: 'pre-line' }}>{t(<>• Für realistische Planung: "Monatlich" (Standard) — entspricht realer Ausgabeverhalten.<br/>• Zum Testen der Robustheit: beide Varianten vergleichen.<br/>• "Jährlich" kann in Stressjahren geringfügig schlechtere Erfolgsquoten liefern, da der Puffer-Effekt erst ab dem nächsten Jahr greift.</>, <>• For realistic planning: "Monthly" (default) — matches real spending behavior.<br/>• To test robustness: compare both variants.<br/>• "Yearly" can produce slightly worse success rates in stress years, since the buffer effect only kicks in from the next year.</>)}</div>
                   </div>
                 )}
               </div>
@@ -1714,11 +1765,11 @@ function EntnahmeSimulator() {
                   width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer',
                   padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 }}>
-                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>Eimer-Strategie</span>
-                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.es ? '▲ einklappen' : '▼ aufklappen'}</span>
+                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>{t("Eimer-Strategie", "Bucket strategy")}</span>
+                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.es ? t('▲ einklappen', '▲ collapse') : t('▼ aufklappen', '▼ expand')}</span>
                 </button>
                 {guideOpen.es && (
-                  <div style={{ padding: '8px 12px 12px', fontSize: 12, color: '#5B6B65', lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: `
+                  <div style={{ padding: '8px 12px 12px', fontSize: 12, color: '#5B6B65', lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: t(`
                     <div style="margin-bottom: 10; font-weight: 600">Was ist die Eimer-Strategie?</div>
                     <div style="margin-bottom: 8">In Jahren mit ≥20% ETF-Drawdown wird zuerst Cash, dann <strong>Anleihen-ETF</strong>, dann Gold entnommen, erst danach der Aktien-ETF. In guten Jahren direkt aus dem Aktien-ETF. Einmal geleerte Reserven (Cash/Gold/Anleihen) werden nicht wieder aufgefüllt.</div>
                     <div style="margin-bottom: 10; font-weight: 600">Entnahme-Reihenfolge</div>
@@ -1739,28 +1790,49 @@ function EntnahmeSimulator() {
                     <div style="margin-bottom: 8">Aktiv (Standard): Die Entnahme folgt der Bucket-Logik — in Crash-Phasen wird das Depot geschont, indem aus den Reserven (Cash, Anleihen, Gold) entnommen wird.<br/>Inaktiv: Die Entnahme erfolgt immer proportional zur Asset-Allokation (keine Bucket-Logik). Das erhöht die Volatilität der Entnahme, kann aber in langen Aufwärtsphasen vorteilhaft sein.</div>
                     <div style="margin-bottom: 10; font-weight: 600">Einfluss auf die Simulation</div>
                     <div style="white-space: pre-line">• Aktiv: Geringere Entnahme aus Aktien in Crash-Jahren → Depot erholt sich schneller.<br/>• Inaktiv: Höhere Aktien-Entnahme in Crash-Jahren → Depot schmilzt schneller, aber Reserves bleiben für spätere Jahre.<br/>• Tipp: Zum Testen der Robustheit beide Varianten vergleichen.</div>
-                  ` }} />
+                  `, `
+<div style="margin-bottom: 10; font-weight: 600">What is the bucket strategy?</div>
+<div style="margin-bottom: 8">In years with an ETF drawdown of ≥20%, cash is drawn first, then <strong>bond ETF</strong>, then gold, and only after that the equity ETF. In good years, withdrawals come directly from the equity ETF. Reserves (cash/gold/bonds) that have been emptied once are not refilled.</div>
+<div style="margin-bottom: 10; font-weight: 600">Withdrawal order</div>
+<div style="margin-bottom: 8; white-space: pre-line"><strong>Crash mode (drawdown ≥20%):</strong>
+1. Cash (liquidity)
+2. <strong>Bond ETF</strong>
+3. Gold
+4. Bitcoin
+5. Equity ETF
+
+<strong>Normal mode:</strong>
+1. Equity ETF
+2. Bitcoin
+3. <strong>Bond ETF</strong>
+4. Gold
+5. Cash</div>
+<div style="margin-bottom: 10; font-weight: 600">Checkbox "Bucket strategy"</div>
+<div style="margin-bottom: 8">Active (default): withdrawals follow the bucket logic — in crash phases the portfolio is spared by drawing from the reserves (cash, bonds, gold).<br/>Inactive: withdrawals are always proportional to the asset allocation (no bucket logic). This increases the volatility of the withdrawal, but can be advantageous in long upswings.</div>
+<div style="margin-bottom: 10; font-weight: 600">Influence on the simulation</div>
+<div style="white-space: pre-line">• Active: lower withdrawal from equities in crash years → the portfolio recovers faster.<br/>• Inactive: higher equity withdrawal in crash years → the portfolio shrinks faster, but reserves remain for later years.<br/>• Tip: to test robustness, compare both variants.</div>
+`) }} />
                 )}
               </div>
 
-              <div style={{ marginTop: 16, color: '#1C2521', fontWeight: 600, fontSize: 12.5 }}>Diagramme & Tabellen</div>
+              <div style={{ marginTop: 16, color: '#1C2521', fontWeight: 600, fontSize: 12.5 }}>{t("Diagramme & Tabellen", "Charts & tables")}</div>
 
               <div key="sv" style={{ border: '1px solid #E3E8E5', borderRadius: 8, marginBottom: 6, background: '#FAFBFA', overflow: 'hidden' }}>
                 <button onClick={() => toggleGuide('sv')} style={{
                   width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer',
                   padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 }}>
-                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>Strategievergleich</span>
-                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.sv ? '▲ einklappen' : '▼ aufklappen'}</span>
+                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>{t("Strategievergleich", "Strategy comparison")}</span>
+                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.sv ? t('▲ einklappen', '▲ collapse') : t('▼ aufklappen', '▼ expand')}</span>
                 </button>
                 {guideOpen.sv && (
                   <div style={{ padding: '8px 12px 12px', fontSize: 12, color: '#5B6B65', lineHeight: 1.6 }}>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Was zeigt die Tabelle?</div>
-                    <div style={{ marginBottom: 8 }}>Der Strategievergleich listet alle 5 Entnahmestrategien nebeneinander auf und zeigt für jede die Erfolgsquote, die mittlere/untere/obere Jahresentnahme, die gesamte Entnahme über den Horizont (Median und P10) sowie das Endkapital (Median). So lässt sich auf einen Blick erkennen, welche Strategie bei den aktuellen Parametern am besten abschneidet.</div>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Real vs. nominal</div>
-                    <div style={{ marginBottom: 8 }}>Die Werte können in heutiger Kaufkraft (inflationsbereinigt) oder nominal angezeigt werden — umschaltbar oben über „Heutige Kaufkraft“.</div>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Interpretation</div>
-                    <div style={{ whiteSpace: 'pre-line' }}>• Grüne Erfolgsquote = robust, rot = riskant.<br/>• Hohe Gesamtentnahme bei guter Quote = effiziente Strategie.<br/>• P10-Werte zeigen das Worst-Case-Szenario (nur 10 % der Pfade schlechter).<br/>• Endkapital Median: wie viel Vermögen typischerweise übrig bleibt.</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Was zeigt die Tabelle?", "What does the table show?")}</div>
+                    <div style={{ marginBottom: 8 }}>{t(`Der Strategievergleich listet alle 5 Entnahmestrategien nebeneinander auf und zeigt für jede die Erfolgsquote, die mittlere/untere/obere Jahresentnahme, die gesamte Entnahme über den Horizont (Median und P10) sowie das Endkapital (Median). So lässt sich auf einen Blick erkennen, welche Strategie bei den aktuellen Parametern am besten abschneidet.`, `The strategy comparison lists all 5 withdrawal strategies side by side and shows for each the success rate, the average/lower/upper annual withdrawal, the total withdrawal over the horizon (median and P10) and the final capital (median). This makes it easy to see at a glance which strategy performs best with the current parameters.`)}</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Real vs. nominal", "Real vs. nominal")}</div>
+                    <div style={{ marginBottom: 8 }}>{t(`Die Werte können in heutiger Kaufkraft (inflationsbereinigt) oder nominal angezeigt werden — umschaltbar oben über „Heutige Kaufkraft“.`, `Values can be shown in today's purchasing power (inflation-adjusted) or nominal — switchable at the top via "Today's purchasing power".`)}</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Interpretation", "Interpretation")}</div>
+                    <div style={{ whiteSpace: 'pre-line' }}>{t(<>• Grüne Erfolgsquote = robust, rot = riskant.<br/>• Hohe Gesamtentnahme bei guter Quote = effiziente Strategie.<br/>• P10-Werte zeigen das Worst-Case-Szenario (nur 10 % der Pfade schlechter).<br/>• Endkapital Median: wie viel Vermögen typischerweise übrig bleibt.</>, <>• Green success rate = robust, red = risky.<br/>• High total withdrawal with a good rate = efficient strategy.<br/>• P10 values show the worst-case scenario (only 10% of paths are worse).<br/>• Median final capital: how much wealth typically remains.</>)}</div>
                   </div>
                 )}
               </div>
@@ -1770,23 +1842,23 @@ function EntnahmeSimulator() {
                   width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer',
                   padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 }}>
-                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>Entnahmeverlauf der gewählten Strategie</span>
-                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.ec ? '▲ einklappen' : '▼ aufklappen'}</span>
+                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>{t("Entnahmeverlauf der gewählten Strategie", "Withdrawal trajectory of the selected strategy")}</span>
+                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.ec ? t('▲ einklappen', '▲ collapse') : t('▼ aufklappen', '▼ expand')}</span>
                 </button>
                 {guideOpen.ec && (
                   <div style={{ padding: '8px 12px 12px', fontSize: 12, color: '#5B6B65', lineHeight: 1.6 }}>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Was zeigt die Tabelle?</div>
-                    <div style={{ marginBottom: 8 }}>Die Tabelle „Entnahmeverlauf der gewählten Strategie“ listet für jedes Jahr des Horizonts die Entnahme (in Euro) für die aktuell gewählte Strategie auf. Dargestellt sind das 10., 50. (Median) und 90. Perzentil aller simulierten Pfade. Bei der dynamischen Strategie wird zusätzlich die Bodenlinie (Floor) als eigene Spalte ausgewiesen — der absolute Mindestbetrag, der nie unterschritten wird (statische Referenzrate × Startvermögen, inflationsbereinigt).</div>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Nach Abzug der GRV-Rente</div>
-                    <div style={{ marginBottom: 8 }}>Die Spalte „Nach Abzug GRV“ zeigt die Netto-Entnahme aus dem Portfolio (Entnahme − Rente − Miete) für das Median-Szenario. Das ist der Betrag, den das Depot tatsächlich liefern muss. Steht dort 0 oder ein negativer Wert, deckt die Rente den Bedarf vollständig.</div>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Real vs. nominal</div>
-                    <div style={{ marginBottom: 8 }}>Mit „Heutige Kaufkraft“ (Standard) sind die Werte inflationsbereinigt — die Kaufkraft ist über die Jahre direkt vergleichbar. Ohne Häkchen werden nominale Beträge gezeigt (inkl. Inflation).</div>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Interpretation</div>
-                    <div style={{ whiteSpace: 'pre-line' }}>• Steigende Werte (dynamisch): Portfolio wächst, Entnahme partizipiert (Ceiling begrenzt).
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Was zeigt die Tabelle?", "What does the table show?")}</div>
+                    <div style={{ marginBottom: 8 }}>{t(<>Die Tabelle „Entnahmeverlauf der gewählten Strategie“ listet für jedes Jahr des Horizonts die Entnahme (in Euro) für die aktuell gewählte Strategie auf. Dargestellt sind das 10., 50. (Median) und 90. Perzentil aller simulierten Pfade. Bei der dynamischen Strategie wird zusätzlich die Bodenlinie (Floor) als eigene Spalte ausgewiesen — der absolute Mindestbetrag, der nie unterschritten wird (statische Referenzrate × Startvermögen, inflationsbereinigt).</>, <>The table "Withdrawal trajectory of the selected strategy" lists the withdrawal (in euros) for the currently selected strategy for each year of the horizon. Shown are the 10th, 50th (median) and 90th percentile of all simulated paths. For the dynamic strategy, the floor line is also shown as its own column — the absolute minimum amount that is never undercut (static reference rate × starting assets, inflation-adjusted).</>)}</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Nach Abzug der GRV-Rente", "After the statutory pension")}</div>
+                    <div style={{ marginBottom: 8 }}>{t(<>Die Spalte „Nach Abzug GRV“ zeigt die Netto-Entnahme aus dem Portfolio (Entnahme − Rente − Miete) für das Median-Szenario. Das ist der Betrag, den das Depot tatsächlich liefern muss. Steht dort 0 oder ein negativer Wert, deckt die Rente den Bedarf vollständig.</>, <>The column "After pension" shows the net withdrawal from the portfolio (withdrawal − pension − rent) for the median scenario. This is the amount the portfolio actually has to deliver. If it shows 0 or a negative value, the pension fully covers the need.</>)}</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Real vs. nominal", "Real vs. nominal")}</div>
+                    <div style={{ marginBottom: 8 }}>{t(<>Mit „Heutige Kaufkraft“ (Standard) sind die Werte inflationsbereinigt — die Kaufkraft ist über die Jahre direkt vergleichbar. Ohne Häkchen werden nominale Beträge gezeigt (inkl. Inflation).</>, <>With "Today's purchasing power" (default) the values are inflation-adjusted — purchasing power is directly comparable across the years. Without the checkmark, nominal amounts are shown (incl. inflation).</>)}</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Interpretation", "Interpretation")}</div>
+                    <div style={{ whiteSpace: 'pre-line' }}>{t(<>• Steigende Werte (dynamisch): Portfolio wächst, Entnahme partizipiert (Ceiling begrenzt).
 • Fallende Werte: Portfolio schrumpft, Floor begrenzt den Absturz.
 • Konstante Werte (Bengen/Statisch): Reihe verläuft flach (real), nur bei Ausfall bricht sie ein.
 • Große Spreizung zwischen P10 und P90 = hohes Unsicherheitsrisiko für die Planung.
-• Die Tabelle erlaubt exakte Jahreswerte abzulesen, das Diagramm („Entnahmeverlauf (Detail)“) zeigt den visuellen Verlauf.</div>
+• Die Tabelle erlaubt exakte Jahreswerte abzulesen, das Diagramm („Entnahmeverlauf (Detail)“) zeigt den visuellen Verlauf.</>, <>• Rising values (dynamic): portfolio grows, withdrawal participates (ceiling limits it).<br/>• Falling values: portfolio shrinks, floor limits the drop.<br/>• Constant values (Bengen/static): the series is flat (real) and only collapses on failure.<br/>• Large spread between P10 and P90 = high uncertainty risk for planning.<br/>• The table lets you read exact yearly values; the chart ("Withdrawal trajectory (detail)") shows the visual course.</>)}</div>
                   </div>
                 )}
               </div>
@@ -1796,17 +1868,17 @@ function EntnahmeSimulator() {
                   width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer',
                   padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 }}>
-                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>Sensitivität</span>
-                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.sa ? '▲ einklappen' : '▼ aufklappen'}</span>
+                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>{t("Sensitivität", "Sensitivity")}</span>
+                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.sa ? t('▲ einklappen', '▲ collapse') : t('▼ aufklappen', '▼ expand')}</span>
                 </button>
                 {guideOpen.sa && (
                   <div style={{ padding: '8px 12px 12px', fontSize: 12, color: '#5B6B65', lineHeight: 1.6 }}>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Was zeigt die Analyse?</div>
-                    <div style={{ marginBottom: 8 }}>Die Sensitivitätsanalyse misst, wie stark sich die Erfolgsquote ändert, wenn man einen einzelnen Parameter leicht variiert (z. B. Aktienquote ±5 %, Startrate ±0,3 %, Horizont ±5 Jahre). Je länger der Balken, desto größer der Einfluss dieses Parameters auf das Ergebnis.</div>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Berechnung</div>
-                    <div style={{ marginBottom: 8 }}>Für jeden Parameter werden zwei Simulationen mit leicht geänderten Werten durchgeführt (Rest gleich). Die Differenz zur Basis-Erfolgsquote gibt den Hebel an. Standard: 500 Stichproben pro Lauf für Geschwindigkeit.</div>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Interpretation</div>
-                    <div style={{ whiteSpace: 'pre-line' }}>• Lange Balken = Parameter ist kritisch (genaue Schätzung wichtig).<br/>• Kurze Balken = Parameter hat wenig Einfluss (kann grob geschätzt werden).<br/>• Typisch: Aktienquote, Startrate und Horizont haben die größten Hebel.<br/>• Nutzen: Fokus auf die wichtigsten Annahmen bei der Planung.</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Was zeigt die Analyse?", "What does the analysis show?")}</div>
+                    <div style={{ marginBottom: 8 }}>{t(<>Die Sensitivitätsanalyse misst, wie stark sich die Erfolgsquote ändert, wenn man einen einzelnen Parameter leicht variiert (z. B. Aktienquote ±5 %, Startrate ±0,3 %, Horizont ±5 Jahre). Je länger der Balken, desto größer der Einfluss dieses Parameters auf das Ergebnis.</>, <>The sensitivity analysis measures how much the success rate changes when a single parameter is varied slightly (e.g. equity share ±5%, start rate ±0.3%, horizon ±5 years). The longer the bar, the greater the influence of that parameter on the result.</>)}</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Berechnung", "Calculation")}</div>
+                    <div style={{ marginBottom: 8 }}>{t(<>Für jeden Parameter werden zwei Simulationen mit leicht geänderten Werten durchgeführt (Rest gleich). Die Differenz zur Basis-Erfolgsquote gibt den Hebel an. Standard: 500 Stichproben pro Lauf für Geschwindigkeit.</>, <>For each parameter, two simulations with slightly changed values are run (everything else equal). The difference from the base success rate indicates the leverage. Default: 500 samples per run for speed.</>)}</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Interpretation", "Interpretation")}</div>
+                    <div style={{ whiteSpace: 'pre-line' }}>{t(<>• Lange Balken = Parameter ist kritisch (genaue Schätzung wichtig).<br/>• Kurze Balken = Parameter hat wenig Einfluss (kann grob geschätzt werden).<br/>• Typisch: Aktienquote, Startrate und Horizont haben die größten Hebel.<br/>• Nutzen: Fokus auf die wichtigsten Annahmen bei der Planung.</>, <>• Long bars = parameter is critical (accurate estimate matters).<br/>• Short bars = parameter has little influence (can be estimated roughly).<br/>• Typically: equity share, start rate and horizon have the greatest leverage.<br/>• Benefit: focus on the most important assumptions when planning.</>)}</div>
                   </div>
                 )}
               </div>
@@ -1815,25 +1887,25 @@ function EntnahmeSimulator() {
                   width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer',
                   padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 }}>
-                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>Erfolgsquote-Heatmap</span>
-                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.hm ? '▲ einklappen' : '▼ aufklappen'}</span>
+                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>{t("Erfolgsquote-Heatmap", "Success-rate heatmap")}</span>
+                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.hm ? t('▲ einklappen', '▲ collapse') : t('▼ aufklappen', '▼ expand')}</span>
                 </button>
                 {guideOpen.hm && (
                   <div style={{ padding: '8px 12px 12px', fontSize: 12, color: '#5B6B65', lineHeight: 1.6 }}>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Was zeigt die Heatmap?</div>
-                    <div style={{ marginBottom: 8 }}>Die Heatmap vergleicht Erfolgsquoten über verschiedene Entnahmehorizonte (Zeilen: 20 bis 60 Jahre) und Startentnahmeraten (Spalten). Bei der 1/E[T]-Strategie ist die Startrate fest durch den Horizont vorgegeben (1/Horizont) — dort zeigt die Heatmap stattdessen den Einfluss unterschiedlicher Aktienquoten (0 % bis 100 %) auf die Entnahmehöhe und Sicherheit. Grün = sicher bzw. hohe Entnahme, Rot = niedrig. Die gelb umrandete Zelle markiert die deiner aktuellen Einstellung nächstgelegene Kombination.</div>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Wie wird sie berechnet?</div>
-                    <div style={{ marginBottom: 8 }}>Für jede Zelle (Horizont × Rate) wird eine separate Simulation mit 800 Stichproben durchgeführt (im historischen Modus: alle rollierenden Fenster). Die Erfolgsquote zählt, in wie vielen Verläufen die volle Entnahme über den gesamten Horizont geleistet werden konnte — ohne dass das Portfolio vorzeitig leerläuft. Die Zellen sind unabhängig voneinander berechnet.</div>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Monotonie-Korrektur</div>
-                    <div style={{ marginBottom: 8 }}>Nach der Berechnung wird die Matrix monoton gemacht: Ein längerer Horizont darf nie eine höhere Quote haben als ein kürzerer (gleiche Rate), und eine höhere Entnahmerate darf nie eine höhere Quote haben als eine niedrigere (gleicher Horizont). Die Korrektur setzt Werte nur herab, nie herauf — sie glättet statistisches Rauschen.</div>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Einschränkungen</div>
-                    <div style={{ marginBottom: 8, whiteSpace: 'pre-line' }}>• Historische Modi: Bei langen Horizonten schrumpft die Zahl der Startfenster (z. B. nur noch bis 1965 für 60 J.). Die Quoten basieren auf weniger, aber überlappenden Fenstern — nicht auf unabhängigen Pfaden.
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Was zeigt die Heatmap?", "What does the heatmap show?")}</div>
+                    <div style={{ marginBottom: 8 }}>{t(<>Die Heatmap vergleicht Erfolgsquoten über verschiedene Entnahmehorizonte (Zeilen: 20 bis 60 Jahre) und Startentnahmeraten (Spalten). Bei der 1/E[T]-Strategie ist die Startrate fest durch den Horizont vorgegeben (1/Horizont) — dort zeigt die Heatmap stattdessen den Einfluss unterschiedlicher Aktienquoten (0 % bis 100 %) auf die Entnahmehöhe und Sicherheit. Grün = sicher bzw. hohe Entnahme, Rot = niedrig. Die gelb umrandete Zelle markiert die deiner aktuellen Einstellung nächstgelegene Kombination.</>, <>The heatmap compares success rates across different withdrawal horizons (rows: 20 to 60 years) and starting withdrawal rates (columns). For the 1/E[T] strategy, the start rate is fixed by the horizon (1/horizon) — there, the heatmap instead shows the influence of different equity shares (0% to 100%) on withdrawal amount and safety. Green = safe or high withdrawal, red = low. The yellow-outlined cell marks the combination closest to your current setting.</>)}</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Wie wird sie berechnet?", "How is it calculated?")}</div>
+                    <div style={{ marginBottom: 8 }}>{t(<>Für jede Zelle (Horizont × Rate) wird eine separate Simulation mit 800 Stichproben durchgeführt (im historischen Modus: alle rollierenden Fenster). Die Erfolgsquote zählt, in wie vielen Verläufen die volle Entnahme über den gesamten Horizont geleistet werden konnte — ohne dass das Portfolio vorzeitig leerläuft. Die Zellen sind unabhängig voneinander berechnet.</>, <>For each cell (horizon × rate), a separate simulation with 800 samples is run (in historical mode: all rolling windows). The success rate counts in how many paths the full withdrawal could be paid over the entire horizon — without the portfolio running out early. The cells are calculated independently of each other.</>)}</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Monotonie-Korrektur", "Monotonicity correction")}</div>
+                    <div style={{ marginBottom: 8 }}>{t(<>Nach der Berechnung wird die Matrix monoton gemacht: Ein längerer Horizont darf nie eine höhere Quote haben als ein kürzerer (gleiche Rate), und eine höhere Entnahmerate darf nie eine höhere Quote haben als eine niedrigere (gleicher Horizont). Die Korrektur setzt Werte nur herab, nie herauf — sie glättet statistisches Rauschen.</>, <>After the calculation, the matrix is made monotonic: a longer horizon may never have a higher success rate than a shorter one (same rate), and a higher withdrawal rate may never have a higher success rate than a lower one (same horizon). The correction only lowers values, never raises them — it smooths statistical noise.</>)}</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Einschränkungen", "Limitations")}</div>
+                    <div style={{ marginBottom: 8, whiteSpace: 'pre-line' }}>{t(<>• Historische Modi: Bei langen Horizonten schrumpft die Zahl der Startfenster (z. B. nur noch bis 1965 für 60 J.). Die Quoten basieren auf weniger, aber überlappenden Fenstern — nicht auf unabhängigen Pfaden.
 • Welt-Proxy: Datenbasis 1970–2025 (56 J.). Ab ~50 Jahren sind es nur 1–2 Fenster → Quote kaum aussagekräftig.
-• Bootstrap/Monte Carlo: 800 Pfade geben ein Konfidenzintervall von ca. ±3 % bei 95 % Quote. Mehr Stichproben (oben wählbar) erhöhen die Präzision.</div>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Typische Fehlinterpretationen</div>
-                    <div style={{ whiteSpace: 'pre-line' }}>• „Bei 4% und 30 J. 95% → bei 60 J. auch 95%“ — Sequenzrisiko wirkt oft verzögert; Quote fällt meist mit dem Horizont.
+• Bootstrap/Monte Carlo: 800 Pfade geben ein Konfidenzintervall von ca. ±3 % bei 95 % Quote. Mehr Stichproben (oben wählbar) erhöhen die Präzision.</>, <>• Historical modes: with long horizons, the number of start windows shrinks (e.g. only up to 1965 for 60 yrs). The rates are based on fewer, overlapping windows — not on independent paths.<br/>• World proxy: data basis 1970–2025 (56 yrs). From ~50 years there are only 1–2 windows → rate hardly meaningful.<br/>• Bootstrap/Monte Carlo: 800 paths give a confidence interval of about ±3% at a 95% rate. More samples (selectable above) increase precision.</>)}</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Typische Fehlinterpretationen", "Typical misinterpretations")}</div>
+                    <div style={{ whiteSpace: 'pre-line' }}>{t(<>• „Bei 4% und 30 J. 95% → bei 60 J. auch 95%“ — Sequenzrisiko wirkt oft verzögert; Quote fällt meist mit dem Horizont.
 • Hohe Quote ≠ hohes Endvermögen. Erfolgsdefinition: keine Ausfalljahre; Restkapital kann knapp sein.
-• Rente/Miete sind eingerechnet: needRaw = Entnahme − Rente − Miete. Hohe Pensionsansprüche lassen Quote gegen 100 % laufen.</div>
+• Rente/Miete sind eingerechnet: needRaw = Entnahme − Rente − Miete. Hohe Pensionsansprüche lassen Quote gegen 100 % laufen.</>, <>• "At 4% and 30 yrs 95% → at 60 yrs also 95%" — sequence risk often acts with a delay; the rate usually falls with the horizon.<br/>• High rate ≠ high final wealth. Definition of success: no failure years; remaining capital can be tight.<br/>• Pension/rent are included: needRaw = withdrawal − pension − rent. High pension entitlements push the rate toward 100%.</>)}</div>
                   </div>
                 )}
               </div>
@@ -1843,22 +1915,22 @@ function EntnahmeSimulator() {
                   width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer',
                   padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 }}>
-                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>Vermögensverlauf</span>
-                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.vc ? '▲ einklappen' : '▼ aufklappen'}</span>
+                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>{t("Vermögensverlauf", "Asset trajectory")}</span>
+                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.vc ? t('▲ einklappen', '▲ collapse') : t('▼ aufklappen', '▼ expand')}</span>
                 </button>
                 {guideOpen.vc && (
                   <div style={{ padding: '8px 12px 12px', fontSize: 12, color: '#5B6B65', lineHeight: 1.6 }}>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Was zeigt das Diagramm?</div>
-                    <div style={{ marginBottom: 8 }}>Der Vermögensverlauf zeigt die Entwicklung des Gesamtportfolios über die Laufzeit. Die drei Linien/Flächen entsprechen dem 10., 50. (Median) und 90. Perzentil aller simulierten Pfade. Der grüne Bereich dazwischen visualisiert den typischen Korridor (80 % der Pfade liegen darin).</div>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Real vs. nominal</div>
-                    <div style={{ marginBottom: 8 }}>Mit „Heutige Kaufkraft“ (Standard) sind die Werte inflationsbereinigt — 100.000 € bedeuten heute 100.000 € Kaufkraft. Ohne Häkchen werden nominale Beträge gezeigt, die die Inflation einbeziehen (die Kurve steigt dann oft künstlich an).</div>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Rentenbeginn</div>
-                    <div style={{ marginBottom: 8 }}>Die gestrichelte vertikale Linie (falls sichtbar) markiert den Rentenbeginn. Ab diesem Zeitpunkt fließen GRV-Rente und ggf. Mieteinnahmen in die Entnahme ein, was den Vermögensabbau verlangsamt.</div>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Interpretation</div>
-                    <div style={{ whiteSpace: 'pre-line' }}>• Median (Mitte): „Typischer“ Verlauf — aber 50 % der Pfade verlaufen schlechter.
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Was zeigt das Diagramm?", "What does the chart show?")}</div>
+                    <div style={{ marginBottom: 8 }}>{t(<>Der Vermögensverlauf zeigt die Entwicklung des Gesamtportfolios über die Laufzeit. Die drei Linien/Flächen entsprechen dem 10., 50. (Median) und 90. Perzentil aller simulierten Pfade. Der grüne Bereich dazwischen visualisiert den typischen Korridor (80 % der Pfade liegen darin).</>, <>The asset trajectory shows the development of the total portfolio over the period. The three lines/areas correspond to the 10th, 50th (median) and 90th percentile of all simulated paths. The green area in between visualizes the typical corridor (80% of paths lie within it).</>)}</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Real vs. nominal", "Real vs. nominal")}</div>
+                    <div style={{ marginBottom: 8 }}>{t(<>Mit „Heutige Kaufkraft“ (Standard) sind die Werte inflationsbereinigt — 100.000 € bedeuten heute 100.000 € Kaufkraft. Ohne Häkchen werden nominale Beträge gezeigt, die die Inflation einbeziehen (die Kurve steigt dann oft künstlich an).</>, <>With "Today's purchasing power" (default) the values are inflation-adjusted — €100,000 means €100,000 of purchasing power today. Without the checkmark, nominal amounts including inflation are shown (the curve then often rises artificially).</>)}</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Rentenbeginn", "Pension start")}</div>
+                    <div style={{ marginBottom: 8 }}>{t(<>Die gestrichelte vertikale Linie (falls sichtbar) markiert den Rentenbeginn. Ab diesem Zeitpunkt fließen GRV-Rente und ggf. Mieteinnahmen in die Entnahme ein, was den Vermögensabbau verlangsamt.</>, <>The dashed vertical line (if visible) marks the pension start. From that point on, the statutory pension and any rental income flow into the withdrawal, which slows the drawdown of assets.</>)}</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Interpretation", "Interpretation")}</div>
+                    <div style={{ whiteSpace: 'pre-line' }}>{t(<>• Median (Mitte): „Typischer“ Verlauf — aber 50 % der Pfade verlaufen schlechter.
 • 10. Perzentil (unterer Rand): Stresstest — nur 10 % der Pfade liegen darunter.
 • 90. Perzentil (oberer Rand): Günstiges Szenario — 90 % der Pfade liegen darunter.
-• Wenn der untere Rand gegen 0 geht: hohes Ausfallrisiko.</div>
+• Wenn der untere Rand gegen 0 geht: hohes Ausfallrisiko.</>, <>• Median (middle): "typical" path — but 50% of paths do worse.<br/>• 10th percentile (lower edge): stress test — only 10% of paths lie below.<br/>• 90th percentile (upper edge): favorable scenario — 90% of paths lie below.<br/>• If the lower edge heads toward 0: high risk of failure.</>)}</div>
                   </div>
                 )}
               </div>
@@ -1868,19 +1940,19 @@ function EntnahmeSimulator() {
                   width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer',
                   padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 }}>
-                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>Entnahmeverlauf (Detail)</span>
-                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.ew ? '▲ einklappen' : '▼ aufklappen'}</span>
+                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>{t("Entnahmeverlauf (Detail)", "Withdrawal trajectory (detail)")}</span>
+                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.ew ? t('▲ einklappen', '▲ collapse') : t('▼ aufklappen', '▼ expand')}</span>
                 </button>
                 {guideOpen.ew && (
                   <div style={{ padding: '8px 12px 12px', fontSize: 12, color: '#5B6B65', lineHeight: 1.6 }}>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Was zeigt das Diagramm?</div>
-                    <div style={{ marginBottom: 8 }}>Der Entnahmeverlauf zeigt die jährliche Entnahme (in Euro) über die Laufzeit für die aktuell gewählte Strategie. Wieder als 10./50./90. Perzentil. Bei der dynamischen Strategie wird zusätzlich die Bodenlinie (gestrichelt) angezeigt — der absolute Mindestbetrag, der nie unterschritten wird.</div>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Nach Abzug der GRV-Rente</div>
-                    <div style={{ marginBottom: 8 }}>Die orangene Linie „Nach Abzug GRV“ zeigt die Netto-Entnahme aus dem Portfolio (Entnahme − Rente − Miete). Das ist der Betrag, den das Depot tatsächlich liefern muss.</div>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Real vs. nominal</div>
-                    <div style={{ marginBottom: 8 }}>Gleiche Umschaltung wie beim Vermögensverlauf. Im Real-Modus ist die Kaufkraft der Entnahme über die Jahre direkt vergleichbar.</div>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Interpretation</div>
-                    <div style={{ whiteSpace: 'pre-line' }}>• Steigende Entnahme (dynamisch): Portfolio wächst, Entnahme partizipiert (Ceiling begrenzt).<br/>• Fallende Entnahme: Portfolio schrumpft, Floor begrenzt den Absturz.<br/>• Konstante Entnahme (Bengen/Statisch): Linie verläuft flach (real), nur bei Ausfall bricht sie ein.<br/>• Große Spreizung (Bandbreite 10.–90.) = hohes Unsicherheitsrisiko für die Planung.</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Was zeigt das Diagramm?", "What does the chart show?")}</div>
+                    <div style={{ marginBottom: 8 }}>{t(<>Der Entnahmeverlauf zeigt die jährliche Entnahme (in Euro) über die Laufzeit für die aktuell gewählte Strategie. Wieder als 10./50./90. Perzentil. Bei der dynamischen Strategie wird zusätzlich die Bodenlinie (gestrichelt) angezeigt — der absolute Mindestbetrag, der nie unterschritten wird.</>, <>The withdrawal trajectory shows the annual withdrawal (in euros) over the period for the currently selected strategy. Again as the 10th/50th/90th percentile. For the dynamic strategy, the floor line (dashed) is also shown — the absolute minimum amount that is never undercut.</>)}</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Nach Abzug der GRV-Rente", "After the statutory pension")}</div>
+                    <div style={{ marginBottom: 8 }}>{t(<>Die orangene Linie „Nach Abzug GRV“ zeigt die Netto-Entnahme aus dem Portfolio (Entnahme − Rente − Miete). Das ist der Betrag, den das Depot tatsächlich liefern muss.</>, <>The orange line "After pension" shows the net withdrawal from the portfolio (withdrawal − pension − rent). This is the amount the portfolio actually has to deliver.</>)}</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Real vs. nominal", "Real vs. nominal")}</div>
+                    <div style={{ marginBottom: 8 }}>{t(<>Gleiche Umschaltung wie beim Vermögensverlauf. Im Real-Modus ist die Kaufkraft der Entnahme über die Jahre direkt vergleichbar.</>, <>Same switch as for the asset trajectory. In real mode, the purchasing power of the withdrawal is directly comparable across the years.</>)}</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Interpretation", "Interpretation")}</div>
+                    <div style={{ whiteSpace: 'pre-line' }}>{t(<>• Steigende Entnahme (dynamisch): Portfolio wächst, Entnahme partizipiert (Ceiling begrenzt).<br/>• Fallende Entnahme: Portfolio schrumpft, Floor begrenzt den Absturz.<br/>• Konstante Entnahme (Bengen/Statisch): Linie verläuft flach (real), nur bei Ausfall bricht sie ein.<br/>• Große Spreizung (Bandbreite 10.–90.) = hohes Unsicherheitsrisiko für die Planung.</>, <>• Rising withdrawal (dynamic): portfolio grows, withdrawal participates (ceiling limits it).<br/>• Falling withdrawal: portfolio shrinks, floor limits the drop.<br/>• Constant withdrawal (Bengen/static): line is flat (real) and only collapses on failure.<br/>• Large spread (10th–90th range) = high uncertainty risk for planning.</>)}</div>
                   </div>
                 )}
               </div>
@@ -1890,51 +1962,57 @@ function EntnahmeSimulator() {
                   width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer',
                   padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 }}>
-                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>Ausfallwahrscheinlichkeit</span>
-                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.fc ? '▲ einklappen' : '▼ aufklappen'}</span>
+                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>{t("Ausfallwahrscheinlichkeit", "Failure probability")}</span>
+                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.fc ? t('▲ einklappen', '▲ collapse') : t('▼ aufklappen', '▼ expand')}</span>
                 </button>
                 {guideOpen.fc && (
                   <div style={{ padding: '8px 12px 12px', fontSize: 12, color: '#5B6B65', lineHeight: 1.6 }}>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Was zeigt das Diagramm?</div>
-                    <div style={{ marginBottom: 8 }}>Die Ausfallwahrscheinlichkeit (kumulativ) zeigt für jedes Lebensjahr, wie viel Prozent der simulierten Pfade bis zu diesem Zeitpunkt bereits gescheitert sind (Portfolio konnte die volle Entnahme nicht mehr leisten). Die rote horizontale Linie bei 2,5 % markiert ein gängiges Sicherheitsziel: Das Ausfallrisiko sollte idealerweise über den gesamten Horizont darunter bleiben.</div>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Kumulativ vs. jährlich</div>
-                    <div style={{ marginBottom: 8 }}>„Kumulativ“ bedeutet: Ein Pfad, der in Jahr 17 scheitert, wird in allen Folgejahren weiter als „gescheitert“ gezählt. Die Kurve kann also nur steigen oder flach bleiben, nie fallen.</div>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Interpretation</div>
-                    <div style={{ whiteSpace: 'pre-line' }}>• Kurve steigt früh stark an: Sequenzrisiko in den ersten 10–15 Jahren (schlechte Renditen zu Beginn).
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Was zeigt das Diagramm?", "What does the chart show?")}</div>
+                    <div style={{ marginBottom: 8 }}>{t(<>Die Ausfallwahrscheinlichkeit (kumulativ) zeigt für jedes Lebensjahr, wie viel Prozent der simulierten Pfade bis zu diesem Zeitpunkt bereits gescheitert sind (Portfolio konnte die volle Entnahme nicht mehr leisten). Die rote horizontale Linie bei 2,5 % markiert ein gängiges Sicherheitsziel: Das Ausfallrisiko sollte idealerweise über den gesamten Horizont darunter bleiben.</>, <>The (cumulative) failure probability shows, for each year of life, what percentage of the simulated paths have already failed by that point (the portfolio could no longer deliver the full withdrawal). The red horizontal line at 2.5% marks a common safety target: the failure risk should ideally stay below it over the entire horizon.</>)}</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Kumulativ vs. jährlich", "Cumulative vs. yearly")}</div>
+                    <div style={{ marginBottom: 8 }}>{t(<>„Kumulativ“ bedeutet: Ein Pfad, der in Jahr 17 scheitert, wird in allen Folgejahren weiter als „gescheitert“ gezählt. Die Kurve kann also nur steigen oder flach bleiben, nie fallen.</>, <>"Cumulative" means: a path that fails in year 17 continues to count as "failed" in all following years. The curve can therefore only rise or stay flat, never fall.</>)}</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Interpretation", "Interpretation")}</div>
+                    <div style={{ whiteSpace: 'pre-line' }}>{t(<>• Kurve steigt früh stark an: Sequenzrisiko in den ersten 10–15 Jahren (schlechte Renditen zu Beginn).
 • Kurve flach bei 0–2 % über 30+ Jahre: Sehr robuste Strategie.
 • Sprung nach Rentenbeginn: Wenn Rente einsetzt, sinkt der Bedarf aus dem Portfolio → Ausfallwahrscheinlichkeit wächst langsamer.
-• Ende der Kurve = 100 % − Erfolgsquote der Heatmap (für den gewählten Horizont).</div>
+• Ende der Kurve = 100 % − Erfolgsquote der Heatmap (für den gewählten Horizont).</>, <>• Curve rises sharply early: sequence risk in the first 10–15 years (bad returns at the start).<br/>• Curve flat at 0–2% over 30+ years: very robust strategy.<br/>• Jump after pension start: when the pension kicks in, the need from the portfolio drops → failure probability grows more slowly.<br/>• End of the curve = 100% − success rate of the heatmap (for the chosen horizon).</>)}</div>
                   </div>
                 )}
               </div>
 
-              <div style={{ marginTop: 16, color: '#1C2521', fontWeight: 600, fontSize: 12.5 }}>Sonstiges</div>
+              <div style={{ marginTop: 16, color: '#1C2521', fontWeight: 600, fontSize: 12.5 }}>{t("Sonstiges", "Other")}</div>
               <div key="ag" style={{ border: '1px solid #E3E8E5', borderRadius: 8, marginBottom: 6, background: '#FAFBFA', overflow: 'hidden' }}>
                 <button onClick={() => toggleGuide('ag')} style={{
                   width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer',
                   padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 }}>
-                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>Annahmen & Grenzen</span>
-                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.ag ? '▲ einklappen' : '▼ aufklappen'}</span>
+                  <span style={{ fontSize: 12, color: '#1C2521', fontWeight: 600 }}>{t("Annahmen & Grenzen", "Assumptions & limits")}</span>
+                  <span style={{ fontSize: 11, color: '#5B6B65' }}>{guideOpen.ag ? t('▲ einklappen', '▲ collapse') : t('▼ aufklappen', '▼ expand')}</span>
                 </button>
                 {guideOpen.ag && (
                   <div style={{ padding: '8px 12px 12px', fontSize: 12, color: '#5B6B65', lineHeight: 1.6 }}>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Entnahme-Reihenfolge</div>
-                    <div style={{ marginBottom: 8 }}>In normalen Jahren: Aktien-ETF → Crypto → Anleihen-ETF → Gold → Liquidität.<br/>Bei ETF-Drawdown ≥ 20 % (Reserve-Modus): Liquidität → Anleihen-ETF → Gold → Crypto → Aktien-ETF. Leere Reserven werden nicht wieder aufgefüllt.</div>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Asset-Annahmen</div>
-                    <div style={{ marginBottom: 8 }}><strong>Crypto:</strong> parametrisch simuliert in allen Modi, ca. 15 % reale Rendite / 65 % Volatilität p.a. (grobe Schätzung).<br/><strong>Anleihen-ETF:</strong> EUR-Staats- & Investment-Grade-Unternehmensanleihen ≤ 5 J. Laufzeit, 2 % reale Rendite / 4 % Volatilität p.a.<br/><strong>Vermietete Immobilie:</strong> nicht Teil der Entnahmesimulation (illiquider Sachwert). Miete = 3 % des aktuellen Immobilienwerts p.a., reduziert den nötigen Portfolio-Entnahmebetrag.</div>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>GRV-Rente</div>
-                    <div style={{ marginBottom: 8 }}>Ab Rentenbeginn-Alter: Rentenpunkte × aktueller Rentenwert (42,52 €/Monat seit 1.7.2026), plus vereinfachte Ab-/Zuschläge (0,3 %/Monat vor / 0,5 %/Monat nach Regelaltersgrenze 67). Reduziert den Portfolio-Bedarf. Der Rentenwert wird real konstant gehalten. <strong>Nicht berücksichtigt:</strong> Steuern auf Rente, GKVdR-Beiträge, Mindestversicherungszeiten für Bezug ab 63.</div>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Simulationsmodi & Datenbasis</div>
-                    <div style={{ marginBottom: 8, whiteSpace: 'pre-line' }}>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Entnahme-Reihenfolge", "Withdrawal order")}</div>
+                    <div style={{ marginBottom: 8 }}>{t(<>In normalen Jahren: Aktien-ETF → Crypto → Anleihen-ETF → Gold → Liquidität.<br/>Bei ETF-Drawdown ≥ 20 % (Reserve-Modus): Liquidität → Anleihen-ETF → Gold → Crypto → Aktien-ETF. Leere Reserven werden nicht wieder aufgefüllt.</>, <>In normal years: equity ETF → crypto → bond ETF → gold → cash.<br/>During ETF drawdown ≥ 20% (reserve mode): cash → bond ETF → gold → crypto → equity ETF. Empty reserves are not refilled.</>)}</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Asset-Annahmen", "Asset assumptions")}</div>
+                    <div style={{ marginBottom: 8 }}>{t(<><strong>Crypto:</strong> parametrisch simuliert in allen Modi, ca. 15 % reale Rendite / 65 % Volatilität p.a. (grobe Schätzung).<br/><strong>Anleihen-ETF:</strong> EUR-Staats- & Investment-Grade-Unternehmensanleihen ≤ 5 J. Laufzeit, 2 % reale Rendite / 4 % Volatilität p.a.<br/><strong>Vermietete Immobilie:</strong> nicht Teil der Entnahmesimulation (illiquider Sachwert). Miete = 3 % des aktuellen Immobilienwerts p.a., reduziert den nötigen Portfolio-Entnahmebetrag.</>, <><strong>Crypto:</strong> simulated parametrically in all modes, approx. 15% real return / 65% volatility p.a. (rough estimate).<br/><strong>Bond ETF:</strong> EUR government & investment-grade corporate bonds ≤ 5 yrs maturity, 2% real return / 4% volatility p.a.<br/><strong>Rented property:</strong> not part of the withdrawal simulation (illiquid real asset). Rent = 3% of the current property value p.a., reduces the required portfolio withdrawal amount.</>)}</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("GRV-Rente", "Statutory pension (GRV)")}</div>
+                    <div style={{ marginBottom: 8 }}>{t(<>Ab Rentenbeginn-Alter: Rentenpunkte × aktueller Rentenwert (42,52 €/Monat seit 1.7.2026), plus vereinfachte Ab-/Zuschläge (0,3 %/Monat vor / 0,5 %/Monat nach Regelaltersgrenze 67). Reduziert den Portfolio-Bedarf. Der Rentenwert wird real konstant gehalten. <strong>Nicht berücksichtigt:</strong> Steuern auf Rente, GKVdR-Beiträge, Mindestversicherungszeiten für Bezug ab 63.</>, <>From the pension start age: pension points × current pension value (€42.52/month since 1 July 2026), plus simplified deductions/supplements (0.3%/month before / 0.5%/month after the standard retirement age of 67). Reduces the portfolio need. The pension value is held constant in real terms. <strong>Not considered:</strong> taxes on pension, statutory health insurance contributions for pensioners (GKVdR), minimum insurance periods for drawing from 63.</>)}</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Simulationsmodi & Datenbasis", "Simulation modes & data basis")}</div>
+                    <div style={{ marginBottom: 8, whiteSpace: 'pre-line' }}>{t(<>
 <strong>Monte Carlo (parametrisch):</strong> Aktien 5,0 % / 18 %, Gold 0,5 % / 15 %, Liquidität 0,0 % / 1,5 % (real p.a.), Korrelation Aktien–Gold −0,1. Normalverteilt, unabhängig — keine Fat Tails, keine Autokorrelation.
 <strong>Historisch (S&P 500 1872–2025):</strong> US-Aktien inkl. Dividenden, Gold, Liquiditäts-Proxy, deflationiert mit US-CPI — US-Näherung für Welt-Aktien (lange globale Reihe nicht verfügbar). Für 1872–1927: Shiller/Cowles-Daten, Gold ~0 % (Goldstandard, $20,67/oz bis 1933), Cash 4 % p.a. (keine verlässliche Zinsreihe). Nicht-US-Märkte (Japan, DE/AT post-WWII) liefen teils schlechter → Erfolgsquoten eher obere Schätzung.
 <strong>Historisch (Welt-Proxy 1970–2025):</strong> 65 % US Large Cap + 35 % MSCI EAFE. Kürzere Reihe (keine Weltwirtschaftskrise, kein WWII, keine Emerging Markets), feste 65/35-Gewichtung (echte MSCI-Gewichte schwankten).
 <strong>Rollierende Fenster:</strong> Exakte historische Reihenfolgen, stark überlappend → geringe effektive Stichprobengröße.
 <strong>Block-Bootstrap:</strong> Zieht zufällige Blöcke (Länge einstellbar) mit Zurücklegen und baut synthetische Pfade.
-                    </div>
-                    <div style={{ marginBottom: 10, fontWeight: 600 }}>Wichtige Hinweise</div>
-                    <div style={{ marginBottom: 8, whiteSpace: 'pre-line' }}>• Kein Ersatz für professionelle Finanzberatung.<br/>• Modellvereinfachungen: konstante Korrelationen, keine Steuer-/Kostenmodellierung über TER hinaus, keine Verhaltensfehler.<br/>• Historische Daten ≠ zukünftige Renditen. Vergangene Erfolgsquoten garantieren keine zukünftigen Ergebnisse.</div>
+                    </>, <>
+<strong>Monte Carlo (parametric):</strong> equities 5.0% / 18%, gold 0.5% / 15%, cash 0.0% / 1.5% (real p.a.), equity–gold correlation −0.1. Normally distributed, independent — no fat tails, no autocorrelation.
+<strong>Historical (S&P 500 1872–2025):</strong> US equities incl. dividends, gold, cash proxy, deflated with US CPI — US approximation for world equities (no long global series available). For 1872–1927: Shiller/Cowles data, gold ~0% (gold standard, $20.67/oz until 1933), cash 4% p.a. (no reliable interest-rate series). Non-US markets (Japan, DE/AT post-WWII) partly performed worse → success rates are rather an upper estimate.
+<strong>Historical (world proxy 1970–2025):</strong> 65% US large cap + 35% MSCI EAFE. Shorter series (no Great Depression, no WWII, no emerging markets), fixed 65/35 weighting (real MSCI weights fluctuated).
+<strong>Rolling windows:</strong> exact historical sequences, heavily overlapping → low effective sample size.
+<strong>Block bootstrap:</strong> draws random blocks (length adjustable) with replacement and builds synthetic paths.
+</>)}</div>
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Wichtige Hinweise", "Important notes")}</div>
+                    <div style={{ marginBottom: 8, whiteSpace: 'pre-line' }}>{t(<>• Kein Ersatz für professionelle Finanzberatung.<br/>• Modellvereinfachungen: konstante Korrelationen, keine Steuer-/Kostenmodellierung über TER hinaus, keine Verhaltensfehler.<br/>• Historische Daten ≠ zukünftige Renditen. Vergangene Erfolgsquoten garantieren keine zukünftigen Ergebnisse.</>, <>• No substitute for professional financial advice.<br/>• Model simplifications: constant correlations, no tax/cost modeling beyond TER, no behavioral errors.<br/>• Historical data ≠ future returns. Past success rates do not guarantee future results.</>)}</div>
                   </div>
                 )}
               </div>
@@ -1949,25 +2027,25 @@ function EntnahmeSimulator() {
         <div style={{ marginBottom: 16, order: 1 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: '#1C2521', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
             Presets
-            <InfoDot text="Vorkonfigurierte Szenarien für typische Anwendungsfälle. Wählen Sie ein Preset, um alle Parameter automatisch zu setzen. Sie können danach einzelne Werte weiter anpassen." />
+            <InfoDot text={t("Vorkonfigurierte Szenarien für typische Anwendungsfälle. Wählen Sie ein Preset, um alle Parameter automatisch zu setzen. Sie können danach einzelne Werte weiter anpassen.", "Preconfigured scenarios for typical use cases. Choose a preset to set all parameters automatically. You can then adjust individual values further.")} />
           </div>
           <select value={matchedPreset} onChange={(e) => { if (e.target.value) { applyPreset(e.target.value); } }} style={{
             width: '100%', fontSize: 12.5, padding: '9px 12px', borderRadius: 8, cursor: 'pointer',
             border: '2px solid #2F5D62', background: '#FFFFFF', color: '#2F5D62', fontWeight: 500,
             boxShadow: '0 2px 6px rgba(47,93,98,0.08)',
           }}>
-            <option value="" disabled>🔧 Preset auswählen …</option>
-            <option value="rentner">👴 Standard-Rentner</option>
-            <option value="fire-fan">🔥 FIRE-Fan</option>
-            <option value="frugalist">💰 Frugalist</option>
-            <optgroup label="— Profile —" />
-            <option value="konservativ">🛡️ Konservativ (Sicherheit zuerst)</option>
-            <option value="ausgewogen">⚖️ Ausgewogen (Goldene Mitte)</option>
-            <option value="wachstum">📈 Wachstum (Mutig)</option>
-            <option value="flexibel">🔄 Flexibel (Mit Gold-Puffer)</option>
-            <option value="minimalist">🏔️ Minimalist (FIRE)</option>
+            <option value="" disabled>{t("🔧 Preset auswählen …", "🔧 Select preset …")}</option>
+            <option value="rentner">{t("👴 Standard-Rentner", "👴 Standard retiree")}</option>
+            <option value="fire-fan">{t("🔥 FIRE-Fan", "🔥 FIRE fan")}</option>
+            <option value="frugalist">{t("💰 Frugalist", "💰 Frugalist")}</option>
+            <optgroup label={t("— Profile —", "— Profiles —")} />
+            <option value="konservativ">{t("🛡️ Konservativ (Sicherheit zuerst)", "🛡️ Conservative (safety first)")}</option>
+            <option value="ausgewogen">{t("⚖️ Ausgewogen (Goldene Mitte)", "⚖️ Balanced (golden mean)")}</option>
+            <option value="wachstum">{t("📈 Wachstum (Mutig)", "📈 Growth (bold)")}</option>
+            <option value="flexibel">{t("🔄 Flexibel (Mit Gold-Puffer)", "🔄 Flexible (with gold buffer)")}</option>
+            <option value="minimalist">{t("🏔️ Minimalist (FIRE)", "🏔️ Minimalist (FIRE)")}</option>
             <optgroup label="— Fat FIRE —" />
-            <option value="fatfire">💎 Fat FIRE (3M, 60J, 2,5%)</option>
+            <option value="fatfire">{t("💎 Fat FIRE (3M, 60J, 2,5%)", "💎 Fat FIRE (3M, age 60, 2.5%)")}</option>
           </select>
         </div>
         <button onClick={shareConfig} style={{
@@ -1975,14 +2053,14 @@ function EntnahmeSimulator() {
           fontSize: 12, padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
           fontWeight: 500, marginBottom: 16, order: 1,
         }}>
-          {shareLabel}
+          {shareLabel === '🔗 Konfiguration teilen' ? t('🔗 Konfiguration teilen', '🔗 Share configuration') : shareLabel}
         </button>
 
         {/* Mode selector */}
         <div style={{ marginBottom: 16, order: 5 }}>
-          <SectionLabel color="#C08A2E">SIMULATIONSMETHODE</SectionLabel>
+          <SectionLabel color="#C08A2E">{t("SIMULATIONSMETHODE", "SIMULATION METHOD")}</SectionLabel>
           <div style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 12, color: '#5B6B65', marginBottom: 6, display: 'flex', alignItems: 'center' }}>Methode<InfoDot text="Historisch: Testet gegen echte historische Daten. Block-Bootstrap: Würfelt aus historischen Daten neue Verläufe. Monte Carlo: Erzeugt zufällige, realistisch verteilte Marktverläufe." /></div>
+            <div style={{ fontSize: 12, color: '#5B6B65', marginBottom: 6, display: 'flex', alignItems: 'center' }}>{t("Methode", "Method")}<InfoDot text={t("Historisch: Testet gegen echte historische Daten. Block-Bootstrap: Würfelt aus historischen Daten neue Verläufe. Monte Carlo: Erzeugt zufällige, realistisch verteilte Marktverläufe.", "Historical: tests against real historical data. Block bootstrap: resamples new paths from historical data. Monte Carlo: generates random, realistically distributed market paths.")} /></div>
             <select
               value={mode}
               onChange={(e) => setMode(e.target.value)}
@@ -1992,10 +2070,10 @@ function EntnahmeSimulator() {
                 boxShadow: '0 2px 6px rgba(192,138,46,0.08)',
               }}
             >
-              <option value="rolling">Historisch · S&P 500 (1872–2025)</option>
-              <option value="world">Historisch · Welt-Proxy (1970–2025)</option>
-              <option value="bootstrap">Historisch · Block-Bootstrap</option>
-              <option value="montecarlo">Parametrisch · Monte Carlo</option>
+              <option value="rolling">{t("Historisch · S&P 500 (1872–2025)", "Historical · S&P 500 (1872–2025)")}</option>
+              <option value="world">{t("Historisch · Welt-Proxy (1970–2025)", "Historical · World proxy (1970–2025)")}</option>
+              <option value="bootstrap">{t("Historisch · Block-Bootstrap", "Historical · Block bootstrap")}</option>
+              <option value="montecarlo">{t("Parametrisch · Monte Carlo", "Parametric · Monte Carlo")}</option>
             </select>
           </div>
         </div>
@@ -2004,7 +2082,7 @@ function EntnahmeSimulator() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
             {(mode === 'bootstrap' || mode === 'montecarlo') && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 11.5, color: '#5B6B65', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center' }}>Stichproben:<InfoDot text="Anzahl der simulierten bzw. gebootstrapten Verläufe. Mehr Stichproben = präziseres Ergebnis, aber längere Rechenzeit." /></span>
+                <span style={{ fontSize: 11.5, color: '#5B6B65', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center' }}>{t("Stichproben", "Samples")}:<InfoDot text={t("Anzahl der simulierten bzw. gebootstrapten Verläufe. Mehr Stichproben = präziseres Ergebnis, aber längere Rechenzeit.", "Number of simulated or bootstrapped paths. More samples = more precise result, but longer computation time.")} /></span>
                 <select
                   value={numSims}
                   onChange={(e) => setNumSims(parseInt(e.target.value, 10))}
@@ -2021,10 +2099,10 @@ function EntnahmeSimulator() {
               </div>
             )}
             {mode === 'bootstrap' && (
-              <Slider label="Blocklänge" value={blockLen} min={1} max={30} step={1}
-                onChange={setBlockLen} format={(v) => v + ' Jahre'}
-                hint="Zusammenhängende Blöcke beim Ziehen"
-                tip="Länge der zusammenhängenden Jahresblöcke. Kleinere Blöcke = mehr Unabhängigkeit zwischen den Zufallsjahren." />
+              <Slider label={t("Blocklänge", "Block length")} value={blockLen} min={1} max={30} step={1}
+                onChange={setBlockLen} format={(v) => v + ' ' + t('Jahre', 'years')}
+                hint={t("Zusammenhängende Blöcke beim Ziehen", "Contiguous blocks when sampling")}
+                tip={t("Länge der zusammenhängenden Jahresblöcke. Kleinere Blöcke = mehr Unabhängigkeit zwischen den Zufallsjahren.", "Length of the contiguous yearly blocks. Smaller blocks = more independence between the random years.")} />
             )}
 
               </div>
@@ -2040,99 +2118,99 @@ function EntnahmeSimulator() {
               onChange={(e) => setHeutigeKaufkraft(e.target.checked)}
               style={{ accentColor: '#2F5D62', width: 16, height: 16, cursor: 'pointer' }}
             />
-            <span>Heutige Kaufkraft statt nominal<InfoDot text="Wenn aktiviert, werden alle Werte inflationsbereinigt in heutiger Kaufkraft angezeigt — sonst nominal in zukünftigen Beträgen." /></span>
+            <span>{t("Heutige Kaufkraft statt nominal", "Today's purchasing power instead of nominal")}<InfoDot text={t("Wenn aktiviert, werden alle Werte inflationsbereinigt in heutiger Kaufkraft angezeigt — sonst nominal in zukünftigen Beträgen.", "When enabled, all values are shown inflation-adjusted in today's purchasing power — otherwise nominal in future amounts.")} /></span>
           </label>
           {!heutigeKaufkraft && (
             <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid #D3DAD6' }}>
-              <Slider label="Angenommene Inflation" value={inflationRate} min={0.5} max={6.0} step={0.1}
+              <Slider label={t("Angenommene Inflation", "Assumed inflation")} value={inflationRate} min={0.5} max={6.0} step={0.1}
                 onChange={setInflationRate} format={(v) => v.toFixed(1) + '% p.a.'}
-                hint="Wird zur nominalen Hochrechnung der künftigen Werte genutzt"
-                tip="Annahme für die jährliche Teuerung. Wird genutzt, um künftige Geldwerte in heutige Kaufkraft umzurechnen bzw. nominal darzustellen." />
+                hint={t("Wird zur nominalen Hochrechnung der künftigen Werte genutzt", "Used for the nominal projection of future values")}
+                tip={t("Annahme für die jährliche Teuerung. Wird genutzt, um künftige Geldwerte in heutige Kaufkraft umzurechnen bzw. nominal darzustellen.", "Assumption for annual inflation. Used to convert future monetary values into today's purchasing power or to show them nominally.")} />
             </div>
           )}
         </div>
 
 
           <div style={{ order: 4 }}>
-            <SectionLabel color="#C08A2E">Zeitraum</SectionLabel>
-            <Slider label="Alter bei Entnahmebeginn" value={startAge} min={40} max={70} step={1}
-              onChange={setStartAge} format={(v) => v + ' Jahre'}
-              tip="Dein Alter beim Start der Entnahmephase — davon hängt ab, wie viele Jahre das Portfolio reichen muss." />
-            <Slider label="Entnahmehorizont" value={horizon} min={20} max={60} step={1}
-              onChange={setHorizon} format={(v) => v + ' Jahre'}
-              tip="Wie viele Jahre die Entnahmephase dauern soll — das Portfolio muss diesen Zeitraum überbrücken." />
+            <SectionLabel color="#C08A2E">{t("Zeitraum", "Time period")}</SectionLabel>
+            <Slider label={t("Alter bei Entnahmebeginn", "Age at start of withdrawals")} value={startAge} min={40} max={70} step={1}
+              onChange={setStartAge} format={(v) => v + ' ' + t('Jahre', 'years')}
+              tip={t("Dein Alter beim Start der Entnahmephase — davon hängt ab, wie viele Jahre das Portfolio reichen muss.", "Your age at the start of the withdrawal phase — it determines how many years the portfolio has to last.")} />
+            <Slider label={t("Entnahmehorizont", "Withdrawal horizon")} value={horizon} min={20} max={60} step={1}
+              onChange={setHorizon} format={(v) => v + ' ' + t('Jahre', 'years')}
+              tip={t("Wie viele Jahre die Entnahmephase dauern soll — das Portfolio muss diesen Zeitraum überbrücken.", "How many years the withdrawal phase should last — the portfolio has to bridge this period.")} />
             <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 12, color: '#5B6B65', marginBottom: 6, display: 'flex', alignItems: 'center' }}>Entnahme-Frequenz<InfoDot text="Wie oft du im Jahr entnimmst. 'Monatlich' verteilt die Entnahmesumme; 'Jährlich' entnimmt den Jahresbetrag auf einmal zu Jahresbeginn (echter Cash-Puffer, aber engere Grenzfälle)." /></div>
+              <div style={{ fontSize: 12, color: '#5B6B65', marginBottom: 6, display: 'flex', alignItems: 'center' }}>{t("Entnahme-Frequenz", "Withdrawal frequency")}<InfoDot text={t("Wie oft du im Jahr entnimmst. 'Monatlich' verteilt die Entnahmesumme; 'Jährlich' entnimmt den Jahresbetrag auf einmal zu Jahresbeginn (echter Cash-Puffer, aber engere Grenzfälle).", "How often you withdraw per year. 'Monthly' spreads the withdrawal sum; 'Yearly' takes the annual amount at once at the start of the year (a real cash buffer, but tighter borderline cases).")} /></div>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button onClick={() => setEntnahmeFrequenz('monatlich')} style={{
                   flex: 1, padding: '7px 6px', fontSize: 11.5, borderRadius: 6, cursor: 'pointer',
                   border: entnahmeFrequenz === 'monatlich' ? '1px solid #2F5D62' : '1px solid #D3DAD6',
                   background: entnahmeFrequenz === 'monatlich' ? 'rgba(47,93,98,0.16)' : 'transparent',
                   color: entnahmeFrequenz === 'monatlich' ? '#2F5D62' : '#5B6B65',
-                }}>Monatlich</button>
+                }}>{t("Monatlich", "Monthly")}</button>
                 <button onClick={() => setEntnahmeFrequenz('jaehrlich')} style={{
                   flex: 1, padding: '7px 6px', fontSize: 11.5, borderRadius: 6, cursor: 'pointer',
                   border: entnahmeFrequenz === 'jaehrlich' ? '1px solid #2F5D62' : '1px solid #D3DAD6',
                   background: entnahmeFrequenz === 'jaehrlich' ? 'rgba(47,93,98,0.16)' : 'transparent',
                   color: entnahmeFrequenz === 'jaehrlich' ? '#2F5D62' : '#5B6B65',
-                }}>Jährlich</button>
+                }}>{t("Jährlich", "Yearly")}</button>
               </div>
             </div>
         </div>
         <div style={{ display: 'contents' }}>
           <div style={{ order: 2, marginBottom: 22 }}>
             <SectionLabel color="#C08A2E">Portfolio</SectionLabel>
-            <Slider label="Startvermögen" value={vermoegen} min={100000} max={3000000} step={5000}
+            <Slider label={t("Startvermögen", "Starting assets")} value={vermoegen} min={100000} max={3000000} step={5000}
               onChange={setVermoegen} format={fmtEUR}
-              tip="Dein frei verfügbares Gesamtvermögen zu Beginn der Entnahmephase (Aktien + Anleihen + Gold + Bitcoin + Liquidität). Die Eigentumswohnung zählt hier nicht dazu." />
-            <Slider label="Aktien-ETF" value={aktien} min={0} max={100} step={1}
+              tip={t("Dein frei verfügbares Gesamtvermögen zu Beginn der Entnahmephase (Aktien + Anleihen + Gold + Bitcoin + Liquidität). Die Eigentumswohnung zählt hier nicht dazu.", "Your freely available total assets at the start of the withdrawal phase (equities + bonds + gold + Bitcoin + cash). The owned apartment is not included here.")} />
+            <Slider label={t("Aktien-ETF", "Equity ETF")} value={aktien} min={0} max={100} step={1}
               onChange={(v) => setAktien(Math.min(v, 100 - gold - anleihen - bitcoin - wohnung))} format={(v) => `${v}% · ${fmtEUR(vermoegen * v / 100)}`}
-              tip="Anteil des Portfolios in Aktien. Mehr Aktien bedeuten langfristig mehr Rendite, aber auch stärkere Wertschwankungen in einzelnen Jahren." />
-            <Slider label="Anleihen-ETF" value={anleihen} min={0} max={100} step={1}
+              tip={t("Anteil des Portfolios in Aktien. Mehr Aktien bedeuten langfristig mehr Rendite, aber auch stärkere Wertschwankungen in einzelnen Jahren.", "Share of the portfolio in equities. More equities mean higher returns in the long run, but also larger value swings in individual years.")} />
+            <Slider label={t("Anleihen-ETF", "Bond ETF")} value={anleihen} min={0} max={100} step={1}
               onChange={(v) => setAnleihen(Math.min(v, 100 - aktien - gold - bitcoin - wohnung))} format={(v) => `${v}% · ${fmtEUR(vermoegen * v / 100)}`}
-              hint="Europäische Staats- und Unternehmensanleihen mit bis zu 5 Jahren Laufzeit"
-              tip="Defensiver Baustein mit angenommener realer Rendite von 2,0% p.a. und 4,0% Volatilität. Modellannahme für einen EUR-ETF mit Staats- und Investment-Grade-Unternehmensanleihen bis 5 Jahre Laufzeit." />
+              hint={t("Europäische Staats- und Unternehmensanleihen mit bis zu 5 Jahren Laufzeit", "European government and corporate bonds with up to 5 years maturity")}
+              tip={t("Defensiver Baustein mit angenommener realer Rendite von 2,0% p.a. und 4,0% Volatilität. Modellannahme für einen EUR-ETF mit Staats- und Investment-Grade-Unternehmensanleihen bis 5 Jahre Laufzeit.", "Defensive component with an assumed real return of 2.0% p.a. and 4.0% volatility. Model assumption for a EUR ETF with government and investment-grade corporate bonds of up to 5 years maturity.")} />
             <Slider label="Gold" value={gold} min={0} max={100} step={1}
               onChange={(v) => setGold(Math.min(v, 100 - aktien - anleihen - bitcoin - wohnung))} format={(v) => `${v}% · ${fmtEUR(vermoegen * v / 100)}`}
-              tip="Beimischung zur Absicherung gegen Börsencrashs. Gold wird nur entnommen, wenn die Aktien ≥20% unter ihrem Höchststand liegen (Reserve-Modus)." />
-            <Slider label="Vermietete Immobilie" value={wohnung} min={0} max={100} step={1}
+              tip={t("Beimischung zur Absicherung gegen Börsencrashs. Gold wird nur entnommen, wenn die Aktien ≥20% unter ihrem Höchststand liegen (Reserve-Modus).", "Admixture to hedge against stock market crashes. Gold is only drawn when equities are ≥20% below their peak (reserve mode).")} />
+            <Slider label={t("Vermietete Immobilie", "Rented property")} value={wohnung} min={0} max={100} step={1}
               onChange={(v) => setWohnung(Math.min(v, 100 - aktien - gold - anleihen - bitcoin))} format={(v) => `${v}% · ${fmtEUR(vermoegen * v / 100)}`}
-              hint="Illiquide — fließt nicht in die Entnahme-Simulation ein, nur als Sachwert ausgewiesen"
-              tip="Fließt NICHT in die Entnahme-Simulation ein, weil sie illiquide ist — nur als Sachwert ausgewiesen. Die Miete reduziert aber die nötige Entnahme." />
+              hint={t("Illiquide — fließt nicht in die Entnahme-Simulation ein, nur als Sachwert ausgewiesen", "Illiquid — not part of the withdrawal simulation, only reported as a real asset")}
+              tip={t("Fließt NICHT in die Entnahme-Simulation ein, weil sie illiquide ist — nur als Sachwert ausgewiesen. Die Miete reduziert aber die nötige Entnahme.", "Does NOT flow into the withdrawal simulation because it is illiquid — only reported as a real asset. The rent does reduce the required withdrawal, though.")} />
             <Slider label="Crypto" value={bitcoin} min={0} max={100} step={1}
               onChange={(v) => setBitcoin(Math.min(v, 100 - aktien - gold - anleihen - wohnung))} format={(v) => `${v}% · ${fmtEUR(vermoegen * v / 100)}`}
-              hint="Eigene, unabhängig vom Modus simulierte Rendite (siehe Hinweise unten)"
-              tip="Risiko-Baustein, separat und unabhängig vom Modus parametrisch simuliert (real ~15% Rendite, 65% Volatilität p.a.). Grobe Schätzung." />
-            <Slider label="ETF-TER (Kosten p.a.)" value={etfTer} min={0} max={1.0} step={0.01}
+              hint={t("Eigene, unabhängig vom Modus simulierte Rendite (siehe Hinweise unten)", "Own return simulated independently of the mode (see notes below)")}
+              tip={t("Risiko-Baustein, separat und unabhängig vom Modus parametrisch simuliert (real ~15% Rendite, 65% Volatilität p.a.). Grobe Schätzung.", "Risk component, simulated separately and independently of the mode, parametrically (real ~15% return, 65% volatility p.a.). Rough estimate.")} />
+            <Slider label={t("ETF-TER (Kosten p.a.)", "ETF TER (annual cost)")} value={etfTer} min={0} max={1.0} step={0.01}
               onChange={setEtfTer} format={(v) => v.toFixed(2) + '%'}
-              hint="Wird monatlich vom Aktien-Anteil abgezogen"
-              tip="Gesamtkostenquote (TER) des Aktien-ETF in % pro Jahr. Typische Werte: 0,05–0,20% für Welt-ETFs, 0,15–0,50% für Themen-/Faktor-ETFs. Wird monatlich (TER/12) vom Aktien-Anteil abgezogen." />
-            <div style={{ marginTop: 8, padding: '8px 10px', borderRadius: 6, background: '#EEF1EF', border: '1px solid #D3DAD6', color: '#1C2521', fontSize: 12, fontWeight: 600 }}>Liquidität (Rest): {cash}% · {fmtEUR(vermoegen * cash / 100)}</div>
+              hint={t("Wird monatlich vom Aktien-Anteil abgezogen", "Deducted monthly from the equity share")}
+              tip={t("Gesamtkostenquote (TER) des Aktien-ETF in % pro Jahr. Typische Werte: 0,05–0,20% für Welt-ETFs, 0,15–0,50% für Themen-/Faktor-ETFs. Wird monatlich (TER/12) vom Aktien-Anteil abgezogen.", "Total expense ratio (TER) of the equity ETF in % per year. Typical values: 0.05–0.20% for world ETFs, 0.15–0.50% for thematic/factor ETFs. Deducted monthly (TER/12) from the equity share.")} />
+            <div style={{ marginTop: 8, padding: '8px 10px', borderRadius: 6, background: '#EEF1EF', border: '1px solid #D3DAD6', color: '#1C2521', fontSize: 12, fontWeight: 600 }}>{t('Liquidität (Rest)', 'Cash (remainder)')}: {cash}% · {fmtEUR(vermoegen * cash / 100)}</div>
           </div>
 
           <div style={{ order: 3, marginBottom: 22 }}>
-            <SectionLabel color="#C08A2E">GRV-Rente</SectionLabel>
+            <SectionLabel color="#C08A2E">{t("GRV-Rente", "Statutory pension (GRV)")}</SectionLabel>
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 12, color: '#5B6B65', cursor: 'pointer' }}>
               <input type="checkbox" checked={grvBerechnen} onChange={(e) => setGrvBerechnen(e.target.checked)} style={{ accentColor: '#2F5D62' }} />
-              GRV berücksichtigen<InfoDot text="Aktiv: Die gesetzliche Rente reduziert ab Rentenbeginn den nötigen Betrag aus dem Portfolio. Inaktiv: Die GRV-Rente wird in der Simulation und den Kennzahlen komplett außer Acht gelassen." />
+              {t("GRV berücksichtigen", "Include statutory pension (GRV)")}<InfoDot text={t("Aktiv: Die gesetzliche Rente reduziert ab Rentenbeginn den nötigen Betrag aus dem Portfolio. Inaktiv: Die GRV-Rente wird in der Simulation und den Kennzahlen komplett außer Acht gelassen.", "Active: the statutory pension reduces the amount needed from the portfolio from the pension start. Inactive: the GRV pension is ignored completely in the simulation and the metrics.")} />
             </label>
-            <Slider label="Rentenpunkte" value={rentenpunkte} min={0} max={100} step={1}
+            <Slider label={t("Rentenpunkte", "Pension points")} value={rentenpunkte} min={0} max={100} step={1}
               onChange={setRentenpunkte} format={(v) => v.toFixed(0)}
-              hint="Summe der bis Rentenbeginn erwarteten Entgeltpunkte"
-              tip="Summe deiner bis zum Rentenbeginn erwarteten Entgeltpunkte — bestimmt zusammen mit dem aktuellen Rentenwert die Höhe der gesetzlichen Rente." />
-            <Slider label="Rentenbeginn" value={pensionStartAge} min={63} max={75} step={1}
-              onChange={setPensionStartAge} format={(v) => v + ' Jahre'}
-              hint="z.B. 67 (Regelaltersgrenze)"
-              tip="Ab welchem Alter die gesetzliche Rente gezahlt wird. Vor der Regelaltersgrenze (67) gelten vereinfachte Ab- und Zuschläge." />
+              hint={t("Summe der bis Rentenbeginn erwarteten Entgeltpunkte", "Sum of the earnings points expected by pension start")}
+              tip={t("Summe deiner bis zum Rentenbeginn erwarteten Entgeltpunkte — bestimmt zusammen mit dem aktuellen Rentenwert die Höhe der gesetzlichen Rente.", "Sum of your earnings points expected by the pension start — together with the current pension value it determines the amount of the statutory pension.")} />
+            <Slider label={t("Rentenbeginn", "Pension start age")} value={pensionStartAge} min={63} max={75} step={1}
+              onChange={setPensionStartAge} format={(v) => v + ' ' + t('Jahre', 'years')}
+              hint={t("z.B. 67 (Regelaltersgrenze)", "e.g. 67 (standard retirement age)")}
+              tip={t("Ab welchem Alter die gesetzliche Rente gezahlt wird. Vor der Regelaltersgrenze (67) gelten vereinfachte Ab- und Zuschläge.", "From which age the statutory pension is paid. Before the standard retirement age (67), simplified deductions and supplements apply.")} />
             <div style={{ fontSize: 11.5, color: '#5B6B65' }}>
-              → {fmtEUR(pensionMonthly)}/Monat ab Alter {pensionStartAge} (Jahr {pensionStartYear} der Entnahmephase)
+              → {fmtEUR(pensionMonthly)}{t('/Monat ab Alter', '/month from age')} {pensionStartAge} ({t('Jahr', 'year')} {pensionStartYear} {t('der Entnahmephase', 'of the withdrawal phase')})
             </div>
           </div>
 
           <div style={{ order: 6 }}>
-            <SectionLabel color="#C08A2E">Entnahme-Regel</SectionLabel>
+            <SectionLabel color="#C08A2E">{t("Entnahme-Regel", "Withdrawal rule")}</SectionLabel>
             <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 12, color: '#5B6B65', marginBottom: 6, display: 'flex', alignItems: 'center' }}>Strategie<InfoDot text="Legt fest, wie sich deine jährliche Entnahme entwickelt. 'Dynamisch (Vanguard)' passt sie an den Depotwert an (mit Ceiling/Floor/Boden); 'Statisch' hält den Realbetrag konstant." /></div>
+              <div style={{ fontSize: 12, color: '#5B6B65', marginBottom: 6, display: 'flex', alignItems: 'center' }}>{t("Strategie", "Strategy")}<InfoDot text={t("Legt fest, wie sich deine jährliche Entnahme entwickelt. 'Dynamisch (Vanguard)' passt sie an den Depotwert an (mit Ceiling/Floor/Boden); 'Statisch' hält den Realbetrag konstant.", "Determines how your annual withdrawal develops. 'Dynamic (Vanguard)' adapts it to the portfolio value (with ceiling/floor/hard floor); 'Static' keeps the real amount constant.")} /></div>
               <select
                 value={entnahmeStrategie}
                 onChange={(e) => setEntnahmeStrategie(e.target.value)}
@@ -2142,76 +2220,76 @@ function EntnahmeSimulator() {
                   boxShadow: '0 2px 6px rgba(192,138,46,0.08)',
                 }}
               >
-                <option value="dynamisch">Dynamisch (Vanguard)</option>
-                <option value="konstant">Konstante % (Portfoliobezogen)</option>
-                <option value="lebenserwartung">1/E[T] (Lebenserwartung)</option>
-                <option value="bengen">4%-Regel (Bengen)</option>
-                <option value="statisch">Statisch (fest, real)</option>
+                <option value="dynamisch">{t("Dynamisch (Vanguard)", "Dynamic (Vanguard)")}</option>
+                <option value="konstant">{t("Konstante % (Portfoliobezogen)", "Constant % (portfolio-based)")}</option>
+                <option value="lebenserwartung">{t("1/E[T] (Lebenserwartung)", "1/E[T] (life expectancy)")}</option>
+                <option value="bengen">{t("4%-Regel (Bengen)", "4% rule (Bengen)")}</option>
+                <option value="statisch">{t("Statisch (fest, real)", "Static (fixed, real)")}</option>
                 <option value="guyton-klinger">Guyton-Klinger</option>
               </select>
               {entnahmeStrategie === 'statisch' && (
                 <div style={{ fontSize: 10.5, color: '#5B6B65', marginTop: 6 }}>
-                  Jahr 1: Startrate × Vermögen. Danach bleibt der Betrag real konstant.
+{t(<>Jahr 1: Startrate × Vermögen. Danach bleibt der Betrag real konstant.</>, <>Year 1: start rate × assets. After that the amount stays constant in real terms.</>)}
                 </div>
               )}
               {entnahmeStrategie === 'bengen' && (
                 <div style={{ fontSize: 10.5, color: '#5B6B65', marginTop: 6 }}>
-                  Jedes Jahr 4% des Startvermögens, real konstant.
+{t(<>Jedes Jahr 4% des Startvermögens, real konstant.</>, <>Every year 4% of the starting assets, constant in real terms.</>)}
                 </div>
               )}
               {entnahmeStrategie === 'konstant' && (
                 <div style={{ fontSize: 10.5, color: '#5B6B65', marginTop: 6 }}>
-                  Jedes Jahr ein fester Prozentsatz des aktuellen Portfolio-Werts.
+{t(<>Jedes Jahr ein fester Prozentsatz des aktuellen Portfolio-Werts.</>, <>Every year a fixed percentage of the current portfolio value.</>)}
                 </div>
               )}
               {entnahmeStrategie === 'guyton-klinger' && (
                 <div style={{ fontSize: 10.5, color: '#5B6B65', marginTop: 6 }}>
-                  Startbetrag = Startrate × Vermögen. Danach jährliche Inflationsanpassung, unterbrochen
-                  von zwei Guardrail-Regeln: Steigt die Entnahmequote über Ausgangsquote + Guardrail,
-                  wird der Betrag um den Anpassungsschritt gekürzt (Capital-Preservation-Rule). Fällt sie unter
-                  Ausgangsquote − Guardrail, wird erhöht (Prosperity-Rule). Ersetzt die Inflationsanpassung.
+{t(<>Startbetrag = Startrate × Vermögen. Danach jährliche Inflationsanpassung, unterbrochen
+von zwei Guardrail-Regeln: Steigt die Entnahmequote über Ausgangsquote + Guardrail,
+wird der Betrag um den Anpassungsschritt gekürzt (Capital-Preservation-Rule). Fällt sie unter
+Ausgangsquote − Guardrail, wird erhöht (Prosperity-Rule). Ersetzt die Inflationsanpassung.</>, <>Starting amount = start rate × assets. Then an annual inflation adjustment, interrupted by two guardrail rules: if the withdrawal rate rises above initial rate + guardrail, the amount is cut by the adjustment step (capital preservation rule). If it falls below initial rate − guardrail, it is raised (prosperity rule). Replaces the inflation adjustment.</>)}
                 </div>
               )}
               {entnahmeStrategie === 'lebenserwartung' && (
                 <div style={{ fontSize: 10.5, color: '#5B6B65', marginTop: 6 }}>
-                  Jedes Jahr wird 1/E[T] des aktuellen Depotwerts entnommen, wobei E[T] die verbleibenden
-                  Jahre bis zum Entnahmehorizont ist. Beispiel: Bei 40 Jahren Restlaufzeit = 2,5 %, bei
-                  10 Jahren = 10 %. Das Depot wird planmäßig bis zum Horizont aufgezehrt.
+{t(<>Jedes Jahr wird 1/E[T] des aktuellen Depotwerts entnommen, wobei E[T] die verbleibenden
+Jahre bis zum Entnahmehorizont ist. Beispiel: Bei 40 Jahren Restlaufzeit = 2,5 %, bei
+10 Jahren = 10 %. Das Depot wird planmäßig bis zum Horizont aufgezehrt.</>, <>Every year 1/E[T] of the current portfolio value is withdrawn, where E[T] is the number of years remaining until the withdrawal horizon. Example: with 40 years remaining = 2.5%, with 10 years = 10%. The portfolio is drawn down on schedule by the horizon.</>)}
                 </div>
               )}
               <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 12, color: '#5B6B65', cursor: 'pointer' }}>
                 <input type="checkbox" checked={eimerStrategie} onChange={(e) => setEimerStrategie(e.target.checked)} style={{ accentColor: '#2F5D62' }} />
-                Eimer-Strategie<InfoDot text="Aktiv: Entnahme aus dem besten Bucket. Inaktiv: Allokation bleibt proportional konstant." />
+                {t("Eimer-Strategie", "Bucket strategy")}<InfoDot text={t("Aktiv: Entnahme aus dem besten Bucket. Inaktiv: Allokation bleibt proportional konstant.", "Active: withdrawal from the best bucket. Inactive: allocation stays proportionally constant.")} />
               </label>
             </div>
             {entnahmeStrategie === 'dynamisch' && (
-              <Slider label="Statische Referenzrate" value={staticRate} min={0} max={20} step={0.1}
-                onChange={setStaticRate} format={(v) => v.toFixed(1) + '%'} hint="Basis für den Boden"
-                tip="Der feste Prozentsatz vom Startvermögen, der als harter Mindestboden auch in schlechten Jahren nie unterschritten wird." />
+              <Slider label={t("Statische Referenzrate", "Static reference rate")} value={staticRate} min={0} max={20} step={0.1}
+                onChange={setStaticRate} format={(v) => v.toFixed(1) + '%'} hint={t("Basis für den Boden", "Basis for the floor")}
+                tip={t("Der feste Prozentsatz vom Startvermögen, der als harter Mindestboden auch in schlechten Jahren nie unterschritten wird.", "The fixed percentage of the starting assets that serves as a hard minimum floor and is never undercut, even in bad years.")} />
             )}
             {entnahmeStrategie !== 'bengen' && entnahmeStrategie !== 'lebenserwartung' && (
-              <Slider label={entnahmeStrategie === 'statisch' ? 'Startentnahmerate' : entnahmeStrategie === 'guyton-klinger' ? 'Startrate' : 'Dynamische Startrate'} value={dynStartRate} min={2} max={20} step={0.1}
+              <Slider label={entnahmeStrategie === 'statisch' ? t('Startentnahmerate', 'Starting withdrawal rate') : entnahmeStrategie === 'guyton-klinger' ? t('Startrate', 'Start rate') : t('Dynamische Startrate', 'Dynamic start rate')} value={dynStartRate} min={2} max={20} step={0.1}
                 onChange={setDynStartRate} format={(v) => v.toFixed(1) + '%'}
-                tip={entnahmeStrategie === 'guyton-klinger' ? 'Anfängliche Entnahmerate in Prozent vom Startvermögen. Bestimmt den Startbetrag und die Ausgangsquote für die Guardrail-Berechnung.' : 'Entnahmerate im ersten Jahr in Prozent vom Startvermögen.'} />
+                tip={entnahmeStrategie === 'guyton-klinger' ? t('Anfängliche Entnahmerate in Prozent vom Startvermögen. Bestimmt den Startbetrag und die Ausgangsquote für die Guardrail-Berechnung.', 'Initial withdrawal rate in percent of the starting assets. Determines the starting amount and the initial rate for the guardrail calculation.') : t('Entnahmerate im ersten Jahr in Prozent vom Startvermögen.', 'Withdrawal rate in the first year in percent of the starting assets.')} />
             )}
             {entnahmeStrategie === 'dynamisch' && (
               <>
-                <Slider label="Ceiling (max. Anstieg/Jahr)" value={ceiling} min={0} max={10} step={0.5}
+                <Slider label={t("Ceiling (max. Anstieg/Jahr)", "Ceiling (max. increase/year)")} value={ceiling} min={0} max={10} step={0.5}
                   onChange={setCeiling} format={(v) => '+' + v.toFixed(1) + '%'}
-                  tip="Wie stark die jährliche Entnahme höchstens gegenüber dem Vorjahr ansteigen darf — schützt vor zu schnellem Abbau in guten Jahren." />
-                <Slider label="Floor (max. Rückgang/Jahr)" value={floor} min={-10} max={0} step={0.5}
+                  tip={t("Wie stark die jährliche Entnahme höchstens gegenüber dem Vorjahr ansteigen darf — schützt vor zu schnellem Abbau in guten Jahren.", "Maximum amount by which the annual withdrawal may rise versus the prior year — protects against depleting assets too fast in good years.")} />
+                <Slider label={t("Floor (max. Rückgang/Jahr)", "Floor (max. decrease/year)")} value={floor} min={-10} max={0} step={0.5}
                   onChange={setFloor} format={(v) => v.toFixed(1) + '%'}
-                  tip="Maximaler Rückgang der Entnahme pro Jahr gegenüber dem Vorjahr (negativer Wert). Puffert schlechte Jahre ab — begrenzt von unten durch den harten Boden." />
+                  tip={t("Maximaler Rückgang der Entnahme pro Jahr gegenüber dem Vorjahr (negativer Wert). Puffert schlechte Jahre ab — begrenzt von unten durch den harten Boden.", "Maximum decline of the withdrawal per year versus the prior year (negative value). Cushions bad years — bounded from below by the hard floor.")} />
               </>
             ) }
             {entnahmeStrategie === 'guyton-klinger' && (
               <>
-                <Slider label="Guardrail (Auslöseschwelle)" value={gkGuardrailPct} min={5} max={50} step={1}
+                <Slider label={t("Guardrail (Auslöseschwelle)", "Guardrail (trigger threshold)")} value={gkGuardrailPct} min={5} max={50} step={1}
                   onChange={setGkGuardrailPct} format={(v) => '±' + v.toFixed(0) + '%'}
-                  tip="Symmetrische Schwelle in Prozent um die Ausgangsquote. Überschreitet die Entnahmequote die Ausgangsquote + Guardrail (Capital-Preservation-Rule) oder fällt sie darunter (Prosperity-Rule), wird der Entnahmebetrag angepasst." />
-                <Slider label="Anpassungsschritt" value={gkAdjustStep} min={1} max={25} step={0.5}
+                  tip={t("Symmetrische Schwelle in Prozent um die Ausgangsquote. Überschreitet die Entnahmequote die Ausgangsquote + Guardrail (Capital-Preservation-Rule) oder fällt sie darunter (Prosperity-Rule), wird der Entnahmebetrag angepasst.", "Symmetric threshold in percent around the initial rate. If the withdrawal rate exceeds the initial rate + guardrail (capital preservation rule) or falls below it (prosperity rule), the withdrawal amount is adjusted.")} />
+                <Slider label={t("Anpassungsschritt", "Adjustment step")} value={gkAdjustStep} min={1} max={25} step={0.5}
                   onChange={setGkAdjustStep} format={(v) => v.toFixed(1) + '%'}
-                  tip="Prozentualer Schritt, um den der Entnahmebetrag gekürzt oder erhöht wird, wenn ein Guardrail verletzt wird. Ersetzt in diesem Jahr die Inflationsanpassung." />
+                  tip={t("Prozentualer Schritt, um den der Entnahmebetrag gekürzt oder erhöht wird, wenn ein Guardrail verletzt wird. Ersetzt in diesem Jahr die Inflationsanpassung.", "Percentage step by which the withdrawal amount is cut or raised when a guardrail is breached. Replaces the inflation adjustment in that year.")} />
               </>
               ) }
               </div>
@@ -2226,7 +2304,7 @@ function EntnahmeSimulator() {
         }}>
           {mode === 'bootstrap' && (
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 11, color: '#5B6B65', display: 'flex', alignItems: 'center' }}>Datenquelle:<InfoDot text="Aus welcher Datenreihe der Block-Bootstrap zieht: amerikanischer S&P 500 seit 1872 oder ein Welt-Aktien-Proxy seit 1970." /></span>
+              <span style={{ fontSize: 11, color: '#5B6B65', display: 'flex', alignItems: 'center' }}>{t("Datenquelle", "Data source")}:<InfoDot text={t("Aus welcher Datenreihe der Block-Bootstrap zieht: amerikanischer S&P 500 seit 1872 oder ein Welt-Aktien-Proxy seit 1970.", "Which data series the block bootstrap draws from: the US S&P 500 since 1872 or a world equity proxy since 1970.")} /></span>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button onClick={() => setBootstrapSource('sp500')} style={{
                   padding: '5px 10px', fontSize: 11, borderRadius: 6, cursor: 'pointer',
@@ -2239,7 +2317,7 @@ function EntnahmeSimulator() {
                   border: bootstrapSource === 'world' ? '1px solid #2F5D62' : '1px solid #D3DAD6',
                   background: bootstrapSource === 'world' ? 'rgba(47,93,98,0.16)' : 'transparent',
                   color: bootstrapSource === 'world' ? '#2F5D62' : '#5B6B65',
-                }}>Welt-Proxy</button>
+                }}>{t("Welt-Proxy", "World proxy")}</button>
               </div>
             </div>
           )}
@@ -2271,73 +2349,73 @@ function EntnahmeSimulator() {
                         <circle cx="7" cy="7" r="5.5" fill="none" stroke="#D3DAD6" strokeWidth="2" />
                         <path d="M7 1.5 A5.5 5.5 0 0 1 12.5 7" fill="none" stroke="#2F5D62" strokeWidth="2" strokeLinecap="round" />
                       </svg>
-                      Wird berechnet …
+                      {t('Wird berechnet …', 'Calculating …')}
                     </span>
                   ) : (
-                    <span>↻ {mode === 'rolling' ? 'Neu berechnen' : 'Neue Zufallsstichprobe'}</span>
+                    <span>↻ {mode === 'rolling' ? t('Neu berechnen', 'Recalculate') : t('Neue Zufallsstichprobe', 'New random sample')}</span>
                   )}
                 </button>
               </div>
               <Gauge value={result.successRate} />
               <div style={{ fontSize: 10.5, color: '#5B6B65', fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif", display: 'flex', alignItems: 'center', gap: 4 }}>
                 95%-KI: [{result.ciLow.toFixed(1)}%, {result.ciHigh.toFixed(1)}%]
-                <InfoDot text="Erfolgsquote: In wie viel Prozent aller getesteten Verläufe hat dein Vermögen bis zum Ende gereicht? Das 95%-Konfidenzintervall zeigt die Unsicherheitsspanne dieser Schätzung." />
+                <InfoDot text={t("Erfolgsquote: In wie viel Prozent aller getesteten Verläufe hat dein Vermögen bis zum Ende gereicht? Das 95%-Konfidenzintervall zeigt die Unsicherheitsspanne dieser Schätzung.", "Success rate: in what percentage of all tested paths did your assets last until the end? The 95% confidence interval shows the uncertainty range of this estimate.")} />
               </div>
             </div>
             <div style={{ flex: 1, minWidth: 220, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 18px' }}>
-              <Stat label="Basis" value={mode === 'montecarlo' ? 'Normalverteilt' : `${result.numPaths} Pfade`}
-                sub={mode === 'rolling' ? `alle ${horizon}-Jahres-Fenster 1872–2025` : mode === 'world' ? `alle ${horizon}-Jahres-Fenster 1970–2025` : mode === 'bootstrap' ? `Bootstrap aus ${bootstrapSource === 'world' ? 'Welt-Proxy 1970–2025' : 'S&P 500 1872–2025'}` : 'zufällig, unabhängig'}
-                tip="Auf wie vielen unterschiedlichen simulierten oder historischen Verläufen die Erfolgsquote beruht — mehr Pfade bedeuten ein verlässlicheres Ergebnis." />
-              <Stat label="Start-Entnahme" value={fmtEUR(result.dynStartAmount)} sub={`${entnahmeStrategie === 'bengen' ? 4 : dynStartRate.toFixed(1)}% vom Vermögen`}
-                tip="Wie viel du im ersten Jahr entnimmst, bevor sich die Entnahme danach an den Depotwert anpasst." />
+              <Stat label={t("Basis", "Based on")} value={mode === 'montecarlo' ? t('Normalverteilt', 'Normally distributed') : `${result.numPaths} ${t('Pfade', 'paths')}`}
+                sub={mode === 'rolling' ? t(`alle ${horizon}-Jahres-Fenster 1872–2025`, `all ${horizon}-year windows 1872–2025`) : mode === 'world' ? t(`alle ${horizon}-Jahres-Fenster 1970–2025`, `all ${horizon}-year windows 1970–2025`) : mode === 'bootstrap' ? t(`Bootstrap aus ${bootstrapSource === 'world' ? 'Welt-Proxy 1970–2025' : 'S&P 500 1872–2025'}`, `Bootstrap from ${bootstrapSource === 'world' ? 'world proxy 1970–2025' : 'S&P 500 1872–2025'}`) : t('zufällig, unabhängig', 'random, independent')}
+                tip={t("Auf wie vielen unterschiedlichen simulierten oder historischen Verläufen die Erfolgsquote beruht — mehr Pfade bedeuten ein verlässlicheres Ergebnis.", "On how many distinct simulated or historical paths the success rate is based — more paths mean a more reliable result.")} />
+              <Stat label={t("Start-Entnahme", "Initial withdrawal")} value={fmtEUR(result.dynStartAmount)} sub={`${entnahmeStrategie === 'bengen' ? 4 : dynStartRate.toFixed(1)}% ${t('vom Vermögen', 'of assets')}`}
+                tip={t("Wie viel du im ersten Jahr entnimmst, bevor sich die Entnahme danach an den Depotwert anpasst.", "How much you withdraw in the first year, before the withdrawal then adapts to the portfolio value.")} />
               {entnahmeStrategie === 'dynamisch' ? (
-                <Stat label="Harter Boden" value={fmtEUR(result.hardFloor)} sub={`= statische Referenzrate (${fmtEUR(result.staticAmount)})`} color="#A8432F"
-                  tip="Dein Sicherheitsnetz: Egal wie schlecht die Börse läuft, du bekommst nie weniger als diesen Betrag pro Jahr." />
+                <Stat label={t("Harter Boden", "Hard floor")} value={fmtEUR(result.hardFloor)} sub={`= ${t('statische Referenzrate', 'static reference rate')} (${fmtEUR(result.staticAmount)})`} color="#A8432F"
+                  tip={t("Dein Sicherheitsnetz: Egal wie schlecht die Börse läuft, du bekommst nie weniger als diesen Betrag pro Jahr.", "Your safety net: no matter how badly the market performs, you never get less than this amount per year.")} />
               ) : (
-                <Stat label="Feste Entnahme" value={fmtEUR(result.dynStartAmount)} sub={`${entnahmeStrategie === 'bengen' ? 4 : dynStartRate.toFixed(1)}% vom Startvermögen, real konstant`} color="#2F5D62"
-                  tip="Im statischen Modus bleibt die Entnahme über die gesamte Laufzeit real konstant (nur um Inflation bereinigt) — es gibt keinen zusätzlichen Boden." />
+                <Stat label={t("Feste Entnahme", "Fixed withdrawal")} value={fmtEUR(result.dynStartAmount)} sub={`${entnahmeStrategie === 'bengen' ? 4 : dynStartRate.toFixed(1)}% ${t('vom Startvermögen, real konstant', 'of starting assets, constant in real terms')}`} color="#2F5D62"
+                  tip={t("Im statischen Modus bleibt die Entnahme über die gesamte Laufzeit real konstant (nur um Inflation bereinigt) — es gibt keinen zusätzlichen Boden.", "In static mode the withdrawal stays constant in real terms over the entire period (adjusted for inflation only) — there is no additional floor.")} />
               )}
-              <Stat label="Median-Gesamtentnahme"
+              <Stat label={t("Median-Gesamtentnahme", "Median total withdrawal")}
                 value={fmtEUR(heutigeKaufkraft ? result.medianTotalWithdrawal : result.medianTotalWithdrawal * Math.pow(1 + inflationRate / 100, horizon))}
-                sub={heutigeKaufkraft ? `über ${horizon} Jahre (heutige Kaufkraft)` : `nominal über ${horizon} Jahre (${inflationRate.toFixed(1)}% Infl.)`}
+                sub={heutigeKaufkraft ? t(`über ${horizon} Jahre (heutige Kaufkraft)`, `over ${horizon} years (today's purchasing power)`) : t(`nominal über ${horizon} Jahre (${inflationRate.toFixed(1)}% Infl.)`, `nominal over ${horizon} years (${inflationRate.toFixed(1)}% infl.)`)}
                 color="#2F5D62"
-                tip="Der mittlere Gesamtbetrag über den gesamten Entnahmehorizont." />
-              <Stat label="Median-Endvermögen"
+                tip={t("Der mittlere Gesamtbetrag über den gesamten Entnahmehorizont.", "The average total amount over the entire withdrawal horizon.")} />
+              <Stat label={t("Median-Endvermögen", "Median final assets")}
                 value={fmtEUR(heutigeKaufkraft ? result.medianEnd : result.medianEnd * Math.pow(1 + inflationRate / 100, horizon))}
-                sub={heutigeKaufkraft ? `nach ${horizon} Jahren (heutige Kaufkraft)` : `nominal nach ${horizon} Jahren (${inflationRate.toFixed(1)}% Infl.)`}
+                sub={heutigeKaufkraft ? t(`nach ${horizon} Jahren (heutige Kaufkraft)`, `after ${horizon} years (today's purchasing power)`) : t(`nominal nach ${horizon} Jahren (${inflationRate.toFixed(1)}% Infl.)`, `nominal after ${horizon} years (${inflationRate.toFixed(1)}% infl.)`)}
                 color="#2F5D62"
-                tip="Der mittlere (typische) Vermögensstand am Ende des Zeitraums über alle getesteten Verläufe." />
-              <Stat label="Jahre im Reserve-Modus" value={result.avgBadYearFraction.toFixed(0) + '%'} sub="Anteil Jahre mit ≥20% Drawdown" color="#C08A2E"
-                tip="Wie oft im Schnitt die Börse mindestens 20% unter ihrem bisherigen Höchststand lag und deshalb aus Cash/Gold statt aus dem ETF entnommen wurde." />
-              <Stat label="GRV-Rente (pro Jahr)"
+                tip={t("Der mittlere (typische) Vermögensstand am Ende des Zeitraums über alle getesteten Verläufe.", "The average (typical) asset level at the end of the period across all tested paths.")} />
+              <Stat label={t("Jahre im Reserve-Modus", "Years in reserve mode")} value={result.avgBadYearFraction.toFixed(0) + '%'} sub={t("Anteil Jahre mit ≥20% Drawdown", "Share of years with ≥20% drawdown")} color="#C08A2E"
+                tip={t("Wie oft im Schnitt die Börse mindestens 20% unter ihrem bisherigen Höchststand lag und deshalb aus Cash/Gold statt aus dem ETF entnommen wurde.", "How often on average the market was at least 20% below its previous peak, so that withdrawals came from cash/gold instead of the ETF.")} />
+              <Stat label={t("GRV-Rente (pro Jahr)", "Statutory pension (per year)")}
                 value={fmtEUR(heutigeKaufkraft ? pensionAnnual : pensionAnnual * Math.pow(1 + inflationRate / 100, pensionStartYear))}
-                sub={`${heutigeKaufkraft ? `ab Alter ${pensionStartAge}` : `nominal ab Alter ${pensionStartAge}`} · ${pensionIncomeShare.toFixed(1)}% des Gesamteinkommens im 1. GRV-Jahr`}
+                sub={`${heutigeKaufkraft ? `${t('ab Alter', 'from age')} ${pensionStartAge}` : `${t('nominal ab Alter', 'nominal from age')} ${pensionStartAge}`} · ${pensionIncomeShare.toFixed(1)}% ${t('des Gesamteinkommens im 1. GRV-Jahr', 'of total income in the first pension year')}`}
                 color="#3A6B8A"
-                tip="Jährlicher Betrag der gesetzlichen Rente. Der Prozentwert zeigt ihren Anteil am Gesamteinkommen im ersten Jahr des Rentenbezugs, zusammen mit Portfolioentnahme und Mieteinnahmen." />
-              <Stat label="Sachwert Wohnung" value={fmtEUR(wohnungWert)} sub={`+ ${fmtEUR(rentalYear1)}/J. Miete (Jahr 1)`} color="#5B6B65"
-                tip="Wert deiner Eigentumswohnung (fließt nicht in die Entnahme-Simulation ein) plus die Mieteinnahmen, die den nötigen Entnahmebetrag senken." />
+                tip={t("Jährlicher Betrag der gesetzlichen Rente. Der Prozentwert zeigt ihren Anteil am Gesamteinkommen im ersten Jahr des Rentenbezugs, zusammen mit Portfolioentnahme und Mieteinnahmen.", "Annual amount of the statutory pension. The percentage shows its share of total income in the first pension year, together with portfolio withdrawals and rental income.")} />
+              <Stat label={t("Sachwert Wohnung", "Property value")} value={fmtEUR(wohnungWert)} sub={`+ ${fmtEUR(rentalYear1)}${t('/J. Miete (Jahr 1)', '/yr rent (year 1)')}`} color="#5B6B65"
+                tip={t("Wert deiner Eigentumswohnung (fließt nicht in die Entnahme-Simulation ein) plus die Mieteinnahmen, die den nötigen Entnahmebetrag senken.", "Value of your owned apartment (not included in the withdrawal simulation) plus the rental income that reduces the required withdrawal amount.")} />
             </div>
           </div>
         </div>
 
         {mode === 'rolling' && (
           <div style={{ fontSize: 11.5, color: '#5B6B65', marginBottom: 10, padding: '0 4px' }}>
-            {maxWindows.toLocaleString('de-DE')} überlappende monatliche Startpunkte verfügbar (1872–{1871 + horizon} bis {2025 - horizon + 1}–2025), echte S&P-500-Monatsdaten. Fenster überlappen stark und sind nicht unabhängig — als Stichprobengröße mit Vorsicht zu interpretieren.
+            {maxWindows.toLocaleString((LANG === 'en' ? 'en-US' : 'de-DE'))}{t(<> überlappende monatliche Startpunkte verfügbar (1872–{1871 + horizon} bis {2025 - horizon + 1}–2025), echte S&P-500-Monatsdaten. Fenster überlappen stark und sind nicht unabhängig — als Stichprobengröße mit Vorsicht zu interpretieren.</>, <> overlapping monthly start points available (1872–{1871 + horizon} to {2025 - horizon + 1}–2025), real S&P 500 monthly data. Windows overlap heavily and are not independent — interpret as a sample size with caution.</>)}
           </div>
         )}
         {mode === 'world' && (
           <div style={{ fontSize: 11.5, color: maxWorldWindows < 120 ? '#A8432F' : '#5B6B65', marginBottom: 10, padding: '0 4px' }}>
             {maxWorldWindows > 0
-              ? `${maxWorldWindows.toLocaleString('de-DE')} überlappende monatliche Startpunkte verfügbar (1970–${1969 + horizon} bis ${2025 - horizon + 1}–2025). Da hierfür nur Jahresdaten vorliegen, sind die 12 Monate je Jahr geometrisch identisch aufgeteilt (kein echtes Intra-Jahres-Rauschen).`
-              : 'Für diesen Horizont reicht die Welt-Datenreihe (1970–2025) nicht aus — bitte Horizont reduzieren.'}
-            {maxWorldWindows > 0 && maxWorldWindows < 120 && ' Wenige unterschiedliche Jahres-Startpunkte — Ergebnis mit Vorsicht als grobe Tendenz lesen.'}
+              ? `${maxWorldWindows.toLocaleString((LANG === 'en' ? 'en-US' : 'de-DE'))}${t(` überlappende monatliche Startpunkte verfügbar (1970–${1969 + horizon} bis ${2025 - horizon + 1}–2025). Da hierfür nur Jahresdaten vorliegen, sind die 12 Monate je Jahr geometrisch identisch aufgeteilt (kein echtes Intra-Jahres-Rauschen).`, ` overlapping monthly start points available (1970–${1969 + horizon} to ${2025 - horizon + 1}–2025). Since only annual data is available here, the 12 months of each year are split geometrically identically (no real intra-year noise).`)}`
+              : t('Für diesen Horizont reicht die Welt-Datenreihe (1970–2025) nicht aus — bitte Horizont reduzieren.', 'The world data series (1970–2025) is not sufficient for this horizon — please reduce the horizon.')}
+            {maxWorldWindows > 0 && maxWorldWindows < 120 && t(' Wenige unterschiedliche Jahres-Startpunkte — Ergebnis mit Vorsicht als grobe Tendenz lesen.', ' Few distinct yearly start points — read the result with caution as a rough trend.')}
           </div>
         )}
 
         {/* Strategien-Vergleich */}
         <div style={{ background: '#FFFFFF', border: '1px solid #D3DAD6', borderRadius: 12, padding: '16px 18px', marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: showStrategyComparison ? 12 : 0, cursor: 'pointer' }} onClick={() => setShowStrategyComparison(!showStrategyComparison)}>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>Strategien-Vergleich</div>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>{t("Strategien-Vergleich", "Strategy comparison")}</div>
             <div style={{ fontSize: 11, color: '#5B6B65', transform: showStrategyComparison ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▶</div>
           </div>
           {showStrategyComparison && (
@@ -2345,14 +2423,14 @@ function EntnahmeSimulator() {
               <table style={{ width: '100%', minWidth: '760px', borderCollapse: 'collapse', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}>
                 <thead>
                   <tr style={{ borderBottom: '2px solid #D3DAD6' }}>
-                    <th style={{ textAlign: 'left', padding: '6px 8px', fontFamily: "'Inter', sans-serif", position: 'sticky', left: 0, background: '#FFFFFF', zIndex: 2 }}>Strategie</th>
-                    <th style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'Inter', sans-serif" }}>Erfolgsquote</th>
-                    <th style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'Inter', sans-serif" }}>Ø Jahresentnahme</th>
-                    <th style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'Inter', sans-serif" }}>Min. Jahresentnahme (P10)</th>
-                    <th style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'Inter', sans-serif" }}>Max. Jahresentnahme (P90)</th>
-                    <th style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'Inter', sans-serif" }}>Gesamtentnahme Median</th>
-                    <th style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'Inter', sans-serif" }}>Gesamtentnahme P10</th>
-                    <th style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'Inter', sans-serif" }}>Endkapital Median</th>
+                    <th style={{ textAlign: 'left', padding: '6px 8px', fontFamily: "'Inter', sans-serif", position: 'sticky', left: 0, background: '#FFFFFF', zIndex: 2 }}>{t("Strategie", "Strategy")}</th>
+                    <th style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'Inter', sans-serif" }}>{t("Erfolgsquote", "Success rate")}</th>
+                    <th style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'Inter', sans-serif" }}>{t("Ø Jahresentnahme", "Avg. annual withdrawal")}</th>
+                    <th style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'Inter', sans-serif" }}>{t("Min. Jahresentnahme (P10)", "Min. annual withdrawal (P10)")}</th>
+                    <th style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'Inter', sans-serif" }}>{t("Max. Jahresentnahme (P90)", "Max. annual withdrawal (P90)")}</th>
+                    <th style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'Inter', sans-serif" }}>{t("Gesamtentnahme Median", "Total withdrawal (median)")}</th>
+                    <th style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'Inter', sans-serif" }}>{t("Gesamtentnahme P10", "Total withdrawal (P10)")}</th>
+                    <th style={{ textAlign: 'right', padding: '6px 8px', fontFamily: "'Inter', sans-serif" }}>{t("Endkapital Median", "Final capital (median)")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2361,7 +2439,7 @@ function EntnahmeSimulator() {
                     const formatValue = (value) => fmtEURk(heutigeKaufkraft ? value : value * Math.pow(1 + inflationRate / 100, horizon));
                     return (
                       <tr key={strategy.key} style={{ borderBottom: '1px solid #E8ECE9' }}>
-                        <td style={{ padding: '6px 8px', fontFamily: "'Inter', sans-serif", position: 'sticky', left: 0, background: '#FFFFFF', zIndex: 2 }}>{strategy.label}</td>
+                        <td style={{ padding: '6px 8px', fontFamily: "'Inter', sans-serif", position: 'sticky', left: 0, background: '#FFFFFF', zIndex: 2 }}>{t(strategy.label, EN_STRAT[strategy.label] || strategy.label)}</td>
                         <td style={{ textAlign: 'right', padding: '6px 8px', color: result.successRate >= 97.5 ? '#2F5D62' : result.successRate >= 90 ? '#C08A2E' : '#A8432F', fontWeight: 600 }}>{result.successRate.toFixed(1)}%</td>
                         <td style={{ textAlign: 'right', padding: '6px 8px' }}>{formatValue(result.avgSpend)}</td>
                         <td style={{ textAlign: 'right', padding: '6px 8px' }}>{formatValue(result.p10Spend)}</td>
@@ -2381,18 +2459,18 @@ function EntnahmeSimulator() {
         {/* Entnahmeverlauf der gewählten Strategie */}
         <div style={{ background: '#FFFFFF', border: '1px solid #D3DAD6', borderRadius: 12, padding: '16px 18px', marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} onClick={() => setShowWithdrawalDetail(!showWithdrawalDetail)}>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>Entnahmeverlauf der gewählten Strategie</div>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>{t("Entnahmeverlauf der gewählten Strategie", "Withdrawal trajectory of the selected strategy")}</div>
             <div style={{ fontSize: 11, color: '#5B6B65', transform: showWithdrawalDetail ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▶</div>
           </div>
           {showWithdrawalDetail && (
             <>
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 12, marginBottom: 10 }}>
-                {[['Erste Variante', withdrawalPercentileA, setWithdrawalPercentileA], ['Zweite Variante', withdrawalPercentileB, setWithdrawalPercentileB]].map(([label, selected, setSelected]) => (
+                {[[t('Erste Variante', 'First variant'), withdrawalPercentileA, setWithdrawalPercentileA], [t('Zweite Variante', 'Second variant'), withdrawalPercentileB, setWithdrawalPercentileB]].map(([label, selected, setSelected]) => (
                   <label key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: '#5B6B65' }}>
                     {label}
                     <select value={selected} onChange={(e) => setSelected(Number(e.target.value))} style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid #D3DAD6', background: '#FFFFFF', color: '#1C2521', fontSize: 11.5 }}>
                       {withdrawalPercentiles.map((percentile) => (
-                        <option key={percentile} value={percentile} disabled={percentile === (label === 'Erste Variante' ? withdrawalPercentileB : withdrawalPercentileA)}>{`P${percentile}${percentile === 50 ? ' (Median)' : ''}`}</option>
+                        <option key={percentile} value={percentile} disabled={percentile === (label === t('Erste Variante', 'First variant') ? withdrawalPercentileB : withdrawalPercentileA)}>{`P${percentile}${percentile === 50 ? ' (Median)' : ''}`}</option>
                       ))}
                     </select>
                   </label>
@@ -2402,12 +2480,12 @@ function EntnahmeSimulator() {
               <table className="withdrawal-table" style={{ width: '100%', minWidth: 0, tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}>
                 <thead>
                   <tr style={{ borderBottom: '2px solid #D3DAD6', position: 'sticky', top: 0, zIndex: 3, background: '#FFFFFF' }}>
-                    <th style={{ width: 34, minWidth: 34, boxSizing: 'border-box', textAlign: 'right', padding: '4px 3px', background: '#FFFFFF', position: 'sticky', left: 0, zIndex: 4, boxShadow: '2px 0 3px rgba(0,0,0,0.06)' }}><span className="long-label">Jahr</span><span className="short-label">J.</span></th>
-                    <th style={{ width: 40, minWidth: 40, boxSizing: 'border-box', textAlign: 'right', padding: '4px 3px', background: '#FFFFFF', position: 'sticky', left: 34, zIndex: 4, boxShadow: '2px 0 3px rgba(0,0,0,0.06)' }}><span className="long-label">Alter</span><span className="short-label">Alt.</span></th>
-                    <th style={{ textAlign: 'right', padding: '5px 7px' }}><span className="long-label">{`P${withdrawalPercentileA} Entnahme`}</span><span className="short-label">{`P${withdrawalPercentileA} Entn.`}</span></th>
-                    <th style={{ textAlign: 'right', padding: '5px 7px' }}><span className="long-label">{`P${withdrawalPercentileA} Vermögen`}</span><span className="short-label">{`P${withdrawalPercentileA} Verm.`}</span></th>
-                    <th style={{ textAlign: 'right', padding: '5px 7px' }}><span className="long-label">{`P${withdrawalPercentileB} Entnahme`}</span><span className="short-label">{`P${withdrawalPercentileB} Entn.`}</span></th>
-                    <th style={{ textAlign: 'right', padding: '5px 7px' }}><span className="long-label">{`P${withdrawalPercentileB} Vermögen`}</span><span className="short-label">{`P${withdrawalPercentileB} Verm.`}</span></th>
+                    <th style={{ width: 34, minWidth: 34, boxSizing: 'border-box', textAlign: 'right', padding: '4px 3px', background: '#FFFFFF', position: 'sticky', left: 0, zIndex: 4, boxShadow: '2px 0 3px rgba(0,0,0,0.06)' }}><span className="long-label">{t("Jahr", "Year")}</span><span className="short-label">{t('J.', 'Yr')}</span></th>
+                    <th style={{ width: 40, minWidth: 40, boxSizing: 'border-box', textAlign: 'right', padding: '4px 3px', background: '#FFFFFF', position: 'sticky', left: 34, zIndex: 4, boxShadow: '2px 0 3px rgba(0,0,0,0.06)' }}><span className="long-label">{t("Alter", "Age")}</span><span className="short-label">{t('Alt.', 'Age')}</span></th>
+                    <th style={{ textAlign: 'right', padding: '5px 7px' }}><span className="long-label">{`P${withdrawalPercentileA} ${t('Entnahme', 'withdrawal')}`}</span><span className="short-label">{`P${withdrawalPercentileA} ${t('Entn.', 'wd.')}`}</span></th>
+                    <th style={{ textAlign: 'right', padding: '5px 7px' }}><span className="long-label">{`P${withdrawalPercentileA} ${t('Vermögen', 'assets')}`}</span><span className="short-label">{`P${withdrawalPercentileA} ${t('Verm.', 'assets')}`}</span></th>
+                    <th style={{ textAlign: 'right', padding: '5px 7px' }}><span className="long-label">{`P${withdrawalPercentileB} ${t('Entnahme', 'withdrawal')}`}</span><span className="short-label">{`P${withdrawalPercentileB} ${t('Entn.', 'wd.')}`}</span></th>
+                    <th style={{ textAlign: 'right', padding: '5px 7px' }}><span className="long-label">{`P${withdrawalPercentileB} ${t('Vermögen', 'assets')}`}</span><span className="short-label">{`P${withdrawalPercentileB} ${t('Verm.', 'assets')}`}</span></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2435,18 +2513,18 @@ function EntnahmeSimulator() {
         {/* Sensitivität: welcher Parameter bewegt die Erfolgsquote am meisen? */}
         <div style={{ background: '#FFFFFF', border: '1px solid #D3DAD6', borderRadius: 12, padding: '16px 18px', marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>Sensitivität</div>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>{t("Sensitivität", "Sensitivity")}</div>
             <button onClick={computeSensitivity} disabled={sensitivityLoading} style={{
               fontSize: 11, padding: '4px 10px', borderRadius: 6, border: '1px solid #2F5D62', background: sensitivityLoading ? '#E3E8E5' : '#FFFFFF', color: '#2F5D62', cursor: sensitivityLoading ? 'default' : 'pointer',
             }}>
-              {sensitivityLoading ? '⏳ Berechne…' : '▶ Berechnen'}
+              {sensitivityLoading ? t('⏳ Berechne…', '⏳ Calculating…') : t('▶ Berechnen', '▶ Calculate')}
             </button>
           </div>
           <div style={{ fontSize: 11, color: '#5B6B65', marginBottom: 12 }}>
-            Wirkung einer kleinen Parameteränderung auf die Erfolgsquote (Prozentpunkte, größere Balken = größerer Hebel)
+            {t("Wirkung einer kleinen Parameteränderung auf die Erfolgsquote (Prozentpunkte, größere Balken = größerer Hebel)", "Effect of a small parameter change on the success rate (percentage points, larger bars = greater leverage)")}
           </div>
           {sensitivity.length === 0 && !sensitivityLoading && (
-            <div style={{ fontSize: 11, color: '#5B6B65', fontStyle: 'italic' }}>Auf „Berechnen" klicken, um die Analyse durchzuführen.</div>
+            <div style={{ fontSize: 11, color: '#5B6B65', fontStyle: 'italic' }}>{t('Auf „Berechnen" klicken, um die Analyse durchzuführen.', 'Click "Calculate" to run the analysis.')}</div>
           )}
           {sensitivity.map((item) => {
             const maxDelta = Math.max(...sensitivity.map((i) => i.delta), 0.1);
@@ -2469,12 +2547,12 @@ function EntnahmeSimulator() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 4 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ fontSize: 13, fontWeight: 600 }}>
-                {heatmap?.isLE ? '1/E[T]-Heatmap (Horizont × Aktienquote)' : 'Erfolgsquote-Heatmap'}
+                {heatmap?.isLE ? t('1/E[T]-Heatmap (Horizont × Aktienquote)', '1/E[T] heatmap (horizon × equity share)') : t('Erfolgsquote-Heatmap', 'Success-rate heatmap')}
               </div>
               <button onClick={computeHeatmap} disabled={heatmapLoading} style={{
                 fontSize: 11, padding: '4px 10px', borderRadius: 6, border: '1px solid #2F5D62', background: heatmapLoading ? '#E3E8E5' : '#FFFFFF', color: '#2F5D62', cursor: heatmapLoading ? 'default' : 'pointer', fontWeight: 500,
               }}>
-                {heatmapLoading ? '⏳ Berechne…' : '▶ Berechnen'}
+                {heatmapLoading ? t('⏳ Berechne…', '⏳ Calculating…') : t('▶ Berechnen', '▶ Calculate')}
               </button>
             </div>
             {heatmap?.isLE && (
@@ -2482,25 +2560,25 @@ function EntnahmeSimulator() {
                 <button onClick={() => setHeatmapMetric('avgSpend')} style={{
                   padding: '3px 8px', fontSize: 11, borderRadius: 4, border: 'none', cursor: 'pointer',
                   background: heatmapMetric === 'avgSpend' ? '#2F5D62' : 'transparent', color: heatmapMetric === 'avgSpend' ? '#FFFFFF' : '#5B6B65', fontWeight: heatmapMetric === 'avgSpend' ? 600 : 400
-                }}>Ø Entnahme/J.</button>
+                }}>{t("Ø Entnahme/J.", "Avg. withdrawal/yr")}</button>
                 <button onClick={() => setHeatmapMetric('p10Spend')} style={{
                   padding: '3px 8px', fontSize: 11, borderRadius: 4, border: 'none', cursor: 'pointer',
                   background: heatmapMetric === 'p10Spend' ? '#2F5D62' : 'transparent', color: heatmapMetric === 'p10Spend' ? '#FFFFFF' : '#5B6B65', fontWeight: heatmapMetric === 'p10Spend' ? 600 : 400
-                }}>Krisen-Entnahme (P10)</button>
+                }}>{t("Krisen-Entnahme (P10)", "Crisis withdrawal (P10)")}</button>
                 <button onClick={() => setHeatmapMetric('successRate')} style={{
                   padding: '3px 8px', fontSize: 11, borderRadius: 4, border: 'none', cursor: 'pointer',
                   background: heatmapMetric === 'successRate' ? '#2F5D62' : 'transparent', color: heatmapMetric === 'successRate' ? '#FFFFFF' : '#5B6B65', fontWeight: heatmapMetric === 'successRate' ? 600 : 400
-                }}>Erfolgsquote</button>
+                }}>{t("Erfolgsquote", "Success rate")}</button>
               </div>
             )}
           </div>
           <div style={{ fontSize: 11, color: '#5B6B65', marginBottom: 12 }}>
             {heatmap?.isLE
-              ? `Entnahmehorizont × Aktienquote — Da bei 1/E[T] die Startentnahmerate durch den Horizont festgelegt ist (1/Horizont), zeigt diese Heatmap die ${heatmapMetric === 'avgSpend' ? 'durchschnittliche Entnahmehöhe' : heatmapMetric === 'p10Spend' ? 'Kaufkraft-Untergrenze im Krisenfall (10. Perzentil)' : 'Erfolgsquote'} bei unterschiedlichen Aktienquoten (0 % bis 100 %). Die deiner Einstellung nächstgelegene Zelle ist umrandet.`
-              : 'Entnahmehorizont × Startentnahmerate — Erfolgsquote in %. Grün = sicher, rot = riskant. 800 Stichproben pro Zelle (Rollierende Modi dauern länger). Die deiner Einstellung nächstgelegene Zelle ist umrandet.'}
+              ? t(`Entnahmehorizont × Aktienquote — Da bei 1/E[T] die Startentnahmerate durch den Horizont festgelegt ist (1/Horizont), zeigt diese Heatmap die ${heatmapMetric === 'avgSpend' ? 'durchschnittliche Entnahmehöhe' : heatmapMetric === 'p10Spend' ? 'Kaufkraft-Untergrenze im Krisenfall (10. Perzentil)' : 'Erfolgsquote'} bei unterschiedlichen Aktienquoten (0 % bis 100 %). Die deiner Einstellung nächstgelegene Zelle ist umrandet.`, `Withdrawal horizon × equity share — Since the starting withdrawal rate under 1/E[T] is set by the horizon (1/horizon), this heatmap shows the ${heatmapMetric === 'avgSpend' ? 'average withdrawal amount' : heatmapMetric === 'p10Spend' ? 'purchasing-power floor in a crisis (10th percentile)' : 'success rate'} at different equity shares (0% to 100%). The cell closest to your setting is outlined.`)
+              : t('Entnahmehorizont × Startentnahmerate — Erfolgsquote in %. Grün = sicher, rot = riskant. 800 Stichproben pro Zelle (Rollierende Modi dauern länger). Die deiner Einstellung nächstgelegene Zelle ist umrandet.', 'Withdrawal horizon × starting withdrawal rate — success rate in %. Green = safe, red = risky. 800 samples per cell (rolling modes take longer). The cell closest to your setting is outlined.')}
           </div>
           {!heatmap && !heatmapLoading && (
-            <div style={{ fontSize: 11, color: '#5B6B65', fontStyle: 'italic' }}>Auf „Berechnen" klicken, um die Heatmap zu erstellen.</div>
+            <div style={{ fontSize: 11, color: '#5B6B65', fontStyle: 'italic' }}>{t('Auf „Berechnen" klicken, um die Heatmap zu erstellen.', 'Click "Calculate" to create the heatmap.')}</div>
           )}
           {heatmap && (
             <>
@@ -2527,7 +2605,7 @@ function EntnahmeSimulator() {
                       <thead>
                         <tr>
                           <th style={{ position: 'sticky', top: 0, left: 0, zIndex: 4, background: '#FFFFFF', boxShadow: '0 1px 0 #D3DAD6, 1px 0 0 #D3DAD6', padding: '4px 8px', color: '#5B6B65', fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                            {isLE ? 'Horizont (Startrate) ↓ / Aktien →' : 'Horizont ↓ / Rate →'}
+                            {isLE ? t('Horizont (Startrate) ↓ / Aktien →', 'Horizon (start rate) ↓ / equities →') : t('Horizont ↓ / Rate →', 'Horizon ↓ / rate →')}
                           </th>
                           {heatmap.xLabels.map((r) => (
                             <th key={r} style={{ position: 'sticky', top: 0, zIndex: 3, background: '#FFFFFF', boxShadow: '0 1px 0 #D3DAD6', padding: '4px 6px', color: '#5B6B65', fontWeight: 600, textAlign: 'center' }}>
@@ -2560,7 +2638,7 @@ function EntnahmeSimulator() {
                               }
 
                               const cellTitle = isLE
-                                ? `Horizont ${heatmap.yLabels[ai]} J. (Start: ${heatmap.ySubLabels[ai]}), Aktienquote ${heatmap.xLabels[ri]}%: Ø Entnahme ${fmtEUR(heatmap.gridAvg[ai][ri])}/J., Krisen-Entnahme (P10) ${fmtEUR(heatmap.gridP10[ai][ri])}/J., Erfolgsquote ${heatmap.gridSuccess[ai][ri].toFixed(1)}%`
+                                ? t(`Horizont ${heatmap.yLabels[ai]} J. (Start: ${heatmap.ySubLabels[ai]}), Aktienquote ${heatmap.xLabels[ri]}%: Ø Entnahme ${fmtEUR(heatmap.gridAvg[ai][ri])}/J., Krisen-Entnahme (P10) ${fmtEUR(heatmap.gridP10[ai][ri])}/J., Erfolgsquote ${heatmap.gridSuccess[ai][ri].toFixed(1)}%`, `Horizon ${heatmap.yLabels[ai]} yrs (start: ${heatmap.ySubLabels[ai]}), equity share ${heatmap.xLabels[ri]}%: avg. withdrawal ${fmtEUR(heatmap.gridAvg[ai][ri])}/yr, crisis withdrawal (P10) ${fmtEUR(heatmap.gridP10[ai][ri])}/yr, success rate ${heatmap.gridSuccess[ai][ri].toFixed(1)}%`)
                                 : `Horizont ${heatmap.yLabels[ai]} J., Rate ${Number.isInteger(heatmap.xLabels[ri]) ? heatmap.xLabels[ri] : heatmap.xLabels[ri].toFixed(2).replace(/\.?0+$/, '')} %: Erfolgsquote ${v.toFixed(1)} %`;
 
                               const displayText = isLE && heatmapMetric !== 'successRate'
@@ -2587,41 +2665,41 @@ function EntnahmeSimulator() {
                 );
               })()}
               <div style={{ marginTop: 16, padding: '10px 12px', background: '#FAFBFA', border: '1px solid #E3E8E5', borderRadius: 8, fontSize: 11, color: '#5B6B65' }}>
-                <div style={{ fontWeight: 600, marginBottom: 8, color: '#1C2521' }}>Farblegende</div>
+                <div style={{ fontWeight: 600, marginBottom: 8, color: '#1C2521' }}>{t("Farblegende", "Color legend")}</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center' }}>
                   {heatmap.isLE && heatmapMetric !== 'successRate' ? (
                     <>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                         <span style={{ width: 16, height: 16, borderRadius: 4, background: '#2F5D62' }}></span>
-                        <span>Hohe Entnahme</span>
+                        <span>{t("Hohe Entnahme", "High withdrawal")}</span>
                       </span>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                         <span style={{ width: 16, height: 16, borderRadius: 4, background: '#7A9A60' }}></span>
-                        <span>Mittlere Entnahme</span>
+                        <span>{t("Mittlere Entnahme", "Medium withdrawal")}</span>
                       </span>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                         <span style={{ width: 16, height: 16, borderRadius: 4, background: '#B88B4A' }}></span>
-                        <span>Niedrigere Entnahme</span>
+                        <span>{t("Niedrigere Entnahme", "Lower withdrawal")}</span>
                       </span>
                     </>
                   ) : (
                     <>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                         <span style={{ width: 16, height: 16, borderRadius: 4, background: '#2F5D62' }}></span>
-                        <span>≥ 97,5 % · <strong>Sehr sicher</strong></span>
+                        <span>{t(<>≥ 97,5 % · <strong>Sehr sicher</strong></>, <>≥ 97.5% · <strong>Very safe</strong></>)}</span>
                       </span>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                         <span style={{ width: 16, height: 16, borderRadius: 4, background: '#C08A2E' }}></span>
-                        <span>90–97,5 % · <strong>Ausgewogen</strong></span>
+                        <span>{t(<>90–97,5 % · <strong>Ausgewogen</strong></>, <>90–97.5% · <strong>Balanced</strong></>)}</span>
                       </span>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                         <span style={{ width: 16, height: 16, borderRadius: 4, background: '#A8432F' }}></span>
-                        <span>&lt; 90 % · <strong>Riskant</strong></span>
+                        <span>{t(<>&lt; 90 % · <strong>Riskant</strong></>, <>&lt; 90% · <strong>Risky</strong></>)}</span>
                       </span>
                     </>
                   )}
                   <span style={{ marginLeft: 'auto', fontSize: 10.5, color: '#5B6B65' }}>
-                    Goldener Rand = deine aktuelle Einstellung
+                    {t("Goldener Rand = deine aktuelle Einstellung", "Golden border = your current setting")}
                   </span>
                 </div>
               </div>
@@ -2630,7 +2708,7 @@ function EntnahmeSimulator() {
         </div>
 
         {/* Charts */}
-        <ChartBlock title="Vermögensverlauf" subtitle={`10./50./90. Perzentil, ${heutigeKaufkraft ? 'real (heutige Kaufkraft)' : `nominal (inkl. ${inflationRate.toFixed(1)}% p.a. Inflation)`}, Gesamtvermögen`} onExpand={() => setExpandedChart('vermoegen')}>
+        <ChartBlock title={t("Vermögensverlauf", "Asset trajectory")} subtitle={`${t('10./50./90. Perzentil', '10th/50th/90th percentile')}, ${heutigeKaufkraft ? t('real (heutige Kaufkraft)', "real (today's purchasing power)") : t(`nominal (inkl. ${inflationRate.toFixed(1)}% p.a. Inflation)`, `nominal (incl. ${inflationRate.toFixed(1)}% p.a. inflation)`)}, ${t('Gesamtvermögen', 'total assets')}`} onExpand={() => setExpandedChart('vermoegen')}>
           <ComposedChart data={chartData} margin={{ top: 20, right: 8, left: 0, bottom: 28 }}>
             <CartesianGrid stroke="#E3E8E5" vertical={false} />
             <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
@@ -2640,13 +2718,13 @@ function EntnahmeSimulator() {
             <Area dataKey="balBand" stackId="b" stroke="none" fill="#2F5D62" fillOpacity={0.15} />
             <Line dataKey="balP50" stroke="#2F5D62" strokeWidth={2} dot={false} />
             {pensionStartYear > 0 && pensionStartYear <= horizon && (
-              <ReferenceLine x={pensionStartAge} stroke="#3A6B8A" strokeDasharray="3 3" label={({ viewBox }) => <text x={viewBox.x + 6} y={viewBox.y + 12} fill="#3A6B8A" fontSize={10}>Rentenbeginn</text>} />
+              <ReferenceLine x={pensionStartAge} stroke="#3A6B8A" strokeDasharray="3 3" label={({ viewBox }) => <text x={viewBox.x + 6} y={viewBox.y + 12} fill="#3A6B8A" fontSize={10}>{t("Rentenbeginn", "Pension start")}</text>} />
             )}
           </ComposedChart>
-          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 6, textAlign: 'center', color: '#1C2521', fontSize: 12 }}>Lebensalter</div>
+          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 6, textAlign: 'center', color: '#1C2521', fontSize: 12 }}>{t("Lebensalter", "Age")}</div>
         </ChartBlock>
 
-        <ChartBlock title="Entnahmeverlauf" subtitle={`10./50./90. Perzentil, ${heutigeKaufkraft ? 'real (heutige Kaufkraft)' : `nominal (inkl. ${inflationRate.toFixed(1)}% p.a. Inflation)`} pro Jahr${entnahmeStrategie === 'dynamisch' ? ' · Bodenlinie gestrichelt' : ''}`} onExpand={() => setExpandedChart('entnahme')}>
+        <ChartBlock title={t("Entnahmeverlauf", "Withdrawal trajectory")} subtitle={`${t('10./50./90. Perzentil', '10th/50th/90th percentile')}, ${heutigeKaufkraft ? t('real (heutige Kaufkraft)', "real (today's purchasing power)") : t(`nominal (inkl. ${inflationRate.toFixed(1)}% p.a. Inflation)`, `nominal (incl. ${inflationRate.toFixed(1)}% p.a. inflation)`)} ${t('pro Jahr', 'per year')}${entnahmeStrategie === 'dynamisch' ? t(' · Bodenlinie gestrichelt', ' · floor line dashed') : ''}`} onExpand={() => setExpandedChart('entnahme')}>
           <ComposedChart data={chartData} margin={{ top: 20, right: 8, left: 0, bottom: 28 }}>
             <CartesianGrid stroke="#E3E8E5" vertical={false} />
             <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
@@ -2665,13 +2743,13 @@ function EntnahmeSimulator() {
               <Line dataKey="hardFloor" name="Bodenlinie" stroke="#A8432F" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
             )}
             {grvBerechnen && pensionStartYear > 0 && pensionStartYear <= horizon && (
-              <ReferenceLine x={pensionStartAge} stroke="#3A6B8A" strokeDasharray="3 3" label={({ viewBox }) => <text x={viewBox.x + 6} y={viewBox.y + 12} fill="#3A6B8A" fontSize={10}>Rentenbeginn</text>} />
+              <ReferenceLine x={pensionStartAge} stroke="#3A6B8A" strokeDasharray="3 3" label={({ viewBox }) => <text x={viewBox.x + 6} y={viewBox.y + 12} fill="#3A6B8A" fontSize={10}>{t("Rentenbeginn", "Pension start")}</text>} />
             )}
           </ComposedChart>
-          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 6, textAlign: 'center', color: '#1C2521', fontSize: 12 }}>Lebensalter</div>
+          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 6, textAlign: 'center', color: '#1C2521', fontSize: 12 }}>{t("Lebensalter", "Age")}</div>
         </ChartBlock>
 
-        <ChartBlock title="Ausfallwahrscheinlichkeit im Zeitverlauf" subtitle="Anteil Pfade, deren Vermögen bis zu diesem Jahr bereits aufgebraucht war (kumulativ) &middot; rote Linie = 2,5%-Zielgrenze" onExpand={() => setExpandedChart('ausfall')}>
+        <ChartBlock title={t("Ausfallwahrscheinlichkeit im Zeitverlauf", "Failure probability over time")} subtitle={t("Anteil Pfade, deren Vermögen bis zu diesem Jahr bereits aufgebraucht war (kumulativ) &middot; rote Linie = 2,5%-Zielgrenze", "Share of paths whose assets were already depleted by this year (cumulative) &middot; red line = 2.5% target limit")} onExpand={() => setExpandedChart('ausfall')}>
           <ComposedChart data={failureChartData} margin={{ top: 6, right: 8, left: 0, bottom: 28 }}>
             <CartesianGrid stroke="#E3E8E5" vertical={false} />
             <XAxis dataKey="age" tick={{ fill: '#5B6B65', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#D3DAD6' }} />
@@ -2681,7 +2759,7 @@ function EntnahmeSimulator() {
             <Line dataKey="failRate" stroke="#A8432F" strokeWidth={2} dot={false} />
             <Line dataKey={() => 2.5} stroke="#5B6B65" strokeWidth={1} strokeDasharray="4 4" dot={false} />
           </ComposedChart>
-          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 6, textAlign: 'center', color: '#1C2521', fontSize: 12 }}>Lebensalter</div>
+          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 6, textAlign: 'center', color: '#1C2521', fontSize: 12 }}>{t("Lebensalter", "Age")}</div>
         </ChartBlock>
         <style>{`
           @media (max-width: 860px) { .sim-grid { grid-template-columns: 1fr !important; } }
@@ -2694,8 +2772,8 @@ function EntnahmeSimulator() {
               <button onClick={() => setExpandedChart(null)} style={{ position: 'absolute', top: 12, right: 16, background: 'none', border: 'none', fontSize: 28, cursor: 'pointer', color: '#5B6B65', lineHeight: 1, zIndex: 1 }}>&times;</button>
               {expandedChart === 'vermoegen' && (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                  <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Vermögensverlauf</div>
-                  <div style={{ fontSize: 13, color: '#5B6B65', marginBottom: 12 }}>10./50./90. Perzentil, Gesamtvermögen</div>
+                  <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>{t("Vermögensverlauf", "Asset trajectory")}</div>
+                  <div style={{ fontSize: 13, color: '#5B6B65', marginBottom: 12 }}>{t("10./50./90. Perzentil, Gesamtvermögen", "10th/50th/90th percentile, total assets")}</div>
                   <div style={{ flex: 1, minHeight: 300 }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 10, bottom: 30 }}>
@@ -2707,18 +2785,18 @@ function EntnahmeSimulator() {
                         <Area dataKey="balBand" stackId="b" stroke="none" fill="#2F5D62" fillOpacity={0.15} />
                         <Line dataKey="balP50" stroke="#2F5D62" strokeWidth={2} dot={false} />
                         {pensionStartYear > 0 && pensionStartYear <= horizon && (
-                          <ReferenceLine x={pensionStartAge} stroke="#3A6B8A" strokeDasharray="3 3" label={({ viewBox }) => <text x={viewBox.x + 6} y={viewBox.y + 14} fill="#3A6B8A" fontSize={12}>Rentenbeginn</text>} />
+                          <ReferenceLine x={pensionStartAge} stroke="#3A6B8A" strokeDasharray="3 3" label={({ viewBox }) => <text x={viewBox.x + 6} y={viewBox.y + 14} fill="#3A6B8A" fontSize={12}>{t("Rentenbeginn", "Pension start")}</text>} />
                         )}
                       </ComposedChart>
                     </ResponsiveContainer>
                   </div>
-                  <div style={{ textAlign: 'center', color: '#1C2521', fontSize: 14 }}>Lebensalter</div>
+                  <div style={{ textAlign: 'center', color: '#1C2521', fontSize: 14 }}>{t("Lebensalter", "Age")}</div>
                 </div>
               )}
               {expandedChart === 'entnahme' && (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                  <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Entnahmeverlauf</div>
-                  <div style={{ fontSize: 13, color: '#5B6B65', marginBottom: 12 }}>10./50./90. Perzentil pro Jahr{entnahmeStrategie === 'dynamisch' ? ' · Bodenlinie gestrichelt' : ''}</div>
+                  <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>{t("Entnahmeverlauf", "Withdrawal trajectory")}</div>
+                  <div style={{ fontSize: 13, color: '#5B6B65', marginBottom: 12 }}>{t('10./50./90. Perzentil pro Jahr', '10th/50th/90th percentile per year')}{entnahmeStrategie === 'dynamisch' ? t(' · Bodenlinie gestrichelt', ' · floor line dashed') : ''}</div>
                   <div style={{ flex: 1, minHeight: 300 }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 10, bottom: 30 }}>
@@ -2739,18 +2817,18 @@ function EntnahmeSimulator() {
                           <Line dataKey="hardFloor" name="Bodenlinie" stroke="#A8432F" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
                         )}
                         {grvBerechnen && pensionStartYear > 0 && pensionStartYear <= horizon && (
-                          <ReferenceLine x={pensionStartAge} stroke="#3A6B8A" strokeDasharray="3 3" label={({ viewBox }) => <text x={viewBox.x + 6} y={viewBox.y + 14} fill="#3A6B8A" fontSize={12}>Rentenbeginn</text>} />
+                          <ReferenceLine x={pensionStartAge} stroke="#3A6B8A" strokeDasharray="3 3" label={({ viewBox }) => <text x={viewBox.x + 6} y={viewBox.y + 14} fill="#3A6B8A" fontSize={12}>{t("Rentenbeginn", "Pension start")}</text>} />
                         )}
                       </ComposedChart>
                     </ResponsiveContainer>
                   </div>
-                  <div style={{ textAlign: 'center', color: '#1C2521', fontSize: 14 }}>Lebensalter</div>
+                  <div style={{ textAlign: 'center', color: '#1C2521', fontSize: 14 }}>{t("Lebensalter", "Age")}</div>
                 </div>
               )}
               {expandedChart === 'ausfall' && (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                   <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Ausfallwahrscheinlichkeit im Zeitverlauf</div>
-                  <div style={{ fontSize: 13, color: '#5B6B65', marginBottom: 12 }}>Anteil Pfade, deren Vermögen bis zu diesem Jahr bereits aufgebraucht war (kumulativ) · rote Linie = 2,5%-Zielgrenze</div>
+                  <div style={{ fontSize: 13, color: '#5B6B65', marginBottom: 12 }}>{t("Anteil Pfade, deren Vermögen bis zu diesem Jahr bereits aufgebraucht war (kumulativ) · rote Linie = 2,5%-Zielgrenze", "Share of paths whose assets were already depleted by this year (cumulative) · red line = 2.5% target limit")}</div>
                   <div style={{ flex: 1, minHeight: 300 }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={failureChartData} margin={{ top: 20, right: 30, left: 10, bottom: 30 }}>
@@ -2764,7 +2842,7 @@ function EntnahmeSimulator() {
                       </ComposedChart>
                     </ResponsiveContainer>
                   </div>
-                  <div style={{ textAlign: 'center', color: '#1C2521', fontSize: 14 }}>Lebensalter</div>
+                  <div style={{ textAlign: 'center', color: '#1C2521', fontSize: 14 }}>{t("Lebensalter", "Age")}</div>
                 </div>
               )}
             </div>
