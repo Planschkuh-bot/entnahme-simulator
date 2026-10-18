@@ -2116,7 +2116,7 @@ function EntnahmeSimulator() {
               <input type="checkbox" checked={grvBerechnen} onChange={(e) => setGrvBerechnen(e.target.checked)} style={{ accentColor: '#2F5D62' }} />
               GRV berücksichtigen<InfoDot text="Aktiv: Die gesetzliche Rente reduziert ab Rentenbeginn den nötigen Betrag aus dem Portfolio. Inaktiv: Die GRV-Rente wird in der Simulation und den Kennzahlen komplett außer Acht gelassen." />
             </label>
-            <Slider label="Rentenpunkte" value={rentenpunkte} min={0} max={80} step={1}
+            <Slider label="Rentenpunkte" value={rentenpunkte} min={0} max={100} step={1}
               onChange={setRentenpunkte} format={(v) => v.toFixed(0)}
               hint="Summe der bis Rentenbeginn erwarteten Entgeltpunkte"
               tip="Summe deiner bis zum Rentenbeginn erwarteten Entgeltpunkte — bestimmt zusammen mit dem aktuellen Rentenwert die Höhe der gesetzlichen Rente." />
