@@ -812,6 +812,21 @@ function runHistoricalBootstrap(p) {
 // ---------- UI helpers ----------
 
 const fmtEUR = (v) => v.toLocaleString((LANG === 'en' ? 'en-US' : 'de-DE'), { maximumFractionDigits: 0 }) + ' \u20ac';
+const r2 = (x) => Math.round(x * 100) / 100;
+const fmtPct = (v) => v.toLocaleString((LANG === 'en' ? 'en-US' : 'de-DE'), { maximumFractionDigits: 2 }) + '%';
+const parseAmount = (str) => {
+  let x = String(str).replace(/[\u20ac\s]/g, '');
+  if (LANG === 'en') x = x.replace(/,/g, ''); else x = x.replace(/\./g, '').replace(',', '.');
+  return parseFloat(x);
+};
+// Startverm\u00f6gen: 5k-Schritte bis 3 Mio., darueber 25k-Schritte bis 10 Mio. (Slider laeuft ueber einen Index)
+const VM_MIN = 100000, VM_MID = 3000000, VM_MAX = 10000000, VM_STEP_LO = 5000, VM_STEP_HI = 25000;
+const VM_N_LO = (VM_MID - VM_MIN) / VM_STEP_LO;
+const VM_SCALE = {
+  maxPos: VM_N_LO + (VM_MAX - VM_MID) / VM_STEP_HI,
+  toPos: (v) => v <= VM_MID ? Math.round((v - VM_MIN) / VM_STEP_LO) : VM_N_LO + Math.round((v - VM_MID) / VM_STEP_HI),
+  fromPos: (p) => p <= VM_N_LO ? VM_MIN + p * VM_STEP_LO : VM_MID + (p - VM_N_LO) * VM_STEP_HI,
+};
 const fmtEURk = (v) => {
   if (Math.abs(v) >= 1000) return (v / 1000).toLocaleString((LANG === 'en' ? 'en-US' : 'de-DE'), { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + 'k';
   return fmtEUR(v);
@@ -914,10 +929,22 @@ function InfoDot({ text }) {
   );
 }
 
-function Slider({ label, value, min, max, step, onChange, format, hint, tip, dynamicColor = false }) {
+function Slider({ label, value, min, max, step, onChange, format, hint, tip, dynamicColor = false, scale, onType, typeValue }) {
+  const [editing, setEditing] = React.useState(false);
+  const [draft, setDraft] = React.useState('');
+  const cancelRef = React.useRef(false);
+  const pos = scale ? scale.toPos(value) : value;
+  const pMin = scale ? 0 : min, pMax = scale ? scale.maxPos : max, pStep = scale ? 1 : step;
   const nudge = (dir) => {
-    const next = Math.min(max, Math.max(min, parseFloat((value + dir * step).toPrecision(12))));
+    const nextPos = Math.min(pMax, Math.max(pMin, parseFloat((pos + dir * pStep).toPrecision(12))));
+    const next = scale ? scale.fromPos(nextPos) : nextPos;
     if (next !== value) onChange(next);
+  };
+  const commit = () => {
+    setEditing(false);
+    if (cancelRef.current) { cancelRef.current = false; return; }
+    const n = parseAmount(draft);
+    if (Number.isFinite(n)) onType(n);
   };
   const btnStyle = {
     width: 20, height: 20, padding: 0, flexShrink: 0,
@@ -936,15 +963,28 @@ function Slider({ label, value, min, max, step, onChange, format, hint, tip, dyn
           {tip && <InfoDot text={tip} />}
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-          <span style={{ fontSize: 12, fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif", color: '#1C2521' }}>
-            {format ? format(value) : value.toLocaleString((LANG === 'en' ? 'en-US' : 'de-DE'))}
-          </span>
+          {onType && editing ? (
+            <input type="text" inputMode="decimal" autoFocus value={draft}
+              aria-label={t(`${label} exakt eingeben (Euro)`, `Enter ${label} exactly (euros)`)}
+              onChange={(e) => setDraft(e.target.value)}
+              onFocus={(e) => e.target.select()}
+              onBlur={commit}
+              onKeyDown={(e) => { if (e.key === 'Enter') commit(); else if (e.key === 'Escape') { cancelRef.current = true; setEditing(false); } }}
+              style={{ width: 100, fontSize: 12, padding: '1px 4px', textAlign: 'right', border: '1px solid #2F5D62', borderRadius: 4, color: '#1C2521', background: '#FFFFFF' }} />
+          ) : (
+            <span
+              onClick={onType ? () => { setDraft(String(Math.round(typeValue != null ? typeValue : value))); setEditing(true); } : undefined}
+              title={onType ? t('Anklicken, um einen genauen Euro-Betrag einzugeben', 'Click to enter an exact euro amount') : undefined}
+              style={{ fontSize: 12, fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif", color: '#1C2521', cursor: onType ? 'text' : undefined, borderBottom: onType ? '1px dotted #9BA8A4' : undefined }}>
+              {format ? format(value) : value.toLocaleString((LANG === 'en' ? 'en-US' : 'de-DE'))}
+            </span>
+          )}
           <button type="button" onClick={() => nudge(-1)} title={t(`${label} verringern`, `Decrease ${label}`)} style={btnStyle} onFocus={(e) => { e.target.style.boxShadow = '0 0 0 2px rgba(47, 93, 98, 0.4)'; e.target.style.borderColor = '#2F5D62'; }} onBlur={(e) => { e.target.style.boxShadow = ''; e.target.style.borderColor = '#D3DAD6'; }}>−</button>
           <button type="button" onClick={() => nudge(1)} title={t(`${label} erhöhen`, `Increase ${label}`)} style={btnStyle} onFocus={(e) => { e.target.style.boxShadow = '0 0 0 2px rgba(47, 93, 98, 0.4)'; e.target.style.borderColor = '#2F5D62'; }} onBlur={(e) => { e.target.style.boxShadow = ''; e.target.style.borderColor = '#D3DAD6'; }}>+</button>
         </span>
       </div>
-      <input type="range" min={min} max={max} step={step} value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
+      <input type="range" min={pMin} max={pMax} step={pStep} value={pos}
+        onChange={(e) => { const p = parseFloat(e.target.value); onChange(scale ? scale.fromPos(p) : p); }}
         style={{ width: '100%', accentColor }}
         onFocus={(e) => { e.target.style.outline = 'none'; e.target.style.boxShadow = '0 0 0 3px rgba(47, 93, 98, 0.3)'; }}
         onBlur={(e) => { e.target.style.boxShadow = ''; }} />
@@ -1225,7 +1265,9 @@ function EntnahmeSimulator() {
   const [bitcoin, setBitcoin] = useState(0);
   const [wohnung, setWohnung] = useState(0);
   const [anleihen, setAnleihen] = useState(25);
-  const cash = Math.max(0, 100 - aktien - gold - anleihen - bitcoin - wohnung);
+  const cash = Math.max(0, r2(100 - aktien - gold - anleihen - bitcoin - wohnung));
+  // Schrittweite der Positions-Slider (in %) an das Startverm\u00f6gen koppeln: Euro-Schritt bleibt bei ca. 6.000-15.000 \u20ac
+  const posStep = vermoegen > 6e6 ? 0.1 : vermoegen > 3e6 ? 0.25 : vermoegen > 1.5e6 ? 0.5 : 1;
 
   const [staticRate, setStaticRate] = useState(7);
   const [dynStartRate, setDynStartRate] = useState(8.5);
@@ -2160,25 +2202,27 @@ Four calculation modes are available at the top (more details in the tooltip on 
         <div style={{ display: 'contents' }}>
           <div style={{ order: 2, marginBottom: 22 }}>
             <SectionLabel color="#C08A2E">Portfolio</SectionLabel>
-            <Slider label={t("Startvermögen", "Starting assets")} value={vermoegen} min={100000} max={3000000} step={5000}
-              onChange={setVermoegen} format={fmtEUR}
+            <Slider label={t("Startvermögen", "Starting assets")} value={vermoegen} min={VM_MIN} max={VM_MAX} step={VM_STEP_LO}
+              scale={VM_SCALE} onChange={setVermoegen} format={fmtEUR}
+              onType={(eur) => setVermoegen(Math.min(VM_MAX, Math.max(VM_MIN, Math.round(eur))))}
+              hint={t("Wert anklicken für exakte Eingabe", "Click the value to type an exact amount")}
               tip={t("Dein frei verfügbares Gesamtvermögen zu Beginn der Entnahmephase (Aktien + Anleihen + Gold + Bitcoin + Liquidität). Die Eigentumswohnung zählt hier nicht dazu.", "Your freely available total assets at the start of the withdrawal phase (equities + bonds + gold + Bitcoin + cash). The owned apartment is not included here.")} />
-            <Slider label={t("Aktien-ETF", "Equity ETF")} value={aktien} min={0} max={100} step={1}
-              onChange={(v) => setAktien(Math.min(v, 100 - gold - anleihen - bitcoin - wohnung))} format={(v) => `${v}% · ${fmtEUR(vermoegen * v / 100)}`}
+            <Slider label={t("Aktien-ETF", "Equity ETF")} value={aktien} min={0} max={100} step={posStep}
+              onChange={(v) => setAktien(r2(Math.min(v, 100 - gold - anleihen - bitcoin - wohnung)))} onType={(eur) => setAktien(r2(Math.max(0, Math.min(eur / vermoegen * 100, 100 - gold - anleihen - bitcoin - wohnung))))} typeValue={vermoegen * aktien / 100} format={(v) => `${fmtPct(v)} · ${fmtEUR(vermoegen * v / 100)}`}
               tip={t("Anteil des Portfolios in Aktien. Mehr Aktien bedeuten langfristig mehr Rendite, aber auch stärkere Wertschwankungen in einzelnen Jahren.", "Share of the portfolio in equities. More equities mean higher returns in the long run, but also larger value swings in individual years.")} />
-            <Slider label={t("Anleihen-ETF", "Bond ETF")} value={anleihen} min={0} max={100} step={1}
-              onChange={(v) => setAnleihen(Math.min(v, 100 - aktien - gold - bitcoin - wohnung))} format={(v) => `${v}% · ${fmtEUR(vermoegen * v / 100)}`}
+            <Slider label={t("Anleihen-ETF", "Bond ETF")} value={anleihen} min={0} max={100} step={posStep}
+              onChange={(v) => setAnleihen(r2(Math.min(v, 100 - aktien - gold - bitcoin - wohnung)))} onType={(eur) => setAnleihen(r2(Math.max(0, Math.min(eur / vermoegen * 100, 100 - aktien - gold - bitcoin - wohnung))))} typeValue={vermoegen * anleihen / 100} format={(v) => `${fmtPct(v)} · ${fmtEUR(vermoegen * v / 100)}`}
               hint={t("Europäische Staats- und Unternehmensanleihen mit bis zu 5 Jahren Laufzeit", "European government and corporate bonds with up to 5 years maturity")}
               tip={t("Defensiver Baustein mit angenommener realer Rendite von 2,0% p.a. und 4,0% Volatilität. Modellannahme für einen EUR-ETF mit Staats- und Investment-Grade-Unternehmensanleihen bis 5 Jahre Laufzeit.", "Defensive component with an assumed real return of 2.0% p.a. and 4.0% volatility. Model assumption for a EUR ETF with government and investment-grade corporate bonds of up to 5 years maturity.")} />
-            <Slider label="Gold" value={gold} min={0} max={100} step={1}
-              onChange={(v) => setGold(Math.min(v, 100 - aktien - anleihen - bitcoin - wohnung))} format={(v) => `${v}% · ${fmtEUR(vermoegen * v / 100)}`}
+            <Slider label="Gold" value={gold} min={0} max={100} step={posStep}
+              onChange={(v) => setGold(r2(Math.min(v, 100 - aktien - anleihen - bitcoin - wohnung)))} onType={(eur) => setGold(r2(Math.max(0, Math.min(eur / vermoegen * 100, 100 - aktien - anleihen - bitcoin - wohnung))))} typeValue={vermoegen * gold / 100} format={(v) => `${fmtPct(v)} · ${fmtEUR(vermoegen * v / 100)}`}
               tip={t("Beimischung zur Absicherung gegen Börsencrashs. Gold wird nur entnommen, wenn die Aktien ≥20% unter ihrem Höchststand liegen (Reserve-Modus).", "Admixture to hedge against stock market crashes. Gold is only drawn when equities are ≥20% below their peak (reserve mode).")} />
-            <Slider label={t("Vermietete Immobilie", "Rented property")} value={wohnung} min={0} max={100} step={1}
-              onChange={(v) => setWohnung(Math.min(v, 100 - aktien - gold - anleihen - bitcoin))} format={(v) => `${v}% · ${fmtEUR(vermoegen * v / 100)}`}
+            <Slider label={t("Vermietete Immobilie", "Rented property")} value={wohnung} min={0} max={100} step={posStep}
+              onChange={(v) => setWohnung(r2(Math.min(v, 100 - aktien - gold - anleihen - bitcoin)))} onType={(eur) => setWohnung(r2(Math.max(0, Math.min(eur / vermoegen * 100, 100 - aktien - gold - anleihen - bitcoin))))} typeValue={vermoegen * wohnung / 100} format={(v) => `${fmtPct(v)} · ${fmtEUR(vermoegen * v / 100)}`}
               hint={t("Illiquide — fließt nicht in die Entnahme-Simulation ein, nur als Sachwert ausgewiesen", "Illiquid — not part of the withdrawal simulation, only reported as a real asset")}
               tip={t("Fließt NICHT in die Entnahme-Simulation ein, weil sie illiquide ist — nur als Sachwert ausgewiesen. Die Miete reduziert aber die nötige Entnahme.", "Does NOT flow into the withdrawal simulation because it is illiquid — only reported as a real asset. The rent does reduce the required withdrawal, though.")} />
-            <Slider label="Crypto" value={bitcoin} min={0} max={100} step={1}
-              onChange={(v) => setBitcoin(Math.min(v, 100 - aktien - gold - anleihen - wohnung))} format={(v) => `${v}% · ${fmtEUR(vermoegen * v / 100)}`}
+            <Slider label="Crypto" value={bitcoin} min={0} max={100} step={posStep}
+              onChange={(v) => setBitcoin(r2(Math.min(v, 100 - aktien - gold - anleihen - wohnung)))} onType={(eur) => setBitcoin(r2(Math.max(0, Math.min(eur / vermoegen * 100, 100 - aktien - gold - anleihen - wohnung))))} typeValue={vermoegen * bitcoin / 100} format={(v) => `${fmtPct(v)} · ${fmtEUR(vermoegen * v / 100)}`}
               hint={t("Eigene, unabhängig vom Modus simulierte Rendite (siehe Hinweise unten)", "Own return simulated independently of the mode (see notes below)")}
               tip={t("Risiko-Baustein, separat und unabhängig vom Modus parametrisch simuliert (real ~15% Rendite, 65% Volatilität p.a.). Grobe Schätzung.", "Risk component, simulated separately and independently of the mode, parametrically (real ~15% return, 65% volatility p.a.). Rough estimate.")} />
             <Slider label={t("ETF-TER (Kosten p.a.)", "ETF TER (annual cost)")} value={etfTer} min={0} max={1.0} step={0.01}
@@ -2922,7 +2966,7 @@ Jahre bis zum Entnahmehorizont ist. Beispiel: Bei 40 Jahren Restlaufzeit = 2,5 %
       <p style="margin: 0 0 16px; font-size: 13px; color: #5B6B65; line-height: 1.6;">
         Fragen, Anregungen oder Fehler gefunden? Schreib mir gerne eine Nachricht:
       </p>
-      
+
       <form id="contactForm" action="https://formsubmit.co/418bcdb6b284064b3d62fa1c7a4a15d2" method="POST" style="max-width: 480px;">
         <input type="hidden" name="_subject" value="Feedback Entnahmesimulator" />
         <input type="hidden" name="_template" value="table" />
