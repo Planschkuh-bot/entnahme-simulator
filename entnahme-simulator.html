@@ -1287,11 +1287,15 @@ function EntnahmeSimulator() {
   const [rentenpunkte, setRentenpunkte] = useState(45);
   const [pensionStartAge, setPensionStartAge] = useState(67);
   const [grvBerechnen, setGrvBerechnen] = useState(true);
+  const [rentenModus, setRentenModus] = useState('punkte'); // 'punkte' = Entgeltpunkte, 'betrag' = fester Betrag in €/Monat (z.B. EM-Rente)
+  const [rentenBetrag, setRentenBetrag] = useState(1200);
   const [seed, setSeed] = useState(0);
   const [etfTer, setEtfTer] = useState(0.18);
 
   const [numSims, setNumSims] = useState(2500);
-  const pensionAnnual = grvBerechnen ? computePensionAnnual(rentenpunkte, pensionStartAge) : 0;
+  // Rente pro Jahr (real): Modus 'betrag' = fester Betrag laut Rentenbescheid (keine Ab-/Zuschläge), sonst Entgeltpunkte.
+  const calcPension = (age, punkte = rentenpunkte) => !grvBerechnen ? 0 : (rentenModus === 'betrag' ? rentenBetrag * 12 : computePensionAnnual(punkte, age));
+  const pensionAnnual = calcPension(pensionStartAge);
   const pensionMonthly = pensionAnnual / 12;
   const wohnungWert0 = (wohnung / 100) * vermoegen;
   const wohnungWert = wohnungWert0 * Math.pow(1 + WOHNUNG_REAL_APPRECIATION, horizon);
@@ -1384,9 +1388,9 @@ function EntnahmeSimulator() {
         items.push({ label: t('Horizont ±5 Jahre', 'Horizon ±5 years'), delta: impact(rLo, rHi) });
       }
       {
-        const ageLo = Math.max(63, d.pensionStartAge - 1), ageHi = Math.min(75, d.pensionStartAge + 1);
-        const rLo = run({ pensionStartAge: ageLo, pensionAnnual: grvBerechnen ? computePensionAnnual(rentenpunkte, ageLo) : 0 });
-        const rHi = run({ pensionStartAge: ageHi, pensionAnnual: grvBerechnen ? computePensionAnnual(rentenpunkte, ageHi) : 0 });
+        const ageLo = Math.max(rentenModus === 'betrag' ? 40 : 63, d.pensionStartAge - 1), ageHi = Math.min(75, d.pensionStartAge + 1);
+        const rLo = run({ pensionStartAge: ageLo, pensionAnnual: calcPension(ageLo) });
+        const rHi = run({ pensionStartAge: ageHi, pensionAnnual: calcPension(ageHi) });
         items.push({ label: t('Rentenbeginn ±1 Jahr', 'Pension start ±1 year'), delta: impact(rLo, rHi) });
       }
       {
@@ -1396,9 +1400,15 @@ function EntnahmeSimulator() {
         items.push({ label: t('Bitcoin ±3%-Pkt.', 'Bitcoin ±3 pp'), delta: impact(rLo, rHi) });
       }
       {
-        const rLo = run({ pensionAnnual: grvBerechnen ? computePensionAnnual(Math.max(0, rentenpunkte - 5), d.pensionStartAge) : 0 });
-        const rHi = run({ pensionAnnual: grvBerechnen ? computePensionAnnual(rentenpunkte + 5, d.pensionStartAge) : 0 });
-        items.push({ label: t('Rentenpunkte ±5', 'Pension points ±5'), delta: impact(rLo, rHi) });
+        if (rentenModus === 'betrag') {
+          const rLo = run({ pensionAnnual: grvBerechnen ? Math.max(0, rentenBetrag - 100) * 12 : 0 });
+          const rHi = run({ pensionAnnual: grvBerechnen ? (rentenBetrag + 100) * 12 : 0 });
+          items.push({ label: t('Rentenbetrag ±100 €/Monat', 'Pension amount ±€100/month'), delta: impact(rLo, rHi) });
+        } else {
+          const rLo = run({ pensionAnnual: calcPension(d.pensionStartAge, Math.max(0, rentenpunkte - 5)) });
+          const rHi = run({ pensionAnnual: calcPension(d.pensionStartAge, rentenpunkte + 5) });
+          items.push({ label: t('Rentenpunkte ±5', 'Pension points ±5'), delta: impact(rLo, rHi) });
+        }
       }
 
       items.sort((a, b) => b.delta - a.delta);
@@ -1514,6 +1524,8 @@ function EntnahmeSimulator() {
       num('horizon', setHorizon); num('blockLen', setBlockLen); str('bootstrapSource', setBootstrapSource);
       num('startAge', setStartAge); num('rentenpunkte', setRentenpunkte); num('pensionStartAge', setPensionStartAge);
       const gb = sp.get('grvBerechnen'); if (gb !== null) setGrvBerechnen(gb === 'true');
+      if (sp.get('rentenModus') === 'betrag') setRentenModus('betrag');
+      num('rentenBetrag', setRentenBetrag);
       str('entnahmeStrategie', setEntnahmeStrategie); str('entnahmeFrequenz', setEntnahmeFrequenz);
       const es = sp.get('eimerStrategie'); if (es !== null) setEimerStrategie(es === 'true');
       const hk = sp.get('heutigeKaufkraft'); if (hk !== null) setHeutigeKaufkraft(hk === 'true');
@@ -1559,7 +1571,7 @@ function EntnahmeSimulator() {
     sp.set('gkGuardrailPct', gkGuardrailPct); sp.set('gkAdjustStep', gkAdjustStep);
     sp.set('horizon', horizon); sp.set('blockLen', blockLen);
     sp.set('bootstrapSource', bootstrapSource); sp.set('startAge', startAge); sp.set('rentenpunkte', rentenpunkte);
-    sp.set('pensionStartAge', pensionStartAge); sp.set('grvBerechnen', grvBerechnen); sp.set('entnahmeStrategie', entnahmeStrategie);
+    sp.set('pensionStartAge', pensionStartAge); sp.set('grvBerechnen', grvBerechnen); sp.set('rentenModus', rentenModus); sp.set('rentenBetrag', rentenBetrag); sp.set('entnahmeStrategie', entnahmeStrategie);
     sp.set('eimerStrategie', eimerStrategie); sp.set('entnahmeFrequenz', entnahmeFrequenz); sp.set('heutigeKaufkraft', heutigeKaufkraft);
     sp.set('inflationRate', inflationRate); sp.set('numSims', numSims); sp.set('seed', seed);
     const url = window.location.origin + window.location.pathname + '?' + sp.toString();
@@ -1599,6 +1611,7 @@ function EntnahmeSimulator() {
     setStaticRate(values.staticRate); setDynStartRate(values.dynStartRate); setCeiling(values.ceiling); setFloor(values.floor); setHorizon(values.horizon); setBlockLen(values.blockLen); setBootstrapSource(values.bootstrapSource);
     setStartAge(values.startAge); setRentenpunkte(values.rentenpunkte); setPensionStartAge(values.pensionStartAge);
     setGrvBerechnen(values.grvBerechnen ?? true);
+    setRentenModus('punkte');
     setEntnahmeStrategie(values.entnahmeStrategie); setEntnahmeFrequenz(values.entnahmeFrequenz);
     if (values.gkGuardrailPct !== undefined) setGkGuardrailPct(values.gkGuardrailPct);
     if (values.gkAdjustStep !== undefined) setGkAdjustStep(values.gkAdjustStep);
@@ -2038,7 +2051,7 @@ Four calculation modes are available at the top (more details in the tooltip on 
                     <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Asset-Annahmen", "Asset assumptions")}</div>
                     <div style={{ marginBottom: 8 }}>{t(<><strong>Crypto:</strong> parametrisch simuliert in allen Modi, ca. 15 % reale Rendite / 65 % Volatilität p.a. (grobe Schätzung).<br/><strong>Anleihen-ETF:</strong> EUR-Staats- & Investment-Grade-Unternehmensanleihen ≤ 5 J. Laufzeit, 2 % reale Rendite / 4 % Volatilität p.a.<br/><strong>Vermietete Immobilie:</strong> nicht Teil der Entnahmesimulation (illiquider Sachwert). Miete = 3 % des aktuellen Immobilienwerts p.a., reduziert den nötigen Portfolio-Entnahmebetrag.</>, <><strong>Crypto:</strong> simulated parametrically in all modes, approx. 15% real return / 65% volatility p.a. (rough estimate).<br/><strong>Bond ETF:</strong> EUR government & investment-grade corporate bonds ≤ 5 yrs maturity, 2% real return / 4% volatility p.a.<br/><strong>Rented property:</strong> not part of the withdrawal simulation (illiquid real asset). Rent = 3% of the current property value p.a., reduces the required portfolio withdrawal amount.</>)}</div>
                     <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("GRV-Rente", "Statutory pension (GRV)")}</div>
-                    <div style={{ marginBottom: 8 }}>{t(<>Ab Rentenbeginn-Alter: Rentenpunkte × aktueller Rentenwert (42,52 €/Monat seit 1.7.2026), plus vereinfachte Ab-/Zuschläge (0,3 %/Monat vor / 0,5 %/Monat nach Regelaltersgrenze 67). Reduziert den Portfolio-Bedarf. Der Rentenwert wird real konstant gehalten. <strong>Nicht berücksichtigt:</strong> Steuern auf Rente, GKVdR-Beiträge, Mindestversicherungszeiten für Bezug ab 63.</>, <>From the pension start age: pension points × current pension value (€42.52/month since 1 July 2026), plus simplified deductions/supplements (0.3%/month before / 0.5%/month after the standard retirement age of 67). Reduces the portfolio need. The pension value is held constant in real terms. <strong>Not considered:</strong> taxes on pension, statutory health insurance contributions for pensioners (GKVdR), minimum insurance periods for drawing from 63.</>)}</div>
+                    <div style={{ marginBottom: 8 }}>{t(<>Ab Rentenbeginn-Alter: Rentenpunkte × aktueller Rentenwert (42,52 €/Monat seit 1.7.2026), plus vereinfachte Ab-/Zuschläge (0,3 %/Monat vor / 0,5 %/Monat nach Regelaltersgrenze 67). Reduziert den Portfolio-Bedarf. Der Rentenwert wird real konstant gehalten. <strong>Alternativ</strong> kann ein fester Rentenbetrag in €/Monat (z.B. Erwerbsminderungsrente) mit frei wählbarem Beginn eingegeben werden; dann entfallen Ab-/Zuschläge. <strong>Nicht berücksichtigt:</strong> Steuern auf Rente, GKVdR-Beiträge, Mindestversicherungszeiten für Bezug ab 63.</>, <>From the pension start age: pension points × current pension value (€42.52/month since 1 July 2026), plus simplified deductions/supplements (0.3%/month before / 0.5%/month after the standard retirement age of 67). Reduces the portfolio need. The pension value is held constant in real terms. <strong>Alternatively</strong> a fixed pension amount in €/month (e.g. disability pension) can be entered with a freely chosen start; deductions/supplements are then skipped. <strong>Not considered:</strong> taxes on pension, statutory health insurance contributions for pensioners (GKVdR), minimum insurance periods for drawing from 63.</>)}</div>
                     <div style={{ marginBottom: 10, fontWeight: 600 }}>{t("Simulationsmodi & Datenbasis", "Simulation modes & data basis")}</div>
                     <div style={{ marginBottom: 8, whiteSpace: 'pre-line' }}>{t(<>
 <strong>Monte Carlo (parametrisch):</strong> Aktien 5,0 % / 18 %, Gold 0,5 % / 15 %, Liquidität 0,0 % / 1,5 % (real p.a.), Korrelation Aktien–Gold −0,1. Normalverteilt, unabhängig — keine Fat Tails, keine Autokorrelation.
@@ -2238,14 +2251,30 @@ Four calculation modes are available at the top (more details in the tooltip on 
               <input type="checkbox" checked={grvBerechnen} onChange={(e) => setGrvBerechnen(e.target.checked)} style={{ accentColor: '#2F5D62' }} />
               {t("GRV berücksichtigen", "Include statutory pension (GRV)")}<InfoDot text={t("Aktiv: Die gesetzliche Rente reduziert ab Rentenbeginn den nötigen Betrag aus dem Portfolio. Inaktiv: Die GRV-Rente wird in der Simulation und den Kennzahlen komplett außer Acht gelassen.", "Active: the statutory pension reduces the amount needed from the portfolio from the pension start. Inactive: the GRV pension is ignored completely in the simulation and the metrics.")} />
             </label>
-            <Slider label={t("Rentenpunkte", "Pension points")} value={rentenpunkte} min={0} max={100} step={1}
-              onChange={setRentenpunkte} format={(v) => v.toFixed(0)}
-              hint={t("Summe der bis Rentenbeginn erwarteten Entgeltpunkte", "Sum of the earnings points expected by pension start")}
-              tip={t("Summe deiner bis zum Rentenbeginn erwarteten Entgeltpunkte — bestimmt zusammen mit dem aktuellen Rentenwert die Höhe der gesetzlichen Rente.", "Sum of your earnings points expected by the pension start — together with the current pension value it determines the amount of the statutory pension.")} />
-            <Slider label={t("Rentenbeginn", "Pension start age")} value={pensionStartAge} min={63} max={75} step={1}
+            <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+              {[['punkte', t('Rentenpunkte', 'Pension points')], ['betrag', t('Betrag in €/Monat', 'Amount in €/month')]].map(([k, lbl]) => (
+                <button key={k} type="button" onClick={() => { setRentenModus(k); if (k === 'punkte') setPensionStartAge((a) => Math.max(63, a)); }}
+                  style={{ flex: 1, padding: '6px 8px', fontSize: 11.5, fontFamily: 'inherit', cursor: 'pointer', borderRadius: 6,
+                    border: '1px solid ' + (rentenModus === k ? '#2F5D62' : '#D3DAD6'),
+                    background: rentenModus === k ? '#2F5D62' : '#FFFFFF', color: rentenModus === k ? '#FFFFFF' : '#5B6B65', fontWeight: rentenModus === k ? 600 : 500 }}>{lbl}</button>
+              ))}
+            </div>
+            {rentenModus === 'punkte' ? (
+              <Slider label={t("Rentenpunkte", "Pension points")} value={rentenpunkte} min={0} max={100} step={1}
+                onChange={setRentenpunkte} format={(v) => v.toFixed(0)}
+                hint={t("Summe der bis Rentenbeginn erwarteten Entgeltpunkte", "Sum of the earnings points expected by pension start")}
+                tip={t("Summe deiner bis zum Rentenbeginn erwarteten Entgeltpunkte — bestimmt zusammen mit dem aktuellen Rentenwert die Höhe der gesetzlichen Rente.", "Sum of your earnings points expected by the pension start — together with the current pension value it determines the amount of the statutory pension.")} />
+            ) : (
+              <Slider label={t("Rentenbetrag", "Pension amount")} value={rentenBetrag} min={0} max={5000} step={50}
+                onChange={setRentenBetrag} onType={(n) => setRentenBetrag(Math.max(0, Math.min(5000, Math.round(n))))}
+                format={(v) => fmtEUR(v) + t(' / Monat', ' / month')}
+                hint={t("Monatlich gezahlte Rente laut Rentenbescheid (z.B. Erwerbsminderungsrente)", "Monthly pension according to your pension notice (e.g. disability pension)")}
+                tip={t("Fester Rentenbetrag pro Monat in heutiger Kaufkraft, z.B. aus dem Rentenbescheid einer Erwerbsminderungsrente. Es werden keine Ab- oder Zuschläge mehr angewendet. Steuern und Krankenversicherungsbeiträge sind nicht berücksichtigt — am besten den Netto-Betrag (Auszahlung) eintragen.", "Fixed monthly pension in today's purchasing power, e.g. from the notice of a disability pension. No deductions or supplements are applied. Taxes and health insurance contributions are not considered — ideally enter the net payout.")} />
+            )}
+            <Slider label={t("Rentenbeginn", "Pension start age")} value={pensionStartAge} min={rentenModus === 'betrag' ? 40 : 63} max={75} step={1}
               onChange={setPensionStartAge} format={(v) => v + ' ' + t('Jahre', 'years')}
-              hint={t("z.B. 67 (Regelaltersgrenze)", "e.g. 67 (standard retirement age)")}
-              tip={t("Ab welchem Alter die gesetzliche Rente gezahlt wird. Vor der Regelaltersgrenze (67) gelten vereinfachte Ab- und Zuschläge.", "From which age the statutory pension is paid. Before the standard retirement age (67), simplified deductions and supplements apply.")} />
+              hint={rentenModus === 'betrag' ? t("Alter, ab dem der Betrag gezahlt wird (z.B. Beginn der EM-Rente)", "Age from which the amount is paid (e.g. start of the disability pension)") : t("z.B. 67 (Regelaltersgrenze)", "e.g. 67 (standard retirement age)")}
+              tip={rentenModus === 'betrag' ? t("Ab welchem Alter der Rentenbetrag gezahlt wird. Im Betrag-Modus gibt es keine Ab-/Zuschläge. Liegt der Beginn vor dem Entnahmebeginn, wird die Rente von Anfang an angesetzt.", "From which age the pension amount is paid. In amount mode there are no deductions or supplements. If it starts before the withdrawals begin, it is applied from the start.") : t("Ab welchem Alter die gesetzliche Rente gezahlt wird. Vor der Regelaltersgrenze (67) gelten vereinfachte Ab- und Zuschläge.", "From which age the statutory pension is paid. Before the standard retirement age (67), simplified deductions and supplements apply.")} />
             <div style={{ fontSize: 11.5, color: '#5B6B65' }}>
               → {fmtEUR(pensionMonthly)}{t('/Monat ab Alter', '/month from age')} {pensionStartAge} ({t('Jahr', 'year')} {pensionStartYear} {t('der Entnahmephase', 'of the withdrawal phase')})
             </div>
