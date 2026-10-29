@@ -2337,12 +2337,12 @@ Jahre bis zum Entnahmehorizont ist. Beispiel: Bei 40 Jahren Restlaufzeit = 2,5 %
             </div>
             {entnahmeStrategie === 'dynamisch' && (
               <Slider label={t("Statische Referenzrate", "Static reference rate")} value={staticRate} min={0} max={20} step={0.1}
-                onChange={setStaticRate} format={(v) => v.toFixed(1) + '%'} hint={t("Basis für den Boden", "Basis for the floor")}
+                onChange={setStaticRate} format={(v) => `${v.toFixed(1)}% · ${fmtEUR(vermoegen * v / 100)}`} hint={t("Basis für den Boden", "Basis for the floor")}
                 tip={t("Der feste Prozentsatz vom Startvermögen, der als harter Mindestboden auch in schlechten Jahren nie unterschritten wird.", "The fixed percentage of the starting assets that serves as a hard minimum floor and is never undercut, even in bad years.")} />
             )}
             {entnahmeStrategie !== 'bengen' && entnahmeStrategie !== 'lebenserwartung' && (
               <Slider label={entnahmeStrategie === 'statisch' ? t('Startentnahmerate', 'Starting withdrawal rate') : entnahmeStrategie === 'guyton-klinger' ? t('Startrate', 'Start rate') : t('Dynamische Startrate', 'Dynamic start rate')} value={dynStartRate} min={2} max={20} step={0.1}
-                onChange={setDynStartRate} format={(v) => v.toFixed(1) + '%'}
+                onChange={setDynStartRate} format={(v) => `${v.toFixed(1)}% · ${fmtEUR(vermoegen * v / 100)}`}
                 tip={entnahmeStrategie === 'guyton-klinger' ? t('Anfängliche Entnahmerate in Prozent vom Startvermögen. Bestimmt den Startbetrag und die Ausgangsquote für die Guardrail-Berechnung.', 'Initial withdrawal rate in percent of the starting assets. Determines the starting amount and the initial rate for the guardrail calculation.') : t('Entnahmerate im ersten Jahr in Prozent vom Startvermögen.', 'Withdrawal rate in the first year in percent of the starting assets.')} />
             )}
             {entnahmeStrategie === 'dynamisch' && (
