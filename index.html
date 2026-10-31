@@ -523,6 +523,12 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, bondR, btcR, wE
       } else {
         yearSpending = inflationAdj;
       }
+      // Mindestentnahme: harte Untergrenze in heutiger Kaufkraft. Ohne sie kann GK die
+      // Entnahme über Jahrzehnte immer weiter kürzen und wirkt dadurch künstlich sicher.
+      if (p.minAnnual > 0) {
+        const minThisYear = p.heutigeKaufkraft === false ? p.minAnnual * Math.pow(1 + (p.inflationRate || 2) / 100, y) : p.minAnnual;
+        yearSpending = Math.max(yearSpending, minThisYear);
+      }
     }
     else {
       const raw = totalAtYearStart * (p.dynStartRate / 100);
@@ -1275,6 +1281,7 @@ function EntnahmeSimulator() {
   const [floor, setFloor] = useState(-2.5);
   const [gkGuardrailPct, setGkGuardrailPct] = useState(20);
   const [gkAdjustStep, setGkAdjustStep] = useState(10);
+  const [minAnnual, setMinAnnual] = useState(0);
   const [horizon, setHorizon] = useState(35);
   const [entnahmeStrategie, setEntnahmeStrategie] = useState('dynamisch');
   const [eimerStrategie, setEimerStrategie] = useState(true);
@@ -1305,19 +1312,20 @@ function EntnahmeSimulator() {
   // Alle Eingaben, die die (teure) Simulation beeinflussen, gebündelt und debounced —
   // Slider-Labels selbst reagieren weiterhin sofort, nur die Neuberechnung verzögert sich leicht.
   const liveParams = useMemo(() => ({
-    mode, vermoegen, aktien, gold, cash, bitcoin, wohnung, staticRate, dynStartRate, ceiling, floor, gkGuardrailPct, gkAdjustStep,
+    mode, vermoegen, aktien, gold, cash, bitcoin, wohnung, staticRate, dynStartRate, ceiling, floor, gkGuardrailPct, gkAdjustStep, minAnnual,
     horizon, blockLen, bootstrapSource, startAge, pensionStartAge, pensionAnnual, rentalIncomeByYear, seed, anleihen,
-    entnahmeStrategie, eimerStrategie, entnahmeFrequenz, numSims, etfTer,
-  }), [mode, vermoegen, aktien, gold, cash, bitcoin, wohnung, staticRate, dynStartRate, ceiling, floor, gkGuardrailPct, gkAdjustStep,
+    entnahmeStrategie, eimerStrategie, entnahmeFrequenz, numSims, etfTer, heutigeKaufkraft, inflationRate,
+  }), [mode, vermoegen, aktien, gold, cash, bitcoin, wohnung, staticRate, dynStartRate, ceiling, floor, gkGuardrailPct, gkAdjustStep, minAnnual,
     horizon, blockLen, bootstrapSource, startAge, pensionStartAge, pensionAnnual, rentalIncomeByYear, seed, anleihen,
-    entnahmeStrategie, entnahmeFrequenz, numSims, etfTer]);
+    entnahmeStrategie, eimerStrategie, entnahmeFrequenz, numSims, etfTer, heutigeKaufkraft, inflationRate]);
   const [debounced, isCalculating] = useDebounced(liveParams, 200);
 
   const result = useMemo(() => {
     const d = debounced;
     const params = { vermoegen: d.vermoegen, aktien: d.aktien, gold: d.gold, cash: d.cash, bitcoin: d.bitcoin,
       staticRate: d.staticRate, dynStartRate: d.dynStartRate, ceiling: d.ceiling, floor: d.floor,
-      gkGuardrailPct: d.gkGuardrailPct, gkAdjustStep: d.gkAdjustStep,
+      gkGuardrailPct: d.gkGuardrailPct, gkAdjustStep: d.gkAdjustStep, minAnnual: d.minAnnual,
+      heutigeKaufkraft: d.heutigeKaufkraft, inflationRate: d.inflationRate,
       horizon: d.horizon, numSims: d.numSims, blockLen: d.blockLen, bootstrapSource: d.bootstrapSource, anleihen: d.anleihen,
       startAge: d.startAge, pensionStartAge: d.pensionStartAge, pensionAnnual: d.pensionAnnual,
       rentalIncomeByYear: d.rentalIncomeByYear, seed: d.seed,
@@ -1333,12 +1341,13 @@ function EntnahmeSimulator() {
       { key: 'bengen', label: '4%-Regel (Bengen)', rate: 4, floor: null, ceiling: null, note: 'Fix 4%, real konstant' },
       { key: 'statisch', label: 'Statisch (fest, real)', rate: d.dynStartRate, floor: null, ceiling: null, note: d.dynStartRate + '% real konstant' },
       { key: 'lebenserwartung', label: '1/E[T] (Lebenserwartung)', rate: null, floor: null, ceiling: null, note: 'Depot ÷ Restjahre' },
-      { key: 'guyton-klinger', label: 'Guyton-Klinger', rate: d.dynStartRate, floor: null, ceiling: null, note: 'Guardrails + Inflation' },
+      { key: 'guyton-klinger', label: 'Guyton-Klinger', rate: d.dynStartRate, floor: null, ceiling: null, note: d.minAnnual > 0 ? 'Guardrails + Mindestentnahme' : 'Guardrails + Inflation' },
     ];
     return strategies.map(s => {
       const params = { vermoegen: d.vermoegen, aktien: d.aktien, gold: d.gold, cash: d.cash, bitcoin: d.bitcoin,
         staticRate: d.staticRate, dynStartRate: d.dynStartRate, ceiling: d.ceiling, floor: d.floor,
-        gkGuardrailPct: d.gkGuardrailPct, gkAdjustStep: d.gkAdjustStep,
+        gkGuardrailPct: d.gkGuardrailPct, gkAdjustStep: d.gkAdjustStep, minAnnual: d.minAnnual,
+        heutigeKaufkraft: d.heutigeKaufkraft, inflationRate: d.inflationRate,
         horizon: d.horizon, numSims: d.numSims, blockLen: d.blockLen, bootstrapSource: d.bootstrapSource, anleihen: d.anleihen,
         startAge: d.startAge, pensionStartAge: d.pensionStartAge, pensionAnnual: d.pensionAnnual,
         rentalIncomeByYear: d.rentalIncomeByYear, seed: d.seed,
@@ -1361,7 +1370,8 @@ function EntnahmeSimulator() {
       const sensNumSims = 500;
       const base = { vermoegen: d.vermoegen, aktien: d.aktien, gold: d.gold, cash: d.cash, bitcoin: d.bitcoin,
         staticRate: d.staticRate, dynStartRate: d.dynStartRate, ceiling: d.ceiling, floor: d.floor,
-        gkGuardrailPct: d.gkGuardrailPct, gkAdjustStep: d.gkAdjustStep,
+        gkGuardrailPct: d.gkGuardrailPct, gkAdjustStep: d.gkAdjustStep, minAnnual: d.minAnnual,
+        heutigeKaufkraft: d.heutigeKaufkraft, inflationRate: d.inflationRate,
         horizon: d.horizon, numSims: sensNumSims, blockLen: d.blockLen, anleihen: d.anleihen,
         bootstrapSource: d.bootstrapSource, startAge: d.startAge, pensionStartAge: d.pensionStartAge,
         pensionAnnual: d.pensionAnnual, rentalIncomeByYear: d.rentalIncomeByYear, seed: d.seed,
@@ -1424,7 +1434,8 @@ function EntnahmeSimulator() {
       const d = debounced;
       const base = { vermoegen: d.vermoegen, aktien: d.aktien, gold: d.gold, cash: d.cash, bitcoin: d.bitcoin,
         staticRate: d.staticRate, dynStartRate: d.dynStartRate, ceiling: d.ceiling, floor: d.floor,
-        gkGuardrailPct: d.gkGuardrailPct, gkAdjustStep: d.gkAdjustStep,
+        gkGuardrailPct: d.gkGuardrailPct, gkAdjustStep: d.gkAdjustStep, minAnnual: d.minAnnual,
+        heutigeKaufkraft: d.heutigeKaufkraft, inflationRate: d.inflationRate,
         horizon: d.horizon, numSims: 800, blockLen: d.blockLen, anleihen: d.anleihen,
         bootstrapSource: d.bootstrapSource, startAge: d.startAge, pensionStartAge: d.pensionStartAge,
         pensionAnnual: d.pensionAnnual, rentalIncomeByYear: d.rentalIncomeByYear, seed: d.seed,
@@ -1520,7 +1531,7 @@ function EntnahmeSimulator() {
       num('bitcoin', setBitcoin); num('anleihen', setAnleihen); num('wohnung', setWohnung); num('etfTer', setEtfTer);
       num('staticRate', setStaticRate); num('dynStartRate', setDynStartRate);
       num('ceiling', setCeiling); num('floor', setFloor);
-      num('gkGuardrailPct', setGkGuardrailPct); num('gkAdjustStep', setGkAdjustStep);
+      num('gkGuardrailPct', setGkGuardrailPct); num('gkAdjustStep', setGkAdjustStep); num('minAnnual', setMinAnnual);
       num('horizon', setHorizon); num('blockLen', setBlockLen); str('bootstrapSource', setBootstrapSource);
       num('startAge', setStartAge); num('rentenpunkte', setRentenpunkte); num('pensionStartAge', setPensionStartAge);
       const gb = sp.get('grvBerechnen'); if (gb !== null) setGrvBerechnen(gb === 'true');
@@ -1568,7 +1579,7 @@ function EntnahmeSimulator() {
     sp.set('mode', mode); sp.set('vermoegen', vermoegen); sp.set('aktien', aktien); sp.set('gold', gold);
     sp.set('bitcoin', bitcoin); sp.set('anleihen', anleihen); sp.set('wohnung', wohnung); sp.set('etfTer', etfTer); sp.set('staticRate', staticRate);
     sp.set('dynStartRate', dynStartRate); sp.set('ceiling', ceiling); sp.set('floor', floor);
-    sp.set('gkGuardrailPct', gkGuardrailPct); sp.set('gkAdjustStep', gkAdjustStep);
+    sp.set('gkGuardrailPct', gkGuardrailPct); sp.set('gkAdjustStep', gkAdjustStep); sp.set('minAnnual', minAnnual);
     sp.set('horizon', horizon); sp.set('blockLen', blockLen);
     sp.set('bootstrapSource', bootstrapSource); sp.set('startAge', startAge); sp.set('rentenpunkte', rentenpunkte);
     sp.set('pensionStartAge', pensionStartAge); sp.set('grvBerechnen', grvBerechnen); sp.set('rentenModus', rentenModus); sp.set('rentenBetrag', rentenBetrag); sp.set('entnahmeStrategie', entnahmeStrategie);
@@ -1781,7 +1792,7 @@ Four calculation modes are available at the top (more details in the tooltip on 
                 { id: 's6', title: t('1/E[T] (Lebenserwartung)', '1/E[T] (life expectancy)'), text: t(`Jedes Jahr wird 1/E[T] des aktuellen Depotwerts entnommen, wobei E[T] die verbleibenden Jahre bis zum Entnahmehorizont ist. Beispiel: Bei 40 Jahren Restlaufzeit = 2,5 % des Depots, bei 25 Jahren = 4 %, bei 10 Jahren = 10 %. Die Entnahme passt sich automatisch der Marktentwicklung an — nach einem Crash sinkt sie, nach einem Boom steigt sie. Das Depot wird planmäßig bis zum letzten Jahr des Horizonts vollständig aufgezehrt. Kein einstellbarer Parameter nötig.`, `Each year 1/E[T] of the current portfolio value is withdrawn, where E[T] is the number of years remaining until the withdrawal horizon. Example: with 40 years remaining = 2.5% of the portfolio, with 25 years = 4%, with 10 years = 10%. The withdrawal adapts automatically to market developments — it falls after a crash and rises after a boom. The portfolio is fully drawn down on schedule by the last year of the horizon. No adjustable parameter is needed.`) },
                 { id: 's3', title: t('4%-Regel (Bengen)', '4% rule (Bengen)'), text: t('Die klassische „4%-Regel“: Es werden dauerhaft 4% des Startvermögens entnommen, real (inflationsbereinigt) konstant gehalten — ohne Floor oder Ceiling, ohne Anpassung an den aktuellen Depotwert. Historisch hielt diese Strategie in US-Auswertungen über 30 Jahre fast immer. Es ist ein sehr konservatives Referenzmodell, ignoriert aber die aktuelle Marktlage während der Laufzeit.', `The classic "4% rule": 4% of the starting assets are withdrawn permanently and kept constant in real (inflation-adjusted) terms — with no floor or ceiling and no adjustment to the current portfolio value. Historically this strategy almost always held over 30 years in US studies. It is a very conservative reference model, but ignores the current market situation during the period.`) },
                 { id: 's4', title: t('Statisch (fest, real)', 'Static (fixed, real)'), text: t('Jahr 1 = Startentnahmerate × Startvermögen; danach bleibt der absolute Betrag real (nur um Inflation bereinigt) über die gesamte Laufzeit konstant. Sehr vorhersehbar, die Kaufkraft bleibt erhalten, aber es gibt keinerlei Anpassung an gute oder schlechte Börsenjahre — ein Einbruch kann das Portfolio stark belasten. Einstellbar ist die Startentnahmerate.', `Year 1 = starting withdrawal rate × starting assets; after that the absolute amount stays constant in real terms (adjusted for inflation only) for the entire period. Very predictable and purchasing power is preserved, but there is no adjustment to good or bad market years — a slump can put heavy strain on the portfolio. The starting withdrawal rate can be set.`) },
-                { id: 's5', title: t('Guyton-Klinger', 'Guyton-Klinger'), text: t('Startbetrag = Startrate × Vermögen, danach jährliche Inflationsanpassung — mit drei Regeln: (1) Nach einem Jahr mit negativem Depot-Rendit wird die Inflationsanpassung ausgesetzt (der Betrag bleibt gleich). (2) Capital-Preservation: Steigt die Entnahmequote über Ausgangsquote + Guardrail, wird der Betrag um den Anpassungsschritt gekürzt. (3) Prosperity: Fällt die Quote unter Ausgangsquote − Guardrail, wird erhöht. Das ersetzt die reine Inflationsanpassung und glättet starke Rückschläge. Einstellbar sind Startrate, Guardrail-Schwelle (±) und der Anpassungsschritt.', `Starting amount = start rate × assets, then an annual inflation adjustment — with three rules: (1) After a year with a negative portfolio return the inflation adjustment is suspended (the amount stays the same). (2) Capital preservation: if the withdrawal rate rises above initial rate + guardrail, the amount is cut by the adjustment step. (3) Prosperity: if the rate falls below initial rate − guardrail, it is raised. This replaces the plain inflation adjustment and smooths severe setbacks. Start rate, guardrail threshold (±) and adjustment step can be set.`) },
+                { id: 's5', title: t('Guyton-Klinger', 'Guyton-Klinger'), text: t('Startbetrag = Startrate × Vermögen, danach jährliche Inflationsanpassung — mit drei Regeln: (1) Nach einem Jahr mit negativem Depot-Rendit wird die Inflationsanpassung ausgesetzt (der Betrag bleibt gleich). (2) Capital-Preservation: Steigt die Entnahmequote über Ausgangsquote + Guardrail, wird der Betrag um den Anpassungsschritt gekürzt. (3) Prosperity: Fällt die Quote unter Ausgangsquote − Guardrail, wird erhöht. Das ersetzt die reine Inflationsanpassung und glättet starke Rückschläge. Einstellbar sind Startrate, Guardrail-Schwelle (±) und der Anpassungsschritt. Zusätzlich lässt sich eine jährliche Mindestentnahme in Euro (heutige Kaufkraft) als harte Untergrenze setzen. Ohne sie kann die Entnahme über die Jahrzehnte immer weiter sinken, weshalb die Erfolgsquote dann fast immer 100 % beträgt; mit Untergrenze wird ein Jahr zum Misserfolg, sobald das Depot sie nicht mehr deckt.', `Starting amount = start rate × assets, then an annual inflation adjustment — with three rules: (1) After a year with a negative portfolio return the inflation adjustment is suspended (the amount stays the same). (2) Capital preservation: if the withdrawal rate rises above initial rate + guardrail, the amount is cut by the adjustment step. (3) Prosperity: if the rate falls below initial rate − guardrail, it is raised. This replaces the plain inflation adjustment and smooths severe setbacks. Start rate, guardrail threshold (±) and adjustment step can be set. In addition, an annual minimum withdrawal in euros (today's purchasing power) can be set as a hard floor. Without it the withdrawal can shrink further and further over the decades, which is why the success rate is then almost always 100%; with the floor, a year becomes a failure as soon as the portfolio can no longer cover it.`) },
               ].map((it) => (
                 <div key={it.id} style={{ border: '1px solid #E3E8E5', borderRadius: 8, marginBottom: 6, background: '#FAFBFA', overflow: 'hidden' }}>
                   <button onClick={() => toggleGuide(it.id)} style={{
@@ -2320,7 +2331,9 @@ Four calculation modes are available at the top (more details in the tooltip on 
 {t(<>Startbetrag = Startrate × Vermögen. Danach jährliche Inflationsanpassung, unterbrochen
 von zwei Guardrail-Regeln: Steigt die Entnahmequote über Ausgangsquote + Guardrail,
 wird der Betrag um den Anpassungsschritt gekürzt (Capital-Preservation-Rule). Fällt sie unter
-Ausgangsquote − Guardrail, wird erhöht (Prosperity-Rule). Ersetzt die Inflationsanpassung.</>, <>Starting amount = start rate × assets. Then an annual inflation adjustment, interrupted by two guardrail rules: if the withdrawal rate rises above initial rate + guardrail, the amount is cut by the adjustment step (capital preservation rule). If it falls below initial rate − guardrail, it is raised (prosperity rule). Replaces the inflation adjustment.</>)}
+Ausgangsquote − Guardrail, wird erhöht (Prosperity-Rule). Ersetzt die Inflationsanpassung.
+Optional lässt sich eine jährliche Mindestentnahme in Euro festlegen — die Entnahme fällt nie
+darunter, und ein Jahr gilt als Misserfolg, sobald das Depot diese Untergrenze nicht mehr deckt.</>, <>Starting amount = start rate × assets. Then an annual inflation adjustment, interrupted by two guardrail rules: if the withdrawal rate rises above initial rate + guardrail, the amount is cut by the adjustment step (capital preservation rule). If it falls below initial rate − guardrail, it is raised (prosperity rule). Replaces the inflation adjustment. Optionally, an annual minimum withdrawal in euros can be set — the withdrawal never falls below it, and a year counts as a failure as soon as the portfolio can no longer cover that floor.</>)}
                 </div>
               )}
               {entnahmeStrategie === 'lebenserwartung' && (
@@ -2363,6 +2376,10 @@ Jahre bis zum Entnahmehorizont ist. Beispiel: Bei 40 Jahren Restlaufzeit = 2,5 %
                 <Slider label={t("Anpassungsschritt", "Adjustment step")} value={gkAdjustStep} min={1} max={25} step={0.5}
                   onChange={setGkAdjustStep} format={(v) => v.toFixed(1) + '%'}
                   tip={t("Prozentualer Schritt, um den der Entnahmebetrag gekürzt oder erhöht wird, wenn ein Guardrail verletzt wird. Ersetzt in diesem Jahr die Inflationsanpassung.", "Percentage step by which the withdrawal amount is cut or raised when a guardrail is breached. Replaces the inflation adjustment in that year.")} />
+                <Slider label={t("Mindestentnahme (€/Jahr)", "Minimum withdrawal (€/year)")} value={minAnnual} min={0} max={120000} step={1000}
+                  onChange={setMinAnnual} format={(v) => v > 0 ? fmtEUR(v) : t('aus', 'off')}
+                  hint={t("heutige Kaufkraft", "today's purchasing power")}
+                  tip={t("Harte Untergrenze für die jährliche Entnahme in heutiger Kaufkraft (0 € = aus). Ohne Mindestentnahme kann Guyton-Klinger die Entnahme über die Jahre beliebig weit senken, weshalb die Erfolgsquote dann fast immer 100 % beträgt. Mit Untergrenze zählt ein Jahr als Misserfolg, sobald das Depot die Mindestentnahme nicht mehr decken kann.", "Hard lower bound for the annual withdrawal in today's purchasing power (€0 = off). Without a minimum, Guyton-Klinger can cut the withdrawal arbitrarily over time, which is why the success rate then is almost always 100%. With a floor, a year counts as a failure as soon as the portfolio can no longer cover the minimum withdrawal.")} />
               </>
               ) }
               </div>
