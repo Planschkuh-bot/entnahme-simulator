@@ -1202,31 +1202,17 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, bondR, btcR, wE
     }
     if (remaining > 1e-6) failed = true;
   };
-  const lumpWSum = wEq + wGold + wCash + wBond + wBtc;
-  let lumpReceived = 0;
   for (let y = 0; y < horizon; y++) {
-    const lumpThisYear = p.lumpSumsByYear && p.lumpSumsByYear[y] || 0;
-    lumpReceived += lumpThisYear;
-    if (lumpThisYear > 0 && p.lumpTarget === 'cash') {
-      cashBal += lumpThisYear;
-    } else if (lumpThisYear > 0 && lumpWSum > 0) {
-      eqBal += lumpThisYear * wEq / lumpWSum;
-      goldBal += lumpThisYear * wGold / lumpWSum;
-      cashBal += lumpThisYear * wCash / lumpWSum;
-      bondBal += lumpThisYear * wBond / lumpWSum;
-      btcBal += lumpThisYear * wBtc / lumpWSum;
-    }
     const totalAtYearStart = eqBal + goldBal + cashBal + bondBal + btcBal;
-    const rateBase = p.lumpReserve ? Math.max(totalAtYearStart - lumpReceived, 0) : totalAtYearStart;
     let withdrawnThisYear = 0;
     let yearSpending;
-    if (y === 0 && !isLE || isStatic) yearSpending = prevAnnualSpending;else if (isKonstant) yearSpending = rateBase * (p.dynStartRate / 100);else if (isLE) {
+    if (y === 0 && !isLE || isStatic) yearSpending = prevAnnualSpending;else if (isKonstant) yearSpending = totalAtYearStart * (p.dynStartRate / 100);else if (isLE) {
       const remaining = horizon - y;
-      yearSpending = remaining > 0 ? rateBase / remaining : rateBase;
+      yearSpending = remaining > 0 ? totalAtYearStart / remaining : totalAtYearStart;
     } else if (isGK) {
       const inflFactor = prevYearReturn < 0 ? 0 : gkInflation;
       const inflationAdj = prevAnnualSpending * (1 + inflFactor);
-      const currentRate = rateBase > 0 ? inflationAdj / rateBase : 0;
+      const currentRate = totalAtYearStart > 0 ? inflationAdj / totalAtYearStart : 0;
       const upperBound = p.dynStartRate / 100 * (1 + p.gkGuardrailPct / 100);
       const lowerBound = p.dynStartRate / 100 * (1 - p.gkGuardrailPct / 100);
       if (currentRate > upperBound) {
@@ -1241,7 +1227,7 @@ function simulateWithdrawalBuckets(vermoegen, eqR, goldR, cashR, bondR, btcR, wE
         yearSpending = Math.max(yearSpending, minThisYear);
       }
     } else {
-      const raw = rateBase * (p.dynStartRate / 100);
+      const raw = totalAtYearStart * (p.dynStartRate / 100);
       const capped = Math.min(Math.max(raw, prevAnnualSpending * (1 + p.floor / 100)), prevAnnualSpending * (1 + p.ceiling / 100));
       yearSpending = Math.max(capped, hardFloorAnnual);
     }
@@ -1661,19 +1647,6 @@ const VM_SCALE = {
   maxPos: VM_N_LO + (VM_MAX - VM_MID) / VM_STEP_HI,
   toPos: v => v <= VM_MID ? Math.round((v - VM_MIN) / VM_STEP_LO) : VM_N_LO + Math.round((v - VM_MID) / VM_STEP_HI),
   fromPos: p => p <= VM_N_LO ? VM_MIN + p * VM_STEP_LO : VM_MID + (p - VM_N_LO) * VM_STEP_HI
-};
-const fmtAxisEUR = v => {
-  const loc = LANG === 'en' ? 'en-US' : 'de-DE';
-  const a = Math.abs(v);
-  if (a >= 1e6) {
-    const n = (v / 1e6).toLocaleString(loc, { maximumFractionDigits: 2 });
-    return LANG === 'en' ? '€' + n + 'M' : n + '\u00A0Mio.\u00A0€';
-  }
-  if (a >= 1000) {
-    const n = (v / 1000).toLocaleString(loc, { maximumFractionDigits: 1 });
-    return LANG === 'en' ? '€' + n + 'k' : n + '\u00A0Tsd.\u00A0€';
-  }
-  return fmtEUR(v);
 };
 const fmtEURk = v => {
   if (Math.abs(v) >= 1000) return (v / 1000).toLocaleString(LANG === 'en' ? 'en-US' : 'de-DE', {
@@ -2716,9 +2689,6 @@ function EntnahmeSimulator() {
   const [grvBerechnen, setGrvBerechnen] = useState(true);
   const [rentenModus, setRentenModus] = useState('punkte');
   const [rentenBetrag, setRentenBetrag] = useState(1200);
-  const [lumpSums, setLumpSums] = useState([]);
-  const [lumpTarget, setLumpTarget] = useState('alloc');
-  const [lumpReserve, setLumpReserve] = useState(false);
   const [seed, setSeed] = useState(0);
   const [etfTer, setEtfTer] = useState(0.18);
   const [numSims, setNumSims] = useState(2500);
@@ -2729,26 +2699,6 @@ function EntnahmeSimulator() {
   const wohnungWert = wohnungWert0 * Math.pow(1 + WOHNUNG_REAL_APPRECIATION, horizon);
   const rentalIncomeByYear = useMemo(() => computeRentalIncomeByYear(wohnungWert0, horizon), [wohnungWert0, horizon]);
   const rentalYear1 = rentalIncomeByYear[0] || 0;
-  const lumpSumsByYear = useMemo(() => {
-    const arr = new Array(100).fill(0);
-    lumpSums.forEach(l => {
-      const amt = Number(l.amount),
-        age = Number(l.age);
-      if (!(amt > 0) || !Number.isFinite(age)) return;
-      const yIdx = Math.max(0, Math.round(age - startAge));
-      if (yIdx < arr.length) arr[yIdx] += amt;
-    });
-    return arr;
-  }, [lumpSums, startAge]);
-  const lumpSumsTotal = lumpSums.reduce((a, l) => a + (Number(l.amount) > 0 ? Number(l.amount) : 0), 0);
-  const updateLump = (i, key, val) => setLumpSums(prev => prev.map((l, j) => j === i ? Object.assign({}, l, {
-    [key]: Math.max(0, Math.round(Number(String(val).replace(/\D/g, ''))) || 0)
-  }) : l));
-  const removeLump = i => setLumpSums(prev => prev.filter((_, j) => j !== i));
-  const addLump = () => setLumpSums(prev => prev.length >= 10 ? prev : prev.concat([{
-    age: Math.max(pensionStartAge, startAge),
-    amount: 50000
-  }]));
   const liveParams = useMemo(() => ({
     mode,
     vermoegen,
@@ -2771,9 +2721,6 @@ function EntnahmeSimulator() {
     pensionStartAge,
     pensionAnnual,
     rentalIncomeByYear,
-    lumpSumsByYear,
-    lumpTarget,
-    lumpReserve,
     seed,
     anleihen,
     entnahmeStrategie,
@@ -2783,7 +2730,7 @@ function EntnahmeSimulator() {
     etfTer,
     heutigeKaufkraft,
     inflationRate
-  }), [mode, vermoegen, aktien, gold, cash, bitcoin, wohnung, staticRate, dynStartRate, ceiling, floor, gkGuardrailPct, gkAdjustStep, minAnnual, horizon, blockLen, bootstrapSource, startAge, pensionStartAge, pensionAnnual, rentalIncomeByYear, lumpSumsByYear, lumpTarget, lumpReserve, seed, anleihen, entnahmeStrategie, eimerStrategie, entnahmeFrequenz, numSims, etfTer, heutigeKaufkraft, inflationRate]);
+  }), [mode, vermoegen, aktien, gold, cash, bitcoin, wohnung, staticRate, dynStartRate, ceiling, floor, gkGuardrailPct, gkAdjustStep, minAnnual, horizon, blockLen, bootstrapSource, startAge, pensionStartAge, pensionAnnual, rentalIncomeByYear, seed, anleihen, entnahmeStrategie, eimerStrategie, entnahmeFrequenz, numSims, etfTer, heutigeKaufkraft, inflationRate]);
   const [debounced, isCalculating] = useDebounced(liveParams, 200);
   const result = useMemo(() => {
     const d = debounced;
@@ -2811,9 +2758,6 @@ function EntnahmeSimulator() {
       pensionStartAge: d.pensionStartAge,
       pensionAnnual: d.pensionAnnual,
       rentalIncomeByYear: d.rentalIncomeByYear,
-      lumpSumsByYear: d.lumpSumsByYear,
-      lumpTarget: d.lumpTarget,
-      lumpReserve: d.lumpReserve,
       seed: d.seed,
       entnahmeStrategie: d.entnahmeStrategie,
       eimerStrategie: d.eimerStrategie,
@@ -2894,9 +2838,6 @@ function EntnahmeSimulator() {
         pensionStartAge: d.pensionStartAge,
         pensionAnnual: d.pensionAnnual,
         rentalIncomeByYear: d.rentalIncomeByYear,
-        lumpSumsByYear: d.lumpSumsByYear,
-        lumpTarget: d.lumpTarget,
-        lumpReserve: d.lumpReserve,
         seed: d.seed,
         entnahmeStrategie: s.key,
         eimerStrategie: d.eimerStrategie,
@@ -2944,9 +2885,6 @@ function EntnahmeSimulator() {
         pensionStartAge: d.pensionStartAge,
         pensionAnnual: d.pensionAnnual,
         rentalIncomeByYear: d.rentalIncomeByYear,
-        lumpSumsByYear: d.lumpSumsByYear,
-        lumpTarget: d.lumpTarget,
-        lumpReserve: d.lumpReserve,
         seed: d.seed,
         entnahmeStrategie: d.entnahmeStrategie,
         eimerStrategie: d.eimerStrategie,
@@ -2975,7 +2913,7 @@ function EntnahmeSimulator() {
       }
       {
         const rLo = run({
-          dynStartRate: Math.max(2, d.dynStartRate - 0.3)
+          dynStartRate: Math.max(0, d.dynStartRate - 0.3)
         });
         const rHi = run({
           dynStartRate: Math.min(6, d.dynStartRate + 0.3)
@@ -3087,9 +3025,6 @@ function EntnahmeSimulator() {
         pensionStartAge: d.pensionStartAge,
         pensionAnnual: d.pensionAnnual,
         rentalIncomeByYear: d.rentalIncomeByYear,
-        lumpSumsByYear: d.lumpSumsByYear,
-        lumpTarget: d.lumpTarget,
-        lumpReserve: d.lumpReserve,
         seed: d.seed,
         entnahmeStrategie: d.entnahmeStrategie,
         eimerStrategie: d.eimerStrategie,
@@ -3217,16 +3152,6 @@ function EntnahmeSimulator() {
       if (gb !== null) setGrvBerechnen(gb === 'true');
       if (sp.get('rentenModus') === 'betrag') setRentenModus('betrag');
       num('rentenBetrag', setRentenBetrag);
-      if (sp.get('lumpTarget') === 'cash') setLumpTarget('cash');
-      if (sp.get('lumpReserve') === 'true') setLumpReserve(true);
-      const lumpParam = sp.get('lump');
-      if (lumpParam) setLumpSums(lumpParam.split(',').map(x => {
-        const [a, b] = x.split(':');
-        return {
-          age: Math.round(Number(a)),
-          amount: Math.round(Number(b))
-        };
-      }).filter(x => Number.isFinite(x.age) && Number.isFinite(x.amount) && x.amount > 0).slice(0, 10));
       str('entnahmeStrategie', setEntnahmeStrategie);
       str('entnahmeFrequenz', setEntnahmeFrequenz);
       const es = sp.get('eimerStrategie');
@@ -3463,9 +3388,6 @@ function EntnahmeSimulator() {
     sp.set('grvBerechnen', grvBerechnen);
     sp.set('rentenModus', rentenModus);
     sp.set('rentenBetrag', rentenBetrag);
-    if (lumpSums.length) sp.set('lump', lumpSums.map(l => l.age + ':' + l.amount).join(','));
-    if (lumpSums.length && lumpTarget === 'cash') sp.set('lumpTarget', 'cash');
-    if (lumpSums.length && lumpReserve) sp.set('lumpReserve', 'true');
     sp.set('entnahmeStrategie', entnahmeStrategie);
     sp.set('eimerStrategie', eimerStrategie);
     sp.set('entnahmeFrequenz', entnahmeFrequenz);
@@ -3795,9 +3717,6 @@ function EntnahmeSimulator() {
     setPensionStartAge(values.pensionStartAge);
     setGrvBerechnen(values.grvBerechnen ?? true);
     setRentenModus('punkte');
-    setLumpSums([]);
-    setLumpTarget('alloc');
-    setLumpReserve(false);
     setEntnahmeStrategie(values.entnahmeStrategie);
     setEntnahmeFrequenz(values.entnahmeFrequenz);
     if (values.gkGuardrailPct !== undefined) setGkGuardrailPct(values.gkGuardrailPct);
@@ -5098,7 +5017,7 @@ function EntnahmeSimulator() {
   }, shareLabel === '🔗 Konfiguration teilen' ? t('🔗 Konfiguration teilen', '🔗 Share configuration') : shareLabel), React.createElement("div", {
     style: {
       marginBottom: 16,
-      order: 6
+      order: 5
     }
   }, React.createElement(SectionLabel, {
     color: "#C08A2E"
@@ -5146,7 +5065,7 @@ function EntnahmeSimulator() {
       marginBottom: 16,
       flexWrap: 'wrap',
       alignItems: 'center',
-      order: 6
+      order: 5
     }
   }, React.createElement("div", {
     style: {
@@ -5249,7 +5168,7 @@ function EntnahmeSimulator() {
     tip: t("Annahme für die jährliche Teuerung. Wird genutzt, um künftige Geldwerte in heutige Kaufkraft umzurechnen bzw. nominal darzustellen.", "Assumption for annual inflation. Used to convert future monetary values into today's purchasing power or to show them nominally.")
   }))), React.createElement("div", {
     style: {
-      order: 5
+      order: 4
     }
   }, React.createElement(SectionLabel, {
     color: "#C08A2E"
@@ -5418,7 +5337,7 @@ function EntnahmeSimulator() {
     }
   }, t('Liquidität (Rest)', 'Cash (remainder)'), ": ", cash, "% · ", fmtEUR(vermoegen * cash / 100))), React.createElement("div", {
     style: {
-      order: 4,
+      order: 3,
       marginBottom: 22
     }
   }, React.createElement(SectionLabel, {
@@ -5505,138 +5424,7 @@ function EntnahmeSimulator() {
     }
   }, "→ ", fmtEUR(pensionMonthly), t('/Monat ab Alter', '/month from age'), " ", pensionStartAge, " (", t('Jahr', 'year'), " ", pensionStartYear, " ", t('der Entnahmephase', 'of the withdrawal phase'), ")")), React.createElement("div", {
     style: {
-      order: 3,
-      marginBottom: 22
-    }
-  }, React.createElement(SectionLabel, {
-    color: "#C08A2E"
-  }, t("Einmalzahlungen", "One-off payments")), React.createElement("div", {
-    style: {
-      fontSize: 11.5,
-      color: '#5B6B65',
-      marginBottom: 8
-    }
-  }, t("z.B. Lebensversicherung, Kapitalauszahlung, Erbschaft", "e.g. life insurance, lump-sum payout, inheritance"), React.createElement(InfoDot, {
-    text: t("Spätere Einmalzahlungen, z.B. Auszahlung einer Lebensversicherung oder Kapitalleistung. Der Betrag wird zu Beginn des Jahres, in dem du das angegebene Alter erreichst, nach der Ziel-Allokation oder ausschließlich als Liquidität (Cash) ins Portfolio gelegt, je nach Umschalter. Bitte netto (nach Steuern und Sozialabgaben) und in heutiger Kaufkraft eingeben. Zahlungen bis zum Entnahmebeginn werden zu Beginn von Jahr 1 gutgeschrieben; die Startentnahme bezieht sich weiterhin auf das eingegebene Startvermögen.", "Later one-off payments, e.g. a life insurance payout or lump-sum benefit. The amount is added to the portfolio at your target allocation or entirely as cash, depending on the switch, at the start of the year in which you reach the given age. Please enter net (after taxes and social contributions) and in today's purchasing power. Payments up to the start of withdrawals are credited at the start of year 1; the initial withdrawal still refers to the entered starting wealth.")
-  })), lumpSums.map((l, i) => React.createElement("div", {
-    key: i,
-    style: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: 6,
-      marginBottom: 6,
-      fontSize: 12,
-      color: '#5B6B65'
-    }
-  }, t("Alter", "Age"), React.createElement("input", {
-    type: "number",
-    min: 0,
-    max: 100,
-    value: l.age,
-    onChange: e => updateLump(i, 'age', e.target.value),
-    "aria-label": t("Alter der Auszahlung", "Age at payout"),
-    style: {
-      width: 56,
-      padding: '5px 6px',
-      fontSize: 12.5,
-      border: '1px solid #D3DAD6',
-      borderRadius: 6,
-      background: '#FFFFFF',
-      color: '#1C2521'
-    }
-  }), "€", React.createElement("input", {
-    type: "text",
-    inputMode: "numeric",
-    value: l.amount > 0 ? l.amount.toLocaleString(LANG === 'en' ? 'en-US' : 'de-DE') : '',
-    onChange: e => updateLump(i, 'amount', e.target.value),
-    "aria-label": t("Betrag in Euro", "Amount in euros"),
-    style: {
-      width: 104,
-      padding: '5px 6px',
-      fontSize: 12.5,
-      border: '1px solid #D3DAD6',
-      borderRadius: 6,
-      background: '#FFFFFF',
-      color: '#1C2521'
-    }
-  }), React.createElement("button", {
-    onClick: () => removeLump(i),
-    title: t("Entfernen", "Remove"),
-    "aria-label": t("Einmalzahlung entfernen", "Remove one-off payment"),
-    style: {
-      border: '1px solid #D3DAD6',
-      background: '#FFFFFF',
-      color: '#5B6B65',
-      borderRadius: 6,
-      padding: '4px 8px',
-      cursor: 'pointer',
-      fontSize: 12
-    }
-  }, "✕"))), lumpSums.length > 0 && React.createElement("div", {
-    style: {
-      display: 'flex',
-      gap: 6,
-      marginTop: 4,
-      marginBottom: 8
-    },
-    role: "group",
-    "aria-label": t("Ziel der Einmalzahlung", "Target of one-off payment")
-  }, [['alloc', t('Ziel-Allokation', 'Target allocation')], ['cash', t('Liquidität', 'Cash')]].map(([k, lbl]) => React.createElement("button", {
-    key: k,
-    type: "button",
-    onClick: () => setLumpTarget(k),
-    style: {
-      flex: 1,
-      padding: '6px 8px',
-      fontSize: 11.5,
-      fontFamily: 'inherit',
-      cursor: 'pointer',
-      borderRadius: 6,
-      border: '1px solid ' + (lumpTarget === k ? '#2F5D62' : '#D3DAD6'),
-      background: lumpTarget === k ? '#2F5D62' : '#FFFFFF',
-      color: lumpTarget === k ? '#FFFFFF' : '#5B6B65',
-      fontWeight: lumpTarget === k ? 600 : 500
-    }
-  }, lbl))), lumpSums.length > 0 && React.createElement("label", {
-    style: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: 6,
-      marginBottom: 8,
-      fontSize: 12,
-      color: '#5B6B65',
-      cursor: 'pointer'
-    }
-  }, React.createElement("input", {
-    type: "checkbox",
-    checked: lumpReserve,
-    onChange: e => setLumpReserve(e.target.checked),
-    style: {
-      accentColor: '#2F5D62'
-    }
-  }), t("Nur als Reserve (Entnahme nicht erhöhen)", "Reserve only (do not raise withdrawals)"), React.createElement(InfoDot, {
-    text: t("Aktiv: Die Einmalzahlung erhöht die Entnahme nicht. Bei den vermögensabhängigen Regeln (Dynamisch, Konstante Quote, Guyton-Klinger, Lebenserwartung) wird die Entnahme aus dem Vermögen abzüglich der bisher eingezahlten Einmalzahlungen berechnet; die Zahlung dient nur als Sicherheitspuffer. Näherung: Erträge auf die Zahlung fließen in die Bemessung ein. Bei statischer Entnahme (fester Betrag) ohne Wirkung. Inaktiv: Mehr Vermögen führt bei diesen Regeln zu höheren Entnahmen, wodurch die Erfolgsquote auch sinken kann.", "Active: the one-off payment does not raise withdrawals. For wealth-dependent rules (Dynamic, Constant rate, Guyton-Klinger, Life expectancy) the withdrawal is calculated from wealth minus the one-off payments received so far; the payment only acts as a safety buffer. Approximation: returns on the payment are included in the base. No effect with static withdrawals (fixed amount). Inactive: more wealth leads to higher withdrawals under these rules, which can also lower the success rate.")
-  })), lumpSums.length < 10 && React.createElement("button", {
-    onClick: addLump,
-    style: {
-      border: '1px dashed #9BA8A4',
-      background: 'transparent',
-      color: '#2F5D62',
-      borderRadius: 6,
-      padding: '5px 10px',
-      cursor: 'pointer',
-      fontSize: 12,
-      fontWeight: 500
-    }
-  }, t("+ Einmalzahlung hinzufügen", "+ Add one-off payment")), lumpSumsTotal > 0 && React.createElement("div", {
-    style: {
-      fontSize: 11.5,
-      color: '#5B6B65',
-      marginTop: 8
-    }
-  }, "→ ", t("Summe", "Total"), " ", fmtEUR(lumpSumsTotal), " ", t("(heutige Kaufkraft, netto)", "(today's purchasing power, net)"))), React.createElement("div", {
-    style: {
-      order: 7
+      order: 6
     }
   }, React.createElement(SectionLabel, {
     color: "#C08A2E"
@@ -5743,7 +5531,7 @@ function EntnahmeSimulator() {
   }), entnahmeStrategie !== 'bengen' && entnahmeStrategie !== 'lebenserwartung' && React.createElement(Slider, {
     label: entnahmeStrategie === 'statisch' ? t('Startentnahmerate', 'Starting withdrawal rate') : entnahmeStrategie === 'guyton-klinger' ? t('Startrate', 'Start rate') : t('Dynamische Startrate', 'Dynamic start rate'),
     value: dynStartRate,
-    min: 2,
+    min: 0,
     max: 20,
     step: 0.1,
     onChange: setDynStartRate,
@@ -6782,7 +6570,7 @@ function EntnahmeSimulator() {
       stroke: '#D3DAD6'
     }
   }), React.createElement(YAxis, {
-    tickFormatter: fmtAxisEUR,
+    tickFormatter: fmtEUR,
     tick: {
       fill: '#5B6B65',
       fontSize: 11,
@@ -6790,7 +6578,7 @@ function EntnahmeSimulator() {
     },
     tickLine: false,
     axisLine: false,
-    width: 76
+    width: 60
   }), React.createElement(RechartsTooltip, {
     content: React.createElement(LightTooltip, {
       showFloor: false,
@@ -6860,7 +6648,7 @@ function EntnahmeSimulator() {
       stroke: '#D3DAD6'
     }
   }), React.createElement(YAxis, {
-    tickFormatter: fmtAxisEUR,
+    tickFormatter: fmtEUR,
     tick: {
       fill: '#5B6B65',
       fontSize: 11,
@@ -6868,7 +6656,7 @@ function EntnahmeSimulator() {
     },
     tickLine: false,
     axisLine: false,
-    width: 76
+    width: 60
   }), React.createElement(RechartsTooltip, {
     content: React.createElement(LightTooltip, {
       showFloor: true,
@@ -7087,7 +6875,7 @@ function EntnahmeSimulator() {
       stroke: '#D3DAD6'
     }
   }), React.createElement(YAxis, {
-    tickFormatter: fmtAxisEUR,
+    tickFormatter: fmtEUR,
     tick: {
       fill: '#5B6B65',
       fontSize: 13,
@@ -7095,7 +6883,7 @@ function EntnahmeSimulator() {
     },
     tickLine: false,
     axisLine: false,
-    width: 92
+    width: 80
   }), React.createElement(RechartsTooltip, {
     content: React.createElement(LightTooltip, {
       showFloor: false,
@@ -7184,7 +6972,7 @@ function EntnahmeSimulator() {
       stroke: '#D3DAD6'
     }
   }), React.createElement(YAxis, {
-    tickFormatter: fmtAxisEUR,
+    tickFormatter: fmtEUR,
     tick: {
       fill: '#5B6B65',
       fontSize: 13,
@@ -7192,7 +6980,7 @@ function EntnahmeSimulator() {
     },
     tickLine: false,
     axisLine: false,
-    width: 92
+    width: 80
   }), React.createElement(RechartsTooltip, {
     content: React.createElement(LightTooltip, {
       showFloor: true,
